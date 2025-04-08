@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - Auction System{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto text-center">
+    <h1 class="text-4xl font-bold text-primary mb-6">Welcome to the Auction System</h1>
+    <p class="text-xl text-gray-600 mb-8">
+        A closed auction system for team management and player bidding.
+    </p>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-4">For Teams</h2>
+            <p class="text-gray-600 mb-4">
+                Register your team and participate in the auction to build your dream squad.
+            </p>
+            <a href="{{ url_for('register') }}"
+                class="inline-block bg-primary text-white py-2 px-6 rounded-md hover:bg-secondary">
+                Register Team
+            </a>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-2xl font-bold mb-4">For Admins</h2>
+            <p class="text-gray-600 mb-4">
+                Manage the auction process, start rounds, and oversee team activities.
+            </p>
+            <a href="{{ url_for('login') }}"
+                class="inline-block bg-primary text-white py-2 px-6 rounded-md hover:bg-secondary">
+                Admin Login
+            </a>
+        </div>
+    </div>
+    
+    <div class="mt-12 bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold mb-4">How It Works</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+                <h3 class="text-lg font-semibold mb-2">1. Register</h3>
+                <p class="text-gray-600">Create your team account with an initial balance of 15000.</p>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold mb-2">2. Bid</h3>
+                <p class="text-gray-600">Place bids on players in different positions during active rounds.</p>
+            </div>
+            <div>
+                <h3 class="text-lg font-semibold mb-2">3. Build</h3>
+                <p class="text-gray-600">Watch your team grow as you win players in the auction.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

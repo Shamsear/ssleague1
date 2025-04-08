@@ -1,0 +1,283 @@
+{% extends "base.html" %}
+
+{% block title %}Team Dashboard - Auction System{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold mb-4">Team Information</h2>
+        <div class="grid grid-cols-2 gap-4">
+            <div>
+                <p class="text-sm font-medium text-gray-500">Team Name</p>
+                <p class="text-lg">{{ current_user.team.name }}</p>
+            </div>
+            <div>
+                <p class="text-sm font-medium text-gray-500">Balance</p>
+                <p class="text-lg">{{ current_user.team.balance }}</p>
+            </div>
+        </div>
+    </div>
+
+    {% for round in active_rounds %}
+    <div class="bg-white rounded-lg shadow-md p-6" data-round-id="{{ round.id }}">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">Active Round: {{ round.position }}</h2>
+            <div class="text-sm font-medium" id="timer-{{ round.id }}">
+                Time Remaining: <span id="timer-remaining-{{ round.id }}">--:--</span>
+            </div>
+        </div>
+
+        <div class="bg-white rounded p-6 mb-6">
+            <h3 class="text-xl font-bold mb-4">Current Bids</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bid Amount</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for bid in current_user.team.bids %}
+                            {% if bid.round_id == round.id and bid.round.is_active %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ bid.player.name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ bid.player.position }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ bid.amount }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <button onclick="deleteBid({{ bid.id }})"
+                                        class="text-red-600 hover:text-red-900">
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-white rounded p-6">
+            <h3 class="text-xl font-bold mb-4">Available Players</h3>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for player in round.players %}
+                            {% if not player.team_id and not player.has_bid_from_team(current_user.team.id) %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ player.name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ player.position }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex space-x-2">
+                                        <input type="number" 
+                                            class="w-24 rounded-md border-gray-300 shadow-sm focus:border-primary focus:ring-primary"
+                                            min="10"
+                                            placeholder="Bid amount"
+                                            id="bid-{{ player.id }}">
+                                        <button onclick="placeBid({{ player.id }}, {{ round.id }})"
+                                            class="bg-primary text-white px-4 py-2 rounded-md hover:bg-secondary">
+                                            Place Bid
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold mb-4">Your Team</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acquisition Cost</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for player in current_user.team.players %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ player.name }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">{{ player.position }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% for bid in player.bids %}
+                                {% if bid.team_id == current_user.team.id %}
+                                    {{ bid.amount }}
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-lg shadow-md p-6">
+        <h2 class="text-2xl font-bold mb-4">Round Results</h2>
+        <div class="space-y-6">
+            {% for round in rounds|sort(attribute='id', reverse=true) %}
+            {% if not round.is_active %}
+            <div class="border rounded-lg p-4">
+                <h3 class="text-lg font-semibold mb-2">Position: {{ round.position }}</h3>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Final Bid</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for player in round.players %}
+                            {% if player.team_id %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ player.name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">{{ player.team.name }}</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {% for bid in player.bids %}
+                                        {% if bid.team_id == player.team_id %}
+                                            {{ bid.amount }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                            {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+async function placeBid(playerId, roundId) {
+    const bidAmount = document.getElementById(`bid-${playerId}`).value;
+    
+    if (!bidAmount || bidAmount < 10) {
+        alert('Bid amount must be at least 10');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/place_bid', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                player_id: playerId,
+                round_id: roundId,
+                amount: parseInt(bidAmount)
+            }),
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Failed to place bid');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred');
+    }
+}
+
+async function deleteBid(bidId) {
+    if (!confirm('Are you sure you want to delete this bid?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/delete_bid/${bidId}`, {
+            method: 'DELETE',
+        });
+        
+        if (response.ok) {
+            location.reload();
+        } else {
+            const data = await response.json();
+            alert(data.error || 'Failed to delete bid');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred');
+    }
+}
+
+// Initialize timers for all active rounds
+function initializeTimers() {
+    {% for round in active_rounds %}
+    initTimer({{ round.id }});
+    {% endfor %}
+}
+
+async function initTimer(roundId) {
+    try {
+        const checkStatus = async () => {
+            const response = await fetch(`/check_round_status/${roundId}`);
+            const data = await response.json();
+            
+            if (!data.active) {
+                // Round is no longer active, reload the page
+                location.reload();
+                return;
+            }
+            
+            // Update the timer display
+            const remainingSeconds = Math.floor(data.remaining);
+            const minutes = Math.floor(remainingSeconds / 60);
+            const seconds = remainingSeconds % 60;
+            const timerElement = document.getElementById(`timer-remaining-${roundId}`);
+            
+            if (timerElement) {
+                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                
+                // Set color based on remaining time
+                if (remainingSeconds < 30) {
+                    timerElement.className = 'text-red-600 font-bold';
+                } else if (remainingSeconds < 60) {
+                    timerElement.className = 'text-orange-500 font-bold';
+                } else {
+                    timerElement.className = 'text-green-600';
+                }
+            }
+            
+            // Check again in 1 second
+            setTimeout(checkStatus, 1000);
+        };
+        
+        // Start checking
+        checkStatus();
+    } catch (error) {
+        console.error('Error initializing timer:', error);
+    }
+}
+
+// Initialize timers when the page loads
+document.addEventListener('DOMContentLoaded', initializeTimers);
+</script>
+{% endblock %} 
