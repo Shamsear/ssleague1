@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Auction System{% endblock %}</title>
+    <title>{% block title %}South Soccers PES Super League{% endblock %}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <script>
@@ -147,18 +147,8 @@
     <nav class="nav-glass sticky top-0 z-50 hidden sm:block">
         <div class="container mx-auto py-4 px-6 flex justify-between items-center">
             <a href="{{ url_for('index') }}" class="text-2xl font-bold gradient-text flex items-center">
-                <svg class="w-8 h-8 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#navGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 17L12 22L22 17" stroke="url(#navGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 12L12 17L22 12" stroke="url(#navGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <defs>
-                        <linearGradient id="navGradient" x1="2" y1="12" x2="22" y2="12" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#0066FF"/>
-                            <stop offset="1" stop-color="#9580FF"/>
-                        </linearGradient>
-                    </defs>
-                </svg>
-                Football Auction
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers Logo" class="w-10 h-10 mr-2">
+                South Soccers PES Super League
             </a>
             <div class="space-x-3">
                 {% if current_user.is_authenticated %}
@@ -182,18 +172,8 @@
     <header class="sm:hidden nav-glass sticky top-0 z-40 p-4">
         <div class="flex justify-center items-center">
             <a href="{{ url_for('index') }}" class="text-xl font-bold gradient-text flex items-center">
-                <svg class="w-6 h-6 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#navGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 17L12 22L22 17" stroke="url(#navGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <path d="M2 12L12 17L22 12" stroke="url(#navGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    <defs>
-                        <linearGradient id="navGradient" x1="2" y1="12" x2="22" y2="12" gradientUnits="userSpaceOnUse">
-                            <stop stop-color="#0066FF"/>
-                            <stop offset="1" stop-color="#9580FF"/>
-                        </linearGradient>
-                    </defs>
-                </svg>
-                Football Auction
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers Logo" class="w-8 h-8 mr-2">
+                South Soccers PES
             </a>
         </div>
     </header>
@@ -225,19 +205,11 @@
         <div class="container mx-auto">
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <div class="flex items-center mb-4 md:mb-0">
-                    <svg class="w-8 h-8 mr-2" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="url(#footerGradient)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <defs>
-                            <linearGradient id="footerGradient" x1="2" y1="12" x2="22" y2="12" gradientUnits="userSpaceOnUse">
-                                <stop stop-color="#0066FF"/>
-                                <stop offset="1" stop-color="#9580FF"/>
-                            </linearGradient>
-                        </defs>
-                    </svg>
-                    <span class="gradient-text font-bold">Football Auction</span>
+                    <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers Logo" class="w-8 h-8 mr-2">
+                    <span class="gradient-text font-bold">South Soccers PES Super League</span>
                 </div>
                 <div class="text-center md:text-right">
-                    <p class="text-gray-400">&copy; 2024 Football Auction. All rights reserved.</p>
+                    <p class="text-gray-400">&copy; 2024 South Soccers PES Super League. All rights reserved.</p>
                 </div>
             </div>
         </div>
