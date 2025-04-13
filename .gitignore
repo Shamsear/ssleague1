@@ -37,6 +37,8 @@ venv.bak/
 *.db
 *.sqlite
 *.sqlite3
+# Allow our specific database file
+!efootball_real.db
 
 # IDE specific files
 .idea/
