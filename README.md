@@ -91,8 +91,8 @@ auction-system/
     ├── index.html
     ├── login.html
     ├── register.html
-    ├── admin_dashboard.html
-    └── team_dashboard.html
+    ├── admin_round.html
+    └── team_round.html
 ```
 
 ## Contributing

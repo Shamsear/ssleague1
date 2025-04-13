@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+
+{% block title %}My Players - Football Auction{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Players Table -->
+    <div class="glass rounded-3xl p-6">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h2 class="text-xl font-bold text-dark">My Players</h2>
+                <p class="text-sm text-gray-500">Manage your acquired players</p>
+            </div>
+            <a href="{{ url_for('dashboard') }}" class="px-4 py-2 rounded-xl bg-white/60 text-primary hover:bg-white/80 transition-all duration-300 text-sm flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Dashboard
+            </a>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Overall Rating</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white/30">
+                    {% for player in current_user.team.players %}
+                    <tr class="hover:bg-white/50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="ml-2">
+                                    <div class="text-sm font-medium text-gray-700">{{ player.name }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.position }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 inline-flex text-xs leading-5 font-medium rounded-full 
+                                {% if player.overall_rating >= 85 %}
+                                    bg-green-100 text-green-800
+                                {% elif player.overall_rating >= 75 %}
+                                    bg-blue-100 text-blue-800
+                                {% elif player.overall_rating >= 65 %}
+                                    bg-yellow-100 text-yellow-800
+                                {% else %}
+                                    bg-gray-100 text-gray-800
+                                {% endif %}">
+                                {{ player.overall_rating }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {% if player.cost %}
+                                £{{ "{:,}".format(player.cost) }}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <button onclick="showPlayerDetails({{ player.id }})" class="text-primary hover:text-primary/80 transition-colors duration-200 flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View Details
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-8 whitespace-nowrap text-sm text-gray-500 text-center">
+                            <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <p class="text-gray-500 text-base font-medium mb-1">No players acquired yet</p>
+                            <p class="text-gray-400 text-sm">Join an active round to bid on players</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Player Details Modal -->
+<div id="playerModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden z-50">
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-3xl">
+        <div class="glass rounded-3xl p-6">
+            <div class="flex justify-between items-start mb-6">
+                <h3 class="text-xl font-bold gradient-text">Player Details</h3>
+                <button onclick="closePlayerModal()" class="text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div id="playerDetailsContent" class="space-y-6">
+                <!-- Content will be loaded dynamically -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <div class="mb-6">
+                            <h4 id="playerName" class="text-xl font-bold text-dark mb-1"></h4>
+                            <div class="flex items-center">
+                                <span id="playerPosition" class="text-gray-700 mr-3"></span>
+                                <span id="playerRating" class="px-2 py-1 text-xs leading-5 font-medium rounded-full"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="space-y-3">
+                            <div>
+                                <p class="text-sm text-gray-500 mb-1">Acquired For</p>
+                                <p id="playerCost" class="text-lg font-medium text-dark"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 mb-1">Acquired On</p>
+                                <p id="playerAcquiredDate" class="text-lg font-medium text-dark"></p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 class="text-md font-medium text-dark mb-3">Player Statistics</h4>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm text-gray-500">Pace</span>
+                                    <span id="statPace" class="text-sm font-medium text-dark"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div id="statPaceBar" class="h-2 rounded-full bg-blue-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm text-gray-500">Shooting</span>
+                                    <span id="statShooting" class="text-sm font-medium text-dark"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div id="statShootingBar" class="h-2 rounded-full bg-blue-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm text-gray-500">Passing</span>
+                                    <span id="statPassing" class="text-sm font-medium text-dark"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div id="statPassingBar" class="h-2 rounded-full bg-blue-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm text-gray-500">Dribbling</span>
+                                    <span id="statDribbling" class="text-sm font-medium text-dark"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div id="statDribblingBar" class="h-2 rounded-full bg-blue-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm text-gray-500">Defending</span>
+                                    <span id="statDefending" class="text-sm font-medium text-dark"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div id="statDefendingBar" class="h-2 rounded-full bg-blue-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="text-sm text-gray-500">Physical</span>
+                                    <span id="statPhysical" class="text-sm font-medium text-dark"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div id="statPhysicalBar" class="h-2 rounded-full bg-blue-500" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function showPlayerDetails(playerId) {
+    fetch(`/api/player/${playerId}`)
+        .then(response => response.json())
+        .then(player => {
+            document.getElementById('playerName').textContent = player.name;
+            document.getElementById('playerPosition').textContent = player.position;
+            
+            const ratingElement = document.getElementById('playerRating');
+            ratingElement.textContent = player.overall_rating;
+            
+            if (player.overall_rating >= 85) {
+                ratingElement.className = 'px-2 py-1 text-xs leading-5 font-medium rounded-full bg-green-100 text-green-800';
+            } else if (player.overall_rating >= 75) {
+                ratingElement.className = 'px-2 py-1 text-xs leading-5 font-medium rounded-full bg-blue-100 text-blue-800';
+            } else if (player.overall_rating >= 65) {
+                ratingElement.className = 'px-2 py-1 text-xs leading-5 font-medium rounded-full bg-yellow-100 text-yellow-800';
+            } else {
+                ratingElement.className = 'px-2 py-1 text-xs leading-5 font-medium rounded-full bg-gray-100 text-gray-800';
+            }
+            
+            document.getElementById('playerCost').textContent = player.cost ? `£${new Intl.NumberFormat().format(player.cost)}` : 'Free Transfer';
+            
+            const acquiredDate = player.acquired_at ? new Date(player.acquired_at).toLocaleDateString() : 'N/A';
+            document.getElementById('playerAcquiredDate').textContent = acquiredDate;
+            
+            // Stats
+            updateStat('Pace', player.pace);
+            updateStat('Shooting', player.shooting);
+            updateStat('Passing', player.passing);
+            updateStat('Dribbling', player.dribbling);
+            updateStat('Defending', player.defending);
+            updateStat('Physical', player.physical);
+            
+            document.getElementById('playerModal').classList.remove('hidden');
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while fetching player details');
+        });
+}
+
+function updateStat(statName, value) {
+    const statElement = document.getElementById(`stat${statName}`);
+    const barElement = document.getElementById(`stat${statName}Bar`);
+    
+    statElement.textContent = value;
+    barElement.style.width = `${value}%`;
+    
+    if (value >= 85) {
+        barElement.className = 'h-2 rounded-full bg-green-500';
+    } else if (value >= 75) {
+        barElement.className = 'h-2 rounded-full bg-blue-500';
+    } else if (value >= 65) {
+        barElement.className = 'h-2 rounded-full bg-yellow-500';
+    } else {
+        barElement.className = 'h-2 rounded-full bg-gray-500';
+    }
+}
+
+function closePlayerModal() {
+    document.getElementById('playerModal').classList.add('hidden');
+}
+</script>
+{% endblock %} 

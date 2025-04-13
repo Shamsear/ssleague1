@@ -1,0 +1,804 @@
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from models import db, User, Team, Player, Round, Bid, TiebreakerBid
+from config import Config
+from forms import LoginForm, RegistrationForm
+from werkzeug.security import generate_password_hash
+import json
+from datetime import datetime, timedelta
+
+app = Flask(__name__)
+app.config.from_object(Config)
+
+db.init_app(app)
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
+
+@app.route('/')
+def index():
+    if current_user.is_authenticated:
+        if current_user.is_admin:
+            return redirect(url_for('dashboard'))
+        else:
+            return redirect(url_for('dashboard'))
+    return render_template('index.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(username=form.username.data).first()
+        if user and user.check_password(form.password.data):
+            login_user(user, remember=form.remember.data)
+            return redirect(url_for('dashboard'))
+        flash('Invalid username or password')
+    
+    return render_template('login.html', form=form)
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        user = User(username=form.username.data)
+        user.set_password(form.password.data)
+        db.session.add(user)
+        
+        team = Team(name=form.team_name.data, user=user)
+        db.session.add(team)
+        
+        db.session.commit()
+        flash('Your account has been created! You can now log in.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('register.html', form=form)
+
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    # Check if any active rounds have expired
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    for round in active_rounds:
+        if round.is_timer_expired():
+            finalize_round_internal(round.id)
+    
+    # Refresh the data after potentially finalizing rounds
+    if current_user.is_admin:
+        teams = Team.query.all()
+        active_rounds = Round.query.filter_by(is_active=True).all()
+        rounds = Round.query.all()
+        return render_template('admin_dashboard.html', teams=teams, active_rounds=active_rounds, rounds=rounds, config=Config)
+    
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    past_rounds = Round.query.filter_by(is_active=False).all()
+    return render_template('team_dashboard.html', active_rounds=active_rounds, past_rounds=past_rounds, config=Config)
+
+@app.route('/team/round')
+@login_required
+def team_round():
+    if current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    
+    # No active rounds, redirect to dashboard
+    if not active_rounds:
+        flash('There are no active rounds at the moment.', 'info')
+        return redirect(url_for('dashboard'))
+    
+    # Get the first active round
+    active_round = active_rounds[0]
+    
+    return render_template('team_round.html', active_round=active_round)
+
+@app.route('/team/players')
+@login_required
+def team_players():
+    if current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    return render_template('team_players.html')
+
+@app.route('/team/players/data')
+@login_required
+def team_players_data():
+    if not current_user.team:
+        flash('You need to be part of a team to view this page.', 'error')
+        return redirect(url_for('dashboard'))
+    return render_template('team_players_data.html')
+
+@app.route('/team/bids')
+@login_required
+def team_bids():
+    if current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    return render_template('team_bids.html', active_rounds=active_rounds)
+
+@app.route('/api/player/<int:player_id>')
+@login_required
+def get_player(player_id):
+    player = Player.query.get_or_404(player_id)
+    
+    player_data = {
+        'id': player.id,
+        'name': player.name,
+        'position': player.position,
+        'overall_rating': player.overall_rating,
+        'pace': player.pace,
+        'shooting': player.shooting,
+        'passing': player.passing,
+        'dribbling': player.dribbling,
+        'defending': player.defending,
+        'physical': player.physical,
+        'team_id': player.team_id,
+        'cost': player.cost,
+        'acquired_at': player.acquired_at.isoformat() if player.acquired_at else None
+    }
+    
+    return jsonify(player_data)
+
+@app.route('/start_round', methods=['POST'])
+@login_required
+def start_round():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    position = request.json.get('position')
+    duration = request.json.get('duration', 300)  # Default to 5 minutes (300 seconds)
+    max_bids_per_team = request.json.get('max_bids_per_team', 1)  # Default to 1 bid per team
+    
+    if not position or position not in Config.POSITIONS:
+        return jsonify({'error': 'Invalid position'}), 400
+    
+    try:
+        duration = int(duration)
+        if duration < 30:  # Minimum duration of 30 seconds
+            return jsonify({'error': 'Duration must be at least 30 seconds'}), 400
+        # No maximum limit, allowing admin to set any reasonable duration
+    except ValueError:
+        return jsonify({'error': 'Invalid duration value'}), 400
+    
+    try:
+        max_bids_per_team = int(max_bids_per_team)
+        if max_bids_per_team < 1:  # Minimum of 1 bid per team
+            return jsonify({'error': 'Maximum bids per team must be at least 1'}), 400
+    except ValueError:
+        return jsonify({'error': 'Invalid maximum bids per team value'}), 400
+    
+    # Check if there's already an active round
+    active_round = Round.query.filter_by(is_active=True).first()
+    if active_round:
+        return jsonify({
+            'error': f'There is already an active round for position {active_round.position}. Please finalize it before starting a new round.'
+        }), 400
+    
+    # Create new round with timer
+    round = Round(
+        position=position, 
+        start_time=datetime.utcnow(),
+        duration=duration,
+        max_bids_per_team=max_bids_per_team
+    )
+    db.session.add(round)
+    db.session.flush()  # Get the round ID
+    
+    # Add players of the specified position to the round
+    players = Player.query.filter_by(position=position, team_id=None).all()
+    for player in players:
+        player.round_id = round.id
+    
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Round started successfully',
+        'round_id': round.id,
+        'player_count': len(players),
+        'duration': duration,
+        'max_bids_per_team': max_bids_per_team,
+        'expires_at': (round.start_time.isoformat() if round.start_time else None)
+    })
+
+@app.route('/update_round_timer/<int:round_id>', methods=['POST'])
+@login_required
+def update_round_timer(round_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    round = Round.query.get_or_404(round_id)
+    if not round.is_active:
+        return jsonify({'error': 'Cannot update timer for an inactive round'}), 400
+    
+    duration = request.json.get('duration')
+    if not duration:
+        return jsonify({'error': 'Duration is required'}), 400
+    
+    try:
+        duration = int(duration)
+        if duration < 30:  # Minimum duration of 30 seconds
+            return jsonify({'error': 'Duration must be at least 30 seconds'}), 400
+        # No maximum limit, allowing admin to set any reasonable duration
+    except ValueError:
+        return jsonify({'error': 'Invalid duration value'}), 400
+    
+    round.duration = duration
+    round.start_time = datetime.utcnow()  # Reset the timer
+    db.session.commit()
+    
+    return jsonify({
+        'message': 'Round timer updated successfully',
+        'duration': duration,
+        'expires_at': (round.start_time.isoformat() if round.start_time else None)
+    })
+
+@app.route('/check_round_status/<int:round_id>', methods=['GET'])
+@login_required
+def check_round_status(round_id):
+    """Check if a round is active or has ended."""
+    round = Round.query.get_or_404(round_id)
+    
+    # Check if the round is active
+    # A round is considered ended if:
+    # 1. The is_active flag is False
+    # 2. The time has expired (current time - start time > duration)
+    current_time = datetime.utcnow()
+    time_elapsed = (current_time - round.start_time).total_seconds()
+    
+    if not round.is_active or time_elapsed >= round.duration:
+        status = 'ended'
+    else:
+        status = 'active'
+    
+    return jsonify({'status': status})
+
+def finalize_round_internal(round_id):
+    """Internal function to finalize a round, can be called programmatically"""
+    round = Round.query.get(round_id)
+    if not round or not round.is_active:
+        return False
+    
+    # Group bids by player and amount to find ties
+    player_bids = {}
+    for bid in round.bids:
+        if bid.player_id not in player_bids:
+            player_bids[bid.player_id] = {}
+        if bid.amount not in player_bids[bid.player_id]:
+            player_bids[bid.player_id][bid.amount] = []
+        player_bids[bid.player_id][bid.amount].append(bid)
+
+    # Process each player's bids
+    for player_id, bid_amounts in player_bids.items():
+        if not bid_amounts:
+            continue
+
+        # Get highest bid amount and all bids at that amount
+        highest_amount = max(bid_amounts.keys())
+        highest_bids = bid_amounts[highest_amount]
+
+        if len(highest_bids) > 1:
+            # We have a tie - create a tiebreaker round
+            player = Player.query.get(player_id)
+            tiebreaker_round = Round(
+                position=round.position,
+                is_active=True,
+                is_tiebreaker=True,
+                parent_round_id=round.id,
+                player_id=player_id,
+                duration=180  # 3 minutes for tiebreaker
+            )
+            db.session.add(tiebreaker_round)
+            db.session.commit()
+
+            # Add the tied teams to the tiebreaker round
+            for bid in highest_bids:
+                tiebreaker_bid = TiebreakerBid(
+                    team_id=bid.team_id,
+                    player_id=player_id,
+                    round_id=tiebreaker_round.id,
+                    amount=0  # Initial bid amount for tiebreaker
+                )
+                db.session.add(tiebreaker_bid)
+        else:
+            # No tie - allocate player to winning team
+            winning_bid = highest_bids[0]
+            player = Player.query.get(winning_bid.player_id)
+            team = Team.query.get(winning_bid.team_id)
+            
+            team.balance -= winning_bid.amount
+            player.team_id = team.id
+
+    round.is_active = False
+    db.session.commit()
+    return True
+
+@app.route('/finalize_round/<int:round_id>', methods=['POST'])
+@login_required
+def finalize_round(round_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    round = Round.query.get_or_404(round_id)
+    if not round.is_active:
+        return jsonify({'error': 'Round already finalized'}), 400
+    
+    success = finalize_round_internal(round_id)
+    if success:
+        return jsonify({'message': 'Round finalized successfully'})
+    else:
+        return jsonify({'error': 'Failed to finalize round'}), 500
+
+@app.route('/place_bid', methods=['POST'])
+@login_required
+def place_bid():
+    if current_user.is_admin:
+        return jsonify({'error': 'Admins cannot place bids'}), 403
+    
+    data = request.json
+    round_id = data.get('round_id')
+    player_id = data.get('player_id')
+    amount = data.get('amount')
+    
+    if not all([round_id, player_id, amount]):
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    round = Round.query.get_or_404(round_id)
+    if round.is_timer_expired():
+        # If timer expired, finalize the round and reject the bid
+        finalize_round_internal(round_id)
+        return jsonify({'error': 'Round timer has expired'}), 400
+    
+    if amount < Config.MINIMUM_BID:
+        return jsonify({'error': f'Bid must be at least {Config.MINIMUM_BID}'}), 400
+    
+    team = current_user.team
+    if team.balance < amount:
+        return jsonify({'error': 'Insufficient balance'}), 400
+    
+    # Check if team has reached the maximum number of bids (20)
+    total_bids = Bid.query.filter_by(team_id=team.id).count()
+    if total_bids >= 20:
+        return jsonify({'error': 'Maximum bid limit (20) reached for your team'}), 400
+    
+    # Count number of unique players this team has bid on in this round
+    unique_player_bids_count = db.session.query(Bid.player_id).filter_by(
+        team_id=team.id, 
+        round_id=round_id
+    ).distinct().count()
+    
+    # If bidding on a new player, check if already at the max bids per team limit
+    has_bid_on_player = Bid.query.filter_by(
+        team_id=team.id,
+        round_id=round_id,
+        player_id=player_id
+    ).first() is not None
+    
+    if not has_bid_on_player and unique_player_bids_count >= round.max_bids_per_team:
+        return jsonify({
+            'error': f'You can only bid on {round.max_bids_per_team} player(s) per round. Please delete an existing bid if you wish to bid on a different player.'
+        }), 400
+    
+    # Check if the team has already placed this bid amount on the same player
+    existing_same_amount_bid = Bid.query.filter_by(
+        team_id=team.id,
+        round_id=round_id,
+        player_id=player_id,
+        amount=amount
+    ).first()
+    
+    if existing_same_amount_bid:
+        return jsonify({
+            'error': f'You have already placed a bid of {amount} on this player. Please use a different amount.'
+        }), 400
+    
+    bid = Bid(
+        team_id=team.id,
+        player_id=player_id,
+        round_id=round_id,
+        amount=amount
+    )
+    db.session.add(bid)
+    db.session.commit()
+    
+    return jsonify({'message': 'Bid placed successfully'})
+
+@app.route('/delete_bid/<int:bid_id>', methods=['DELETE'])
+@login_required
+def delete_bid(bid_id):
+    if current_user.is_admin:
+        return jsonify({'error': 'Admins cannot delete bids'}), 403
+    
+    bid = Bid.query.get_or_404(bid_id)
+    round = Round.query.get(bid.round_id)
+    
+    # Check if the round timer has expired
+    if round and round.is_timer_expired():
+        # If timer expired, finalize the round and reject the deletion
+        finalize_round_internal(round.id)
+        return jsonify({'error': 'Round timer has expired'}), 400
+    
+    # Check if the bid belongs to the current team
+    if bid.team_id != current_user.team.id:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Check if the round is still active
+    if not bid.round.is_active:
+        return jsonify({'error': 'Cannot delete bid from a finalized round'}), 400
+    
+    db.session.delete(bid)
+    db.session.commit()
+    
+    return jsonify({'message': 'Bid deleted successfully'})
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+@app.route('/place_tiebreaker_bid', methods=['POST'])
+@login_required
+def place_tiebreaker_bid():
+    if current_user.is_admin:
+        return jsonify({'error': 'Admins cannot place bids'}), 403
+    
+    data = request.json
+    round_id = data.get('round_id')
+    player_id = data.get('player_id')
+    amount = data.get('amount')
+    
+    if not all([round_id, player_id, amount]):
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    round = Round.query.get_or_404(round_id)
+    if not round.is_tiebreaker:
+        return jsonify({'error': 'This is not a tiebreaker round'}), 400
+    
+    if round.is_timer_expired():
+        finalize_tiebreaker_round(round_id)
+        return jsonify({'error': 'Round timer has expired'}), 400
+    
+    team = current_user.team
+    if team.balance < amount:
+        return jsonify({'error': 'Insufficient balance'}), 400
+    
+    # Check if team is allowed in this tiebreaker
+    existing_bid = TiebreakerBid.query.filter_by(
+        team_id=team.id,
+        round_id=round_id
+    ).first()
+    
+    if not existing_bid:
+        return jsonify({'error': 'Your team is not part of this tiebreaker'}), 403
+    
+    # Update the bid amount
+    existing_bid.amount = amount
+    db.session.commit()
+    
+    return jsonify({'message': 'Tiebreaker bid placed successfully'})
+
+def finalize_tiebreaker_round(round_id):
+    """Finalize a tiebreaker round and allocate the player"""
+    round = Round.query.get(round_id)
+    if not round or not round.is_tiebreaker or not round.is_active:
+        return False
+    
+    # Get all bids for this tiebreaker round
+    bids = TiebreakerBid.query.filter_by(round_id=round_id).all()
+    if not bids:
+        return False
+    
+    # Find the highest bid
+    highest_bid = max(bids, key=lambda x: x.amount)
+    
+    # Check for another tie
+    tied_bids = [bid for bid in bids if bid.amount == highest_bid.amount]
+    if len(tied_bids) > 1:
+        # Create another tiebreaker round
+        new_tiebreaker = Round(
+            position=round.position,
+            is_active=True,
+            is_tiebreaker=True,
+            parent_round_id=round.parent_round_id,  # Keep the original parent
+            player_id=round.player_id,
+            duration=180
+        )
+        db.session.add(new_tiebreaker)
+        db.session.commit()
+        
+        # Add the tied teams to the new tiebreaker
+        for bid in tied_bids:
+            new_bid = TiebreakerBid(
+                team_id=bid.team_id,
+                player_id=bid.player_id,
+                round_id=new_tiebreaker.id,
+                amount=0
+            )
+            db.session.add(new_bid)
+    else:
+        # We have a winner - allocate the player
+        player = Player.query.get(round.player_id)
+        team = Team.query.get(highest_bid.team_id)
+        
+        team.balance -= highest_bid.amount
+        player.team_id = team.id
+    
+    round.is_active = False
+    db.session.commit()
+    return True
+
+@app.route('/finalize_tiebreaker/<int:round_id>', methods=['POST'])
+@login_required
+def finalize_tiebreaker(round_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Only admins can finalize rounds'}), 403
+    
+    if finalize_tiebreaker_round(round_id):
+        return jsonify({'message': 'Tiebreaker round finalized successfully'})
+    else:
+        return jsonify({'error': 'Failed to finalize tiebreaker round'}), 400
+
+@app.route('/admin/teams')
+@login_required
+def admin_teams():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    teams = Team.query.all()
+    return render_template('admin_teams.html', teams=teams)
+
+@app.route('/admin/players')
+@login_required
+def admin_players():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    players = Player.query.all()
+    return render_template('admin_players.html', players=players)
+
+@app.route('/admin/rounds')
+@login_required
+def admin_rounds():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    rounds = Round.query.all()
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    return render_template('admin_rounds.html', rounds=rounds, active_rounds=active_rounds)
+
+@app.route('/admin/edit_round/<int:round_id>', methods=['POST'])
+@login_required
+def admin_edit_round(round_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    round = Round.query.get_or_404(round_id)
+    if not round.is_active:
+        return jsonify({'error': 'Cannot edit a completed round'}), 400
+    
+    position = request.json.get('position')
+    duration = request.json.get('duration')
+    
+    if position and position not in Config.POSITIONS:
+        return jsonify({'error': 'Invalid position'}), 400
+    
+    if duration:
+        try:
+            duration = int(duration)
+            if duration < 30:
+                return jsonify({'error': 'Duration must be at least 30 seconds'}), 400
+        except ValueError:
+            return jsonify({'error': 'Invalid duration value'}), 400
+    
+    if position:
+        round.position = position
+    if duration:
+        round.duration = duration
+        round.start_time = datetime.utcnow()  # Reset the timer
+    
+    db.session.commit()
+    return jsonify({'message': 'Round updated successfully'})
+
+@app.route('/admin/delete_round/<int:round_id>', methods=['POST'])
+@login_required
+def admin_delete_round(round_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    round = Round.query.get_or_404(round_id)
+    if round.is_active:
+        return jsonify({'error': 'Cannot delete an active round'}), 400
+    
+    db.session.delete(round)
+    db.session.commit()
+    return jsonify({'message': 'Round deleted successfully'})
+
+@app.route('/admin/add_team', methods=['POST'])
+@login_required
+def admin_add_team():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    name = request.json.get('name')
+    balance = request.json.get('balance', 1000000)  # Default balance
+    
+    if not name:
+        return jsonify({'error': 'Team name is required'}), 400
+    
+    if Team.query.filter_by(name=name).first():
+        return jsonify({'error': 'Team name already exists'}), 400
+    
+    try:
+        balance = int(balance)
+        if balance < 0:
+            return jsonify({'error': 'Balance cannot be negative'}), 400
+    except ValueError:
+        return jsonify({'error': 'Invalid balance value'}), 400
+    
+    team = Team(name=name, balance=balance)
+    db.session.add(team)
+    db.session.commit()
+    
+    return jsonify({'message': 'Team added successfully'})
+
+@app.route('/admin/edit_team/<int:team_id>', methods=['POST'])
+@login_required
+def admin_edit_team(team_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    team = Team.query.get_or_404(team_id)
+    name = request.json.get('name')
+    balance = request.json.get('balance')
+    
+    if name and name != team.name:
+        if Team.query.filter_by(name=name).first():
+            return jsonify({'error': 'Team name already exists'}), 400
+        team.name = name
+    
+    if balance is not None:
+        try:
+            balance = int(balance)
+            if balance < 0:
+                return jsonify({'error': 'Balance cannot be negative'}), 400
+            team.balance = balance
+        except ValueError:
+            return jsonify({'error': 'Invalid balance value'}), 400
+    
+    db.session.commit()
+    return jsonify({'message': 'Team updated successfully'})
+
+@app.route('/admin/delete_team/<int:team_id>', methods=['POST'])
+@login_required
+def admin_delete_team(team_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    team = Team.query.get_or_404(team_id)
+    
+    # Check if team has any players
+    if team.players:
+        return jsonify({'error': 'Cannot delete a team with players'}), 400
+    
+    db.session.delete(team)
+    db.session.commit()
+    return jsonify({'message': 'Team deleted successfully'})
+
+@app.route('/admin/add_player', methods=['POST'])
+@login_required
+def admin_add_player():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    data = request.json
+    required_fields = ['name', 'position', 'overall_rating']
+    
+    for field in required_fields:
+        if field not in data:
+            return jsonify({'error': f'{field} is required'}), 400
+    
+    if data['position'] not in Config.POSITIONS:
+        return jsonify({'error': 'Invalid position'}), 400
+    
+    try:
+        overall_rating = int(data['overall_rating'])
+        if not (1 <= overall_rating <= 99):
+            return jsonify({'error': 'Overall rating must be between 1 and 99'}), 400
+    except ValueError:
+        return jsonify({'error': 'Invalid overall rating value'}), 400
+    
+    player = Player(
+        name=data['name'],
+        position=data['position'],
+        overall_rating=overall_rating,
+        offensive_awareness=data.get('offensive_awareness', 50),
+        ball_control=data.get('ball_control', 50),
+        dribbling=data.get('dribbling', 50),
+        tight_possession=data.get('tight_possession', 50),
+        low_pass=data.get('low_pass', 50),
+        lofted_pass=data.get('lofted_pass', 50),
+        finishing=data.get('finishing', 50),
+        heading=data.get('heading', 50),
+        set_piece_taking=data.get('set_piece_taking', 50),
+        curl=data.get('curl', 50),
+        speed=data.get('speed', 50),
+        acceleration=data.get('acceleration', 50),
+        kicking_power=data.get('kicking_power', 50),
+        jumping=data.get('jumping', 50),
+        physical_contact=data.get('physical_contact', 50),
+        balance=data.get('balance', 50),
+        stamina=data.get('stamina', 50),
+        defensive_awareness=data.get('defensive_awareness', 50),
+        tackling=data.get('tackling', 50),
+        aggression=data.get('aggression', 50),
+        defensive_engagement=data.get('defensive_engagement', 50)
+    )
+    
+    db.session.add(player)
+    db.session.commit()
+    
+    return jsonify({'message': 'Player added successfully'})
+
+@app.route('/admin/edit_player/<int:player_id>', methods=['POST'])
+@login_required
+def admin_edit_player(player_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    player = Player.query.get_or_404(player_id)
+    data = request.json
+    
+    if 'position' in data and data['position'] not in Config.POSITIONS:
+        return jsonify({'error': 'Invalid position'}), 400
+    
+    if 'overall_rating' in data:
+        try:
+            overall_rating = int(data['overall_rating'])
+            if not (1 <= overall_rating <= 99):
+                return jsonify({'error': 'Overall rating must be between 1 and 99'}), 400
+            player.overall_rating = overall_rating
+        except ValueError:
+            return jsonify({'error': 'Invalid overall rating value'}), 400
+    
+    # Update other attributes if provided
+    for attr in ['name', 'position', 'offensive_awareness', 'ball_control', 'dribbling',
+                'tight_possession', 'low_pass', 'lofted_pass', 'finishing', 'heading',
+                'set_piece_taking', 'curl', 'speed', 'acceleration', 'kicking_power',
+                'jumping', 'physical_contact', 'balance', 'stamina', 'defensive_awareness',
+                'tackling', 'aggression', 'defensive_engagement']:
+        if attr in data:
+            setattr(player, attr, data[attr])
+    
+    db.session.commit()
+    return jsonify({'message': 'Player updated successfully'})
+
+@app.route('/admin/delete_player/<int:player_id>', methods=['POST'])
+@login_required
+def admin_delete_player(player_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    player = Player.query.get_or_404(player_id)
+    
+    # Check if player is in a team
+    if player.team_id:
+        return jsonify({'error': 'Cannot delete a player that is in a team'}), 400
+    
+    # Check if player is in an active round
+    if player.round_id and Round.query.get(player.round_id).is_active:
+        return jsonify({'error': 'Cannot delete a player that is in an active round'}), 400
+    
+    db.session.delete(player)
+    db.session.commit()
+    return jsonify({'message': 'Player deleted successfully'})
+
+if __name__ == '__main__':
+    with app.app_context():
+        db.create_all()
+    app.run(debug=True) 

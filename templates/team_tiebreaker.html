@@ -1,0 +1,309 @@
+{% extends "base.html" %}
+
+{% block title %}Tiebreaker Round - Football Auction{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="glass rounded-3xl p-6 mb-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-xl font-bold text-dark">Tiebreaker Round</h1>
+            <div class="flex items-center">
+                <div class="flex items-center mr-4">
+                    <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="text-lg font-medium" id="timer-{{ tiebreaker_round.id }}">Loading...</span>
+                </div>
+                <a href="{{ url_for('dashboard') }}" class="px-4 py-2 rounded-xl bg-gray-200 text-gray-700 hover:bg-gray-300 transition-all duration-300 flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Dashboard
+                </a>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <!-- Player Information -->
+            <div class="glass rounded-2xl p-6 hover-float">
+                <h2 class="text-lg font-bold text-dark mb-4">Player Information</h2>
+                <div class="flex items-center mb-6">
+                    <div class="w-16 h-16 rounded-full bg-gradient-to-r from-primary to-secondary flex items-center justify-center text-white text-lg font-bold mr-4">
+                        {{ player.overall_rating }}
+                    </div>
+                    <div>
+                        <h3 class="text-xl font-bold text-dark">{{ player.name }}</h3>
+                        <p class="text-gray-600">{{ player.position }}</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-4">
+                    {% if player.offensive_awareness %}
+                    <div>
+                        <p class="text-sm text-gray-600">Offensive Awareness</p>
+                        <p class="text-base font-medium">{{ player.offensive_awareness }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if player.ball_control %}
+                    <div>
+                        <p class="text-sm text-gray-600">Ball Control</p>
+                        <p class="text-base font-medium">{{ player.ball_control }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if player.dribbling %}
+                    <div>
+                        <p class="text-sm text-gray-600">Dribbling</p>
+                        <p class="text-base font-medium">{{ player.dribbling }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if player.finishing %}
+                    <div>
+                        <p class="text-sm text-gray-600">Finishing</p>
+                        <p class="text-base font-medium">{{ player.finishing }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if player.speed %}
+                    <div>
+                        <p class="text-sm text-gray-600">Speed</p>
+                        <p class="text-base font-medium">{{ player.speed }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    {% if player.acceleration %}
+                    <div>
+                        <p class="text-sm text-gray-600">Acceleration</p>
+                        <p class="text-base font-medium">{{ player.acceleration }}</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tiebreaker Bid -->
+            <div class="glass rounded-2xl p-6 hover-float">
+                <h2 class="text-lg font-bold text-dark mb-4">Your Tiebreaker Bid</h2>
+                <p class="text-gray-600 mb-4">You are in a tiebreaker with {{ competing_teams|length - 1 }} other teams. Place your final bid to win {{ player.name }}.</p>
+                
+                <div class="mb-6">
+                    <p class="text-sm text-gray-600 mb-1">Team Balance</p>
+                    <p class="text-2xl font-bold text-dark">₹ {{ '{:,}'.format(current_user.team.balance) }}</p>
+                </div>
+                
+                <form id="tiebreakerBidForm" class="space-y-4">
+                    <div>
+                        <label for="bidAmount" class="block text-sm font-medium text-gray-700 mb-1">Your Bid Amount</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 text-gray-500">₹</span>
+                            <input type="number" id="bidAmount" name="bidAmount" value="{{ current_bid.amount }}" min="1" max="{{ current_user.team.balance }}" class="pl-8 w-full py-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                        </div>
+                    </div>
+                    
+                    <input type="hidden" id="roundId" name="roundId" value="{{ tiebreaker_round.id }}">
+                    <input type="hidden" id="playerId" name="playerId" value="{{ player.id }}">
+                    
+                    <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-medium hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button">
+                        Place Tiebreaker Bid
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Competing Teams -->
+        <div class="glass rounded-2xl p-6 mt-8">
+            <h2 class="text-lg font-bold text-dark mb-4">Competing Teams</h2>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead>
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bid Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 bg-white/30">
+                        {% for team in competing_teams %}
+                        <tr class="hover:bg-white/50 transition-colors {% if team.id == current_user.team.id %}bg-blue-50/50{% endif %}">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">
+                                {{ team.name }}
+                                {% if team.id == current_user.team.id %}
+                                <span class="ml-2 px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800">Your Team</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {% if team.id == current_user.team.id %}
+                                <span class="font-medium text-primary">₹ {{ '{:,}'.format(current_bid.amount) }}</span>
+                                {% else %}
+                                <span class="text-gray-500">Hidden until round ends</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="2" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No competing teams</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notifications Container -->
+<div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-4"></div>
+
+<script>
+// Timer functionality
+function updateTimer() {
+    const startTime = new Date('{{ tiebreaker_round.start_time.isoformat() }}Z');  // Add Z to make it UTC
+    const duration = {{ tiebreaker_round.duration }};
+    const timerElement = document.getElementById('timer-{{ tiebreaker_round.id }}');
+    let hasEnded = false;
+    
+    function update() {
+        const now = new Date();
+        const elapsed = Math.floor((now - startTime) / 1000);
+        const remaining = Math.max(0, duration - elapsed);
+        
+        if (remaining <= 0 && !hasEnded) {
+            hasEnded = true;
+            timerElement.textContent = "Round ended";
+            clearInterval(interval);
+            
+            showAlert('info', 'Tiebreaker round has ended. Refreshing page...');
+            setTimeout(() => {
+                window.location.reload();
+            }, 1500);
+        } else if (!hasEnded) {
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+    }
+    
+    // Initial update
+    update();
+    
+    // Set up interval for updates
+    const interval = setInterval(update, 1000);
+    
+    // Clean up interval when the page is unloaded
+    window.addEventListener('beforeunload', () => {
+        clearInterval(interval);
+    });
+}
+
+// Form submission
+document.getElementById('tiebreakerBidForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const roundId = document.getElementById('roundId').value;
+    const playerId = document.getElementById('playerId').value;
+    const amount = parseInt(document.getElementById('bidAmount').value);
+    
+    if (amount <= 0) {
+        showAlert('error', 'Bid amount must be greater than zero');
+        return;
+    }
+    
+    fetch('/place_tiebreaker_bid', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            round_id: roundId,
+            player_id: playerId,
+            amount: amount
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.text().then(text => {
+                let error;
+                try {
+                    // Try to parse as JSON
+                    const data = JSON.parse(text);
+                    error = new Error(data.error || 'Failed to place tiebreaker bid');
+                } catch (e) {
+                    // Not JSON, might be HTML error page
+                    if (text.includes('<!doctype') || text.includes('<html')) {
+                        error = new Error(`Server error: The server encountered an internal error.`);
+                    } else {
+                        error = new Error(`Server error: ${text || 'Unknown error'}`);
+                    }
+                }
+                throw error;
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        showAlert('success', 'Tiebreaker bid placed successfully');
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', error.message || 'An error occurred while placing your bid');
+    });
+});
+
+// Toast notification system
+function showAlert(type, message) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    
+    // Set base classes
+    toast.className = `max-w-xs p-4 rounded-xl shadow-lg transform transition-all duration-300 flex items-center glass`;
+    
+    // Add type-specific styles
+    if (type === 'error') {
+        toast.classList.add('border-l-4', 'border-red-500');
+        toast.innerHTML = `
+            <svg class="w-6 h-6 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>`;
+    } else if (type === 'success') {
+        toast.classList.add('border-l-4', 'border-green-500');
+        toast.innerHTML = `
+            <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>`;
+    } else if (type === 'info') {
+        toast.classList.add('border-l-4', 'border-blue-500');
+        toast.innerHTML = `
+            <svg class="w-6 h-6 text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>`;
+    }
+    
+    // Add message
+    toast.innerHTML += `<span class="text-sm font-medium text-gray-900">${message}</span>`;
+    
+    // Add to container
+    container.appendChild(toast);
+    
+    // Animate in
+    requestAnimationFrame(() => {
+        toast.style.transform = 'translateX(0)';
+        toast.style.opacity = '1';
+    });
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        toast.style.transform = 'translateX(100%)';
+        toast.style.opacity = '0';
+        setTimeout(() => {
+            container.removeChild(toast);
+        }, 300);
+    }, 3000);
+}
+
+// Initialize timer
+updateTimer();
+</script>
+{% endblock %}

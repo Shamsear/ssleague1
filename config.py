@@ -10,4 +10,4 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     INITIAL_BALANCE = 15000
     MINIMUM_BID = 10
-    POSITIONS = ['GK', 'CB', 'EB', 'LB', 'CMF', 'DMF', 'RMF', 'LMF', 'AMF', 'SS', 'CF'] 
+    POSITIONS = ['GK', 'CB', 'RB', 'LB', 'CMF', 'DMF', 'RMF', 'LMF', 'AMF', 'SS', 'CF'] 

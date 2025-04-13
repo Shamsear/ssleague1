@@ -1,0 +1,272 @@
+{% extends "base.html" %}
+
+{% block title %}Round Details - {{ round.position }} - Football Auction{% endblock %}
+
+{% block content %}
+<div class="space-y-6 sm:space-y-8 px-2 sm:px-4">
+    <!-- Round Info Header -->
+    <div class="glass rounded-2xl p-4 sm:p-8 backdrop-blur-md border border-white/20 hover-float">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold gradient-text mb-1 sm:mb-2">
+                    {% if round.is_tiebreaker %}
+                    Tiebreaker Round - Position: {{ round.position }}
+                    {% else %}
+                    Round Details - Position: {{ round.position }}
+                    {% endif %}
+                </h1>
+                <p class="text-sm sm:text-base text-gray-400">
+                    Started: {{ round.start_time.strftime('%d/%m/%Y at %H:%M') }}
+                    {% if round.is_active %}
+                    <span class="ml-2 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">Active</span>
+                    {% else %}
+                    <span class="ml-2 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">Completed</span>
+                    {% endif %}
+                </p>
+            </div>
+            <a href="{{ url_for('admin_rounds') }}" class="px-4 py-2 rounded-xl bg-white/60 text-primary hover:bg-white/80 transition-all duration-300 text-sm mt-2 sm:mt-0 inline-flex items-center">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Back to Rounds
+            </a>
+        </div>
+    </div>
+    
+    <!-- Winning Bids Section -->
+    <div class="glass rounded-2xl p-4 sm:p-8 backdrop-blur-md border border-white/20 hover-float">
+        <div class="text-center mb-4 sm:mb-6">
+            <h2 class="text-xl sm:text-2xl font-bold gradient-text mb-1 sm:mb-2">Winning Bids</h2>
+            <p class="text-sm sm:text-base text-gray-400">Sorted by highest bid value</p>
+            
+            <!-- Export button -->
+            <div class="mt-3">
+                <a href="{{ url_for('export_winning_bids') }}" id="exportWinningBidsButton" class="px-4 py-2 rounded-xl bg-green-600 text-white hover:bg-green-700 transition-all duration-300 inline-flex items-center justify-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                    </svg>
+                    Export to Excel
+                </a>
+            </div>
+        </div>
+        
+        <!-- Mobile view (card layout) -->
+        <div class="block md:hidden space-y-3">
+            {% if winning_bids %}
+                {% for winning_bid in winning_bids %}
+                <div class="bg-white/5 p-3 rounded-lg border border-white/10">
+                    <div class="flex justify-between items-center mb-2">
+                        <div class="flex flex-col">
+                            <span class="font-medium text-gray-800">{{ winning_bid.player.name }}</span>
+                            <span class="text-xs text-gray-600">{{ winning_bid.team.name }}</span>
+                        </div>
+                        <span class="px-2.5 py-1 rounded-lg text-sm font-medium text-primary bg-primary/10">{{ winning_bid.bid.amount }}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div class="bg-white/5 p-2 rounded">
+                            <div class="text-gray-600 mb-0.5">Position</div>
+                            <div class="text-gray-800">{{ winning_bid.player.position }}</div>
+                        </div>
+                        <div class="bg-white/5 p-2 rounded">
+                            <div class="text-gray-600 mb-0.5">Rating</div>
+                            <div class="text-gray-800">{{ winning_bid.player.overall_rating }}</div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-6 text-gray-600">
+                    No winning bids found
+                </div>
+            {% endif %}
+        </div>
+        
+        <!-- Desktop view (table layout) -->
+        <div class="hidden md:block overflow-x-auto -mx-4 sm:mx-0">
+            <div class="inline-block min-w-full align-middle">
+                <div class="overflow-hidden border border-white/10 rounded-lg">
+                    <table class="min-w-full divide-y divide-white/10">
+                        <thead>
+                            <tr class="bg-white/5">
+                                <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-400">Player</th>
+                                <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-400">Team</th>
+                                <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-400">Bid Amount</th>
+                                <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-400">Position</th>
+                                <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-400">Rating</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-white/10">
+                            {% if winning_bids %}
+                                {% for winning_bid in winning_bids %}
+                                <tr class="hover:bg-white/5 transition-colors duration-200">
+                                    <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap text-gray-200">{{ winning_bid.player.name }}</td>
+                                    <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap text-gray-200">{{ winning_bid.team.name }}</td>
+                                    <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap font-medium text-primary">{{ winning_bid.bid.amount }}</td>
+                                    <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap text-gray-200">{{ winning_bid.player.position }}</td>
+                                    <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap text-gray-200">{{ winning_bid.player.overall_rating }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="5" class="px-3 sm:px-4 py-6 text-center text-sm text-gray-400">No winning bids found</td>
+                                </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Team Bids Section -->
+    <div class="glass rounded-2xl p-4 sm:p-8 backdrop-blur-md border border-white/20 hover-float">
+        <div class="text-center mb-4 sm:mb-6">
+            <h2 class="text-xl sm:text-2xl font-bold gradient-text mb-1 sm:mb-2">Team Bids</h2>
+            <p class="text-sm sm:text-base text-gray-400">Expand sections to see each team's bids</p>
+        </div>
+
+        <div class="space-y-4">
+            {% for team_id, team_data in team_bids.items() %}
+            <div class="border border-white/10 rounded-lg overflow-hidden">
+                <button class="flex justify-between items-center w-full px-4 py-3 text-left text-gray-800 font-medium bg-white/20 hover:bg-white/30 transition-colors" 
+                        onclick="toggleAccordion('team-{{ team_id }}')">
+                    <span class="text-gray-800">{{ team_data.team.name }}</span>
+                    <span class="transform transition-transform duration-200" id="team-{{ team_id }}-icon">
+                        <svg class="w-5 h-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                        </svg>
+                    </span>
+                </button>
+                
+                <div class="hidden overflow-hidden transition-all duration-200 ease-in-out" id="team-{{ team_id }}-content">
+                    {% if team_data.bids %}
+                        <!-- Mobile view (card layout) -->
+                        <div class="block md:hidden p-3 space-y-3">
+                            {% for bid in team_data.bids %}
+                            <div class="bg-white/5 p-3 rounded-lg border border-white/10">
+                                <div class="flex justify-between items-center mb-2">
+                                    <div class="flex flex-col">
+                                        <span class="font-medium text-gray-800">{{ bid.player.name }}</span>
+                                        <span class="text-xs text-gray-600">{{ team_data.team.name }}</span>
+                                    </div>
+                                    <span class="px-2.5 py-1 rounded-lg text-sm font-medium {% if bid.is_winning %}text-green-800 bg-green-400/10{% else %}text-primary bg-primary/10{% endif %}">
+                                        {{ bid.amount }}
+                                    </span>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2 text-xs">
+                                    <div class="bg-white/5 p-2 rounded">
+                                        <div class="text-gray-600 mb-0.5">Position</div>
+                                        <div class="text-gray-800">{{ bid.player.position }}</div>
+                                    </div>
+                                    <div class="bg-white/5 p-2 rounded">
+                                        <div class="text-gray-600 mb-0.5">Rating</div>
+                                        <div class="text-gray-800">{{ bid.player.overall_rating }}</div>
+                                    </div>
+                                    <div class="bg-white/5 p-2 rounded">
+                                        <div class="text-gray-600 mb-0.5">Status</div>
+                                        <div class="{% if bid.is_winning %}text-green-800{% else %}text-yellow-700{% endif %}">
+                                            {{ "Winning" if bid.is_winning else "Outbid" }}
+                                        </div>
+                                    </div>
+                                    <div class="bg-white/5 p-2 rounded">
+                                        <div class="text-gray-600 mb-0.5">Time</div>
+                                        <div class="text-gray-800">{{ bid.created_at }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        
+                        <!-- Desktop view (table layout) -->
+                        <div class="hidden md:block overflow-x-auto">
+                            <table class="min-w-full divide-y divide-white/10">
+                                <thead>
+                                    <tr class="bg-white/5">
+                                        <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-600">Player</th>
+                                        <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-600">Position</th>
+                                        <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-600">Rating</th>
+                                        <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-600">Bid Amount</th>
+                                        <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-600">Status</th>
+                                        <th scope="col" class="px-3 sm:px-4 py-2 sm:py-3 text-left text-xs sm:text-sm font-medium text-gray-600">Time</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-white/10">
+                                    {% for bid in team_data.bids %}
+                                    <tr class="hover:bg-white/5 transition-colors duration-200">
+                                        <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap text-gray-800">{{ bid.player.name }}</td>
+                                        <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap text-gray-800">{{ bid.player.position }}</td>
+                                        <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap text-gray-800">{{ bid.player.overall_rating }}</td>
+                                        <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap font-medium {% if bid.is_winning %}text-green-800{% else %}text-primary{% endif %}">{{ bid.amount }}</td>
+                                        <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {% if bid.is_winning %}bg-green-400/10 text-green-800{% else %}bg-yellow-500/10 text-yellow-700{% endif %}">
+                                                {{ "Winning" if bid.is_winning else "Outbid" }}
+                                            </span>
+                                        </td>
+                                        <td class="px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm whitespace-nowrap text-gray-600">{{ bid.created_at }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="p-4 text-center text-sm text-gray-400">
+                            No bids from this team
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script>
+// Accordion toggle function
+function toggleAccordion(id) {
+    const content = document.getElementById(id + '-content');
+    const icon = document.getElementById(id + '-icon');
+    
+    if (content.classList.contains('hidden')) {
+        content.classList.remove('hidden');
+        content.style.maxHeight = content.scrollHeight + 'px';
+        icon.classList.add('rotate-180');
+    } else {
+        content.style.maxHeight = '0px';
+        icon.classList.remove('rotate-180');
+        setTimeout(() => {
+            content.classList.add('hidden');
+        }, 200);
+    }
+}
+
+// Export button loading indicator
+document.getElementById('exportWinningBidsButton').addEventListener('click', function(e) {
+    e.preventDefault();
+    
+    // Change button appearance to loading state
+    const button = this;
+    const originalContent = button.innerHTML;
+    button.innerHTML = `
+        <svg class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        Exporting...
+    `;
+    button.disabled = true;
+    button.classList.add('opacity-75');
+    
+    // Navigate to export URL after a tiny delay to allow the UI to update
+    setTimeout(function() {
+        window.location.href = button.getAttribute('href');
+        
+        // Reset button after 3 seconds (for when user navigates back)
+        setTimeout(function() {
+            button.innerHTML = originalContent;
+            button.disabled = false;
+            button.classList.remove('opacity-75');
+        }, 3000);
+    }, 100);
+});
+</script>
+{% endblock %} 
