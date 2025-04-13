@@ -1,30 +1,92 @@
 {% extends "base.html" %}
 
-{% block title %}Team Players Data - Football Auction{% endblock %}
+{% block title %}All Players Database - Football Auction{% endblock %}
 
 {% block content %}
-<div class="space-y-6 px-4">
+<div class="container mx-auto space-y-6 px-4 py-4 sm:py-6">
     <!-- Header -->
-    <div class="flex justify-between items-center">
-        <h1 class="text-2xl font-bold gradient-text">Players Data</h1>
-        <div class="flex space-x-4">
-            <div class="relative">
-                <input type="text" id="searchPlayer" placeholder="Search players..." class="pl-10 py-2 pr-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
-                <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 class="text-2xl font-bold gradient-text">Players Database</h1>
+        <div class="flex flex-col sm:flex-row w-full sm:w-auto space-y-3 sm:space-y-0 sm:space-x-4">
+            <div class="relative w-full sm:w-auto">
+                <form action="{{ url_for('team_players_data') }}" method="get" class="flex flex-col sm:flex-row gap-2">
+                    <div class="relative w-full">
+                        <input type="text" id="searchPlayer" name="q" value="{{ search_query or '' }}" placeholder="Search players..." class="w-full sm:w-64 pl-10 py-2 pr-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                        <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <select id="positionFilter" name="position" class="w-full sm:w-auto py-2 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                        <option value="">All Positions</option>
+                        {% for position in config.POSITIONS %}
+                        <option value="{{ position }}" {% if current_position == position %}selected{% endif %}>{{ position }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all duration-300">
+                        Filter
+                    </button>
+                </form>
             </div>
-            <select id="positionFilter" class="py-2 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
-                <option value="">All Positions</option>
-                {% for position in config.POSITIONS %}
-                <option value="{{ position }}">{{ position }}</option>
-                {% endfor %}
-            </select>
+        </div>
+    </div>
+
+    <!-- Mobile Card View -->
+    <div class="block md:hidden space-y-3">
+        <div class="glass-card p-3 rounded-xl mb-3">
+            <p class="text-sm text-gray-500 mb-2">Browse the complete database of 2,530 players. Use the search and filter options to find specific players. Tap "View Details" to see complete player stats.</p>
+        </div>
+        
+        <div id="mobilePlayers" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {% for player in players %}
+            <div class="player-row glass-card p-4 rounded-xl hover:shadow-md transition-all duration-300">
+                <div class="flex justify-between items-start mb-3">
+                    <div>
+                        <h4 class="font-medium text-gray-700 truncate max-w-[180px]">{{ player.name }}</h4>
+                        <span class="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-lg">{{ player.position }}</span>
+                    </div>
+                    <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full 
+                        {% if player.overall_rating >= 85 %}bg-green-100 text-green-800
+                        {% elif player.overall_rating >= 75 %}bg-blue-100 text-blue-800
+                        {% elif player.overall_rating >= 65 %}bg-yellow-100 text-yellow-800
+                        {% else %}bg-gray-100 text-gray-800{% endif %}">
+                        {{ player.overall_rating }}
+                    </span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-3">
+                    <div>
+                        <span class="font-medium">Speed:</span> {{ player.speed }}
+                    </div>
+                    <div>
+                        <span class="font-medium">Ball Control:</span> {{ player.ball_control }}
+                    </div>
+                    <div>
+                        <span class="font-medium">Dribbling:</span> {{ player.dribbling }}
+                    </div>
+                    <div>
+                        <span class="font-medium">Finishing:</span> {{ player.finishing }}
+                    </div>
+                </div>
+                
+                <div class="text-right">
+                    <button onclick="showPlayerDetails({{ player.id }})" class="px-3 py-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200 flex items-center text-xs ml-auto">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View Details
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
         </div>
     </div>
 
     <!-- Players Data Table -->
-    <div class="glass-card p-6 rounded-2xl">
+    <div class="glass-card p-4 sm:p-6 rounded-2xl hidden md:block">
+        <div class="mb-4 text-sm text-gray-500">
+            <p>Browse the complete database of 2,530 players. Use the search and filter options to find specific players.</p>
+        </div>
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead>
@@ -43,7 +105,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 bg-white/30">
-                    {% for player in current_user.team.players %}
+                    {% for player in players %}
                     <tr class="player-row hover:bg-white/50 transition-colors">
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-700">{{ player.name }}</div>
@@ -93,172 +155,235 @@
             </table>
         </div>
     </div>
+
+    <!-- Pagination -->
+    {% if players_pagination.pages > 1 %}
+    <div class="mt-6 flex justify-center">
+        <nav class="flex items-center space-x-1">
+            <!-- Previous page -->
+            {% if players_pagination.has_prev %}
+            <a href="{{ url_for('team_players_data', page=players_pagination.prev_num, position=current_position, q=search_query) }}" 
+               class="px-3 py-2 rounded-md bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </a>
+            {% else %}
+            <span class="px-3 py-2 rounded-md bg-white/30 text-gray-400 cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </span>
+            {% endif %}
+            
+            <!-- Page numbers -->
+            {% for page_num in range(1, players_pagination.pages + 1) %}
+                {% if page_num == players_pagination.page %}
+                <span class="px-3 py-2 rounded-md bg-primary text-white">
+                    {{ page_num }}
+                </span>
+                {% elif page_num <= 3 or page_num >= players_pagination.pages - 2 or 
+                       (page_num >= players_pagination.page - 1 and page_num <= players_pagination.page + 1) %}
+                <a href="{{ url_for('team_players_data', page=page_num, position=current_position, q=search_query) }}" 
+                   class="px-3 py-2 rounded-md bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
+                    {{ page_num }}
+                </a>
+                {% elif (page_num == 4 and players_pagination.page > 4) or 
+                        (page_num == players_pagination.pages - 3 and players_pagination.page < players_pagination.pages - 3) %}
+                <span class="px-2 py-2 text-gray-500">
+                    ...
+                </span>
+                {% endif %}
+            {% endfor %}
+            
+            <!-- Next page -->
+            {% if players_pagination.has_next %}
+            <a href="{{ url_for('team_players_data', page=players_pagination.next_num, position=current_position, q=search_query) }}" 
+               class="px-3 py-2 rounded-md bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+            {% else %}
+            <span class="px-3 py-2 rounded-md bg-white/30 text-gray-400 cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </span>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Player Details Modal -->
-<div id="playerDetailsModal" class="fixed inset-0 bg-black/20 backdrop-blur-sm hidden z-50">
-    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl">
-        <div class="glass rounded-3xl p-6">
-            <div class="flex justify-between items-start mb-6">
-                <h3 class="text-xl font-bold gradient-text">Player Details</h3>
-                <button onclick="closePlayerDetailsModal()" class="text-gray-500 hover:text-gray-700">
-                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+<div id="playerDetailsModal" class="fixed inset-0 bg-black/70 backdrop-blur-md hidden z-[9999]">
+    <div class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-full max-w-4xl px-4 sm:px-6 max-h-[90vh] flex items-center">
+        <div class="glass rounded-3xl p-4 sm:p-6 w-full max-h-[90vh] overflow-y-auto shadow-xl border border-white/20">
+            <div class="flex justify-between items-center mb-4">
+                <div class="w-6"></div>
+                <h3 class="text-xl font-bold gradient-text text-center">Player Details</h3>
+                <button onclick="closePlayerDetailsModal()" class="text-gray-500 hover:text-gray-700 rounded-full p-1.5 hover:bg-gray-100/70 transition-all">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                     </svg>
                 </button>
             </div>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Loading State -->
+            <div id="playerLoadingState" class="py-8 flex flex-col items-center justify-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                <p class="mt-4 text-gray-500">Loading player details...</p>
+            </div>
+            
+            <!-- Error State -->
+            <div id="playerErrorState" class="py-8 flex flex-col items-center justify-center hidden">
+                <svg class="w-12 h-12 text-red-500 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <p class="text-lg font-medium text-gray-700 mb-2">Error Loading Player</p>
+                <p class="text-gray-500 text-center">The player data couldn't be loaded. Please try again later.</p>
+                <button onclick="closePlayerDetailsModal()" class="mt-4 px-4 py-2 bg-primary/10 text-primary rounded-xl hover:bg-primary/20 transition-all">
+                    Close
+                </button>
+            </div>
+            
+            <div id="playerContent" class="grid grid-cols-1 md:grid-cols-2 gap-6 hidden">
                 <!-- Basic Info -->
                 <div>
-                    <h4 id="playerName" class="text-xl font-bold text-dark mb-2"></h4>
-                    <div class="flex items-center mb-4">
-                        <span id="playerPosition" class="text-gray-700 mr-3"></span>
-                        <span id="playerRating" class="px-2 py-1 text-xs leading-5 font-medium rounded-full"></span>
-                    </div>
-                    <div class="space-y-3">
-                        <div>
-                            <p class="text-sm text-gray-500 mb-1">Nationality</p>
-                            <p id="playerNationality" class="text-lg font-medium text-dark"></p>
+                    <div class="bg-gradient-to-r from-white/30 to-white/40 rounded-xl p-4 shadow-sm border border-white/30 mb-4">
+                        <h4 id="playerName" class="text-xl font-bold text-dark mb-2"></h4>
+                        <div class="flex items-center mb-4">
+                            <span id="playerPosition" class="text-gray-700 mr-3 bg-gray-100 px-2 py-0.5 rounded-lg text-sm"></span>
+                            <span id="playerRating" class="px-2 py-1 text-xs leading-5 font-medium rounded-full"></span>
                         </div>
-                        <div>
-                            <p class="text-sm text-gray-500 mb-1">Playing Style</p>
-                            <p id="playerStyle" class="text-lg font-medium text-dark"></p>
+                        <div class="space-y-3">
+                            <div>
+                                <p class="text-sm text-gray-500 mb-1">Nationality</p>
+                                <p id="playerNationality" class="text-lg font-medium text-dark"></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-500 mb-1">Playing Style</p>
+                                <p id="playerStyle" class="text-lg font-medium text-dark"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-gradient-to-r from-white/30 to-white/40 rounded-xl p-4 shadow-sm border border-white/30">
+                        <h4 class="text-sm font-bold text-gray-700 mb-4 pb-2 uppercase tracking-wide border-b border-gray-200/50">Physical Attributes</h4>
+                        <div class="space-y-3">
+                            <div class="stat-bar" data-stat="speed">
+                                <div class="flex justify-between text-sm">
+                                    <span>Speed</span>
+                                    <span class="stat-value"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
+                                </div>
+                            </div>
+                            <div class="stat-bar" data-stat="acceleration">
+                                <div class="flex justify-between text-sm">
+                                    <span>Acceleration</span>
+                                    <span class="stat-value"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
+                                </div>
+                            </div>
+                            <div class="stat-bar" data-stat="stamina">
+                                <div class="flex justify-between text-sm">
+                                    <span>Stamina</span>
+                                    <span class="stat-value"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- Detailed Stats -->
                 <div class="space-y-4">
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <h5 class="text-sm font-medium text-gray-500 mb-2">Offensive Skills</h5>
-                            <div class="space-y-2">
-                                <div class="stat-bar" data-stat="offensive_awareness">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Off. Awareness</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                    <div class="bg-gradient-to-r from-white/30 to-white/40 rounded-xl p-4 shadow-sm border border-white/30">
+                        <h4 class="text-sm font-bold text-gray-700 mb-4 pb-2 uppercase tracking-wide border-b border-gray-200/50">Offensive Skills</h4>
+                        <div class="space-y-3">
+                            <div class="stat-bar" data-stat="offensive_awareness">
+                                <div class="flex justify-between text-sm">
+                                    <span>Off. Awareness</span>
+                                    <span class="stat-value"></span>
                                 </div>
-                                <div class="stat-bar" data-stat="ball_control">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Ball Control</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
-                                </div>
-                                <div class="stat-bar" data-stat="dribbling">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Dribbling</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div>
-                            <h5 class="text-sm font-medium text-gray-500 mb-2">Physical Attributes</h5>
-                            <div class="space-y-2">
-                                <div class="stat-bar" data-stat="speed">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Speed</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                            <div class="stat-bar" data-stat="ball_control">
+                                <div class="flex justify-between text-sm">
+                                    <span>Ball Control</span>
+                                    <span class="stat-value"></span>
                                 </div>
-                                <div class="stat-bar" data-stat="acceleration">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Acceleration</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
                                 </div>
-                                <div class="stat-bar" data-stat="stamina">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Stamina</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                            </div>
+                            <div class="stat-bar" data-stat="dribbling">
+                                <div class="flex justify-between text-sm">
+                                    <span>Dribbling</span>
+                                    <span class="stat-value"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
+                                </div>
+                            </div>
+                            <div class="stat-bar" data-stat="finishing">
+                                <div class="flex justify-between text-sm">
+                                    <span>Finishing</span>
+                                    <span class="stat-value"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
                                 </div>
                             </div>
                         </div>
                     </div>
                     
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <h5 class="text-sm font-medium text-gray-500 mb-2">Passing & Shooting</h5>
-                            <div class="space-y-2">
-                                <div class="stat-bar" data-stat="low_pass">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Low Pass</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                    <div class="bg-gradient-to-r from-white/30 to-white/40 rounded-xl p-4 shadow-sm border border-white/30">
+                        <h4 class="text-sm font-bold text-gray-700 mb-4 pb-2 uppercase tracking-wide border-b border-gray-200/50">Passing & Defensive Skills</h4>
+                        <div class="space-y-3">
+                            <div class="stat-bar" data-stat="low_pass">
+                                <div class="flex justify-between text-sm">
+                                    <span>Low Pass</span>
+                                    <span class="stat-value"></span>
                                 </div>
-                                <div class="stat-bar" data-stat="lofted_pass">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Lofted Pass</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
-                                </div>
-                                <div class="stat-bar" data-stat="finishing">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Finishing</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
                                 </div>
                             </div>
-                        </div>
-                        <div>
-                            <h5 class="text-sm font-medium text-gray-500 mb-2">Defensive Skills</h5>
-                            <div class="space-y-2">
-                                <div class="stat-bar" data-stat="defensive_awareness">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Def. Awareness</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                            <div class="stat-bar" data-stat="lofted_pass">
+                                <div class="flex justify-between text-sm">
+                                    <span>Lofted Pass</span>
+                                    <span class="stat-value"></span>
                                 </div>
-                                <div class="stat-bar" data-stat="tackling">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Tackling</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
                                 </div>
-                                <div class="stat-bar" data-stat="defensive_engagement">
-                                    <div class="flex justify-between text-sm">
-                                        <span>Def. Engagement</span>
-                                        <span class="stat-value"></span>
-                                    </div>
-                                    <div class="w-full bg-gray-200 rounded-full h-2">
-                                        <div class="stat-bar-fill h-2 rounded-full bg-blue-500"></div>
-                                    </div>
+                            </div>
+                            <div class="stat-bar" data-stat="defensive_awareness">
+                                <div class="flex justify-between text-sm">
+                                    <span>Def. Awareness</span>
+                                    <span class="stat-value"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
+                                </div>
+                            </div>
+                            <div class="stat-bar" data-stat="tackling">
+                                <div class="flex justify-between text-sm">
+                                    <span>Tackling</span>
+                                    <span class="stat-value"></span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="stat-bar-fill h-2 rounded-full bg-blue-400"></div>
                                 </div>
                             </div>
                         </div>
@@ -270,29 +395,53 @@
 </div>
 
 <script>
-// Search and filter functionality
-document.getElementById('searchPlayer').addEventListener('input', filterPlayers);
-document.getElementById('positionFilter').addEventListener('change', filterPlayers);
-
-function filterPlayers() {
-    const searchTerm = document.getElementById('searchPlayer').value.toLowerCase();
-    const positionFilter = document.getElementById('positionFilter').value;
-    const rows = document.querySelectorAll('.player-row');
+// Search and filter functionality with server-side search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchPlayer');
+    const searchForm = searchInput.closest('form');
+    const positionFilter = document.getElementById('positionFilter');
     
-    rows.forEach(row => {
-        const name = row.querySelector('td:first-child').textContent.toLowerCase();
-        const position = row.querySelector('td:nth-child(2)').textContent.trim();
-        const matchesSearch = name.includes(searchTerm);
-        const matchesPosition = !positionFilter || position === positionFilter;
-        
-        row.style.display = matchesSearch && matchesPosition ? '' : 'none';
+    // Debounce function to delay search
+    let typingTimer;
+    const TYPING_DELAY = 500; // ms delay after typing stops
+    
+    // Real search that submits the form
+    function performSearch() {
+        searchForm.submit();
+    }
+    
+    // Listen for input in the search field
+    searchInput.addEventListener('input', function() {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(performSearch, TYPING_DELAY);
     });
-}
+    
+    // Position filter changes should immediately search
+    positionFilter.addEventListener('change', function() {
+        searchForm.submit();
+    });
+    
+    // Cancel timer if user is still typing
+    searchInput.addEventListener('keydown', function() {
+        clearTimeout(typingTimer);
+    });
+});
 
 // Modal functionality
 function showPlayerDetails(playerId) {
+    // Show loading state first
+    document.getElementById('playerLoadingState').classList.remove('hidden');
+    document.getElementById('playerContent').classList.add('hidden');
+    document.getElementById('playerErrorState').classList.add('hidden');
+    document.getElementById('playerDetailsModal').classList.remove('hidden');
+    
     fetch(`/api/player/${playerId}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
         .then(player => {
             document.getElementById('playerName').textContent = player.name;
             document.getElementById('playerPosition').textContent = player.position;
@@ -323,26 +472,35 @@ function showPlayerDetails(playerId) {
                 
                 // Color coding based on stat value
                 if (value >= 85) {
-                    barFill.className = 'stat-bar-fill h-2 rounded-full bg-green-500';
+                    barFill.className = 'stat-bar-fill h-2 rounded-full bg-green-400';
                 } else if (value >= 75) {
-                    barFill.className = 'stat-bar-fill h-2 rounded-full bg-blue-500';
+                    barFill.className = 'stat-bar-fill h-2 rounded-full bg-blue-400';
                 } else if (value >= 65) {
-                    barFill.className = 'stat-bar-fill h-2 rounded-full bg-yellow-500';
+                    barFill.className = 'stat-bar-fill h-2 rounded-full bg-yellow-400';
                 } else {
-                    barFill.className = 'stat-bar-fill h-2 rounded-full bg-gray-500';
+                    barFill.className = 'stat-bar-fill h-2 rounded-full bg-gray-400';
                 }
             });
             
-            document.getElementById('playerDetailsModal').classList.remove('hidden');
+            // Hide loading, show content
+            document.getElementById('playerLoadingState').classList.add('hidden');
+            document.getElementById('playerErrorState').classList.add('hidden');
+            document.getElementById('playerContent').classList.remove('hidden');
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('An error occurred while fetching player details');
+            document.getElementById('playerLoadingState').classList.add('hidden');
+            document.getElementById('playerContent').classList.add('hidden');
+            document.getElementById('playerErrorState').classList.remove('hidden');
         });
 }
 
 function closePlayerDetailsModal() {
     document.getElementById('playerDetailsModal').classList.add('hidden');
+    // Reset state for next time
+    document.getElementById('playerLoadingState').classList.remove('hidden');
+    document.getElementById('playerContent').classList.add('hidden');
+    document.getElementById('playerErrorState').classList.add('hidden');
 }
 </script>
 {% endblock %}

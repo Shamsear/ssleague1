@@ -26,7 +26,7 @@
                     <div class="bg-white/20 p-2 sm:p-3 rounded-xl">
                         <p class="text-xs text-gray-600">Players</p>
                         <p class="text-lg font-medium text-dark">{{ current_user.team.players|length }}</p>
-                    </div>
+            </div>
                     <div class="bg-white/20 p-2 sm:p-3 rounded-xl">
                         <p class="text-xs text-gray-600">Avg. Rating</p>
                         <p class="text-lg font-medium text-dark">
@@ -77,7 +77,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                                 </svg>
                     <h3 class="text-md font-medium text-dark">Quick Links</h3>
-                </div>
+                            </div>
                 <div class="space-y-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <a href="{{ url_for('team_players') }}" class="flex items-center px-3 py-2 rounded-xl hover:bg-white/40 transition-colors duration-200">
                         <svg class="w-4 h-4 text-primary mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -131,22 +131,22 @@
                             <span class="text-sm font-medium text-dark">{{ position_count.value }}</span>
                         </div>
                         <div class="w-full bg-gray-200 rounded-full h-2.5">
-                            {% set percentage = (position_count.value / 4 * 100) if position_count.value <= 4 else 100 %}
-                            <div class="h-2.5 rounded-full 
-                                {% if percentage >= 100 %}
-                                    bg-green-500
-                                {% elif percentage >= 50 %}
-                                    bg-blue-500
-                                {% elif percentage > 0 %}
-                                    bg-yellow-500
+                                {% set percentage = (position_count.value / 4 * 100) if position_count.value <= 4 else 100 %}
+                                <div class="h-2.5 rounded-full 
+                                    {% if percentage >= 100 %}
+                                        bg-green-500
+                                    {% elif percentage >= 50 %}
+                                        bg-blue-500
+                                    {% elif percentage > 0 %}
+                                        bg-yellow-500
                 {% else %}
-                                    bg-gray-300
-                                {% endif %}" 
-                                style="width: {{ percentage }}%">
-                            </div>
+                                        bg-gray-300
+                                    {% endif %}" 
+                                    style="width: {{ percentage }}%">
+                                            </div>
                         </div>
                     </div>
-                    {% endfor %}
+                            {% endfor %}
                 </div>
             </div>
         </div>
@@ -210,7 +210,7 @@
         <!-- Desktop view (table layout) -->
         <div class="hidden md:block overflow-x-auto">
             <table class="min-w-full divide-y divide-gray-200">
-                <thead>
+                        <thead>
                     <tr>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Started At</th>
@@ -218,8 +218,8 @@
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Players</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">My Bids</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                    </tr>
-                </thead>
+                            </tr>
+                        </thead>
                 <tbody class="divide-y divide-gray-200 bg-white/30">
                     {% for round in active_rounds %}
                     <tr class="hover:bg-white/50 transition-colors">
@@ -232,8 +232,8 @@
                             {% for bid in current_user.team.bids %}
                                 {% if bid.round_id == round.id %}
                                     {% set my_bids.count = my_bids.count + 1 %}
-                                {% endif %}
-                            {% endfor %}
+                                        {% endif %}
+                                    {% endfor %}
                             {{ my_bids.count }}
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
@@ -243,13 +243,13 @@
                                 </svg>
                                 Place Bids
                             </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
     {% else %}
     <div class="glass rounded-3xl p-4 sm:p-6 mb-6 sm:mb-8 text-center">
         <svg class="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -257,8 +257,8 @@
         </svg>
         <h3 class="text-lg font-medium text-dark mb-2">No Active Rounds</h3>
         <p class="text-gray-500 mb-4">There are currently no active bidding rounds. Check back later!</p>
-    </div>
-    {% endif %}
+            </div>
+            {% endif %}
 
     <!-- Active Tiebreakers -->
     {% if active_tiebreakers %}
@@ -395,8 +395,8 @@
 
     <!-- Past Rounds -->
     {% if past_rounds %}
-    <div class="glass rounded-3xl p-6 mt-8">
-        <div class="flex justify-between items-center mb-6">
+    <div class="glass rounded-3xl p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
             <h2 class="text-xl font-bold text-dark">Past Rounds</h2>
             <a href="{{ url_for('team_bids') }}" class="px-4 py-2 rounded-xl bg-white/60 text-primary hover:bg-white/80 transition-all duration-300 text-sm flex items-center">
                 <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -410,14 +410,94 @@
             {% set sorted_rounds = past_rounds|sort(attribute='id', reverse=True) %}
             {% for round in sorted_rounds %}
             {% if loop.index <= 3 %}
-            <div class="glass-card p-5 rounded-2xl hover:shadow-md transition-all duration-300">
+            <div class="glass-card p-4 sm:p-5 rounded-2xl hover:shadow-md transition-all duration-300">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-bold text-dark">{{ round.position }}</h3>
-                    <span class="text-sm text-gray-500">{{ round.start_time.strftime('%d/%m/%Y at %H:%M') }}</span>
+                    <span class="text-xs sm:text-sm text-gray-500">{{ round.start_time.strftime('%d/%m/%Y') }}</span>
                 </div>
                 
-                <!-- Players who received bids in this round -->
-                <div class="overflow-x-auto">
+                <!-- Mobile view (card layout) for past round players -->
+                <div class="block md:hidden space-y-3">
+                    {% for player in round.players %}
+                    {% if player.bids|length > 0 %}
+                    
+                    {% set winning_bid = namespace(amount=0, team_name='', team_id=0) %}
+                    {% set user_bid = namespace(amount=0) %}
+                    
+                    {% for bid in player.bids %}
+                        {% if bid.team_id == player.team_id %}
+                            {% set winning_bid.amount = bid.amount %}
+                            {% set winning_bid.team_name = bid.team.name %}
+                            {% set winning_bid.team_id = bid.team_id %}
+                        {% endif %}
+                        
+                        {% if bid.team_id == current_user.team.id %}
+                            {% set user_bid.amount = bid.amount %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    <div class="bg-white/10 p-3 rounded-lg">
+                        <div class="flex justify-between mb-2">
+                            <div>
+                                <span class="font-medium text-gray-800">{{ player.name }}</span>
+                                <span class="text-xs text-gray-600 ml-1">({{ player.position }})</span>
+                            </div>
+                            <div>
+                                {% if user_bid.amount <= 0 %}
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-800">No Bid</span>
+                                {% elif winning_bid.team_id == current_user.team.id %}
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Won</span>
+                                {% else %}
+                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Lost</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="bg-white/10 p-2 rounded">
+                                <div class="text-gray-600 mb-0.5">Winner</div>
+                                <div class="text-gray-800">
+                                    {% if winning_bid.team_id > 0 %}
+                                        {{ winning_bid.team_name }}
+                                        {% if winning_bid.team_id == current_user.team.id %}
+                                            <span class="text-green-600">(You)</span>
+                                        {% endif %}
+                                    {% else %}
+                                        Not Acquired
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="bg-white/10 p-2 rounded">
+                                <div class="text-gray-600 mb-0.5">Winning Bid</div>
+                                <div class="text-gray-800 font-medium">
+                                    {% if winning_bid.amount > 0 %}
+                                        £{{ "{:,}".format(winning_bid.amount) }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="bg-white/10 p-2 rounded">
+                                <div class="text-gray-600 mb-0.5">Your Bid</div>
+                                <div class="text-gray-800">
+                                    {% if user_bid.amount > 0 %}
+                                        £{{ "{:,}".format(user_bid.amount) }}
+                                    {% else %}
+                                        -
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="bg-white/10 p-2 rounded">
+                                <div class="text-gray-600 mb-0.5">Rating</div>
+                                <div class="text-gray-800">{{ player.overall_rating }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+                
+                <!-- Desktop view (table layout) -->
+                <div class="hidden md:block overflow-x-auto">
                     <table class="min-w-full divide-y divide-gray-200">
                         <thead>
                             <tr>
@@ -513,7 +593,7 @@
 </div>
 
 <!-- Toast Notifications Container -->
-<div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-4"></div>
+<div id="toast-container" class="fixed top-4 right-4 z-50 flex flex-col gap-4 max-w-xs sm:max-w-sm"></div>
 
 <script>
 // Timer functionality
@@ -587,31 +667,31 @@ function showAlert(type, message) {
     const toast = document.createElement('div');
     
     // Set base classes
-    toast.className = `max-w-xs p-4 rounded-xl shadow-lg transform transition-all duration-300 flex items-center glass`;
+    toast.className = `w-full max-w-xs p-4 rounded-xl shadow-lg transform transition-all duration-300 flex items-center glass`;
     
     // Add type-specific styles
     if (type === 'error') {
         toast.classList.add('border-l-4', 'border-red-500');
         toast.innerHTML = `
-            <svg class="w-6 h-6 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-red-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>`;
     } else if (type === 'success') {
         toast.classList.add('border-l-4', 'border-green-500');
         toast.innerHTML = `
-            <svg class="w-6 h-6 text-green-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-green-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>`;
     } else if (type === 'info') {
         toast.classList.add('border-l-4', 'border-blue-500');
         toast.innerHTML = `
-            <svg class="w-6 h-6 text-blue-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-5 h-5 text-blue-500 mr-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>`;
     }
     
     // Add message
-    toast.innerHTML += `<span class="text-sm font-medium text-gray-900">${message}</span>`;
+    toast.innerHTML += `<span class="text-sm font-medium text-gray-900 flex-1 pr-2">${message}</span>`;
     
     // Add to container
     container.appendChild(toast);

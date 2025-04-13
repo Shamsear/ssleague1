@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Team, Player, Round, Bid, TiebreakerBid
 from config import Config
@@ -6,7 +6,7 @@ from forms import LoginForm, RegistrationForm
 from werkzeug.security import generate_password_hash
 import json
 from datetime import datetime, timedelta
-from openpyxl.utils import get_column_letter
+import os
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -195,7 +195,36 @@ def team_players_data():
     if not current_user.team:
         flash('You need to be part of a team to view this page.', 'error')
         return redirect(url_for('dashboard'))
-    return render_template('team_players_data.html')
+    
+    # Get query parameters for pagination and filtering
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 40, type=int)  # Default to 40 players per page
+    position_filter = request.args.get('position', None)
+    search_query = request.args.get('q', None)
+    
+    # Build the query
+    query = Player.query
+    
+    # Apply position filter if provided
+    if position_filter and position_filter in Config.POSITIONS:
+        query = query.filter_by(position=position_filter)
+    
+    # Apply search filter if provided
+    if search_query and search_query.strip():
+        search_term = f"%{search_query.strip()}%"
+        query = query.filter(Player.name.ilike(search_term))
+    
+    # Get paginated results
+    players_pagination = query.order_by(Player.overall_rating.desc()).paginate(page=page, per_page=per_page)
+    
+    return render_template(
+        'team_players_data.html',
+        players_pagination=players_pagination,
+        players=players_pagination.items,
+        config=Config,
+        current_position=position_filter,
+        search_query=search_query
+    )
 
 @app.route('/team/bids')
 @login_required
@@ -211,18 +240,55 @@ def team_bids():
 def get_player(player_id):
     player = Player.query.get_or_404(player_id)
     
+    # Find winning bid to get cost and acquisition date
+    winning_bid = None
+    if player.team_id:
+        winning_bid = Bid.query.filter_by(
+            team_id=player.team_id, 
+            player_id=player.id
+        ).order_by(Bid.amount.desc()).first()
+    
     player_data = {
         'id': player.id,
         'name': player.name,
         'position': player.position,
         'overall_rating': player.overall_rating,
         'team_id': player.team_id,
-        # Include existing stats
+        'player_id': player.player_id if hasattr(player, 'player_id') else None,
+        # Cost and acquisition date
+        'cost': winning_bid.amount if winning_bid else None,
+        'acquired_at': winning_bid.timestamp.isoformat() if winning_bid else None,
+        # Player attributes with safe access
         'speed': player.speed if hasattr(player, 'speed') else None,
         'dribbling': player.dribbling if hasattr(player, 'dribbling') else None,
         'offensive_awareness': player.offensive_awareness if hasattr(player, 'offensive_awareness') else None,
         'ball_control': player.ball_control if hasattr(player, 'ball_control') else None,
-        'physical_contact': player.physical_contact if hasattr(player, 'physical_contact') else None
+        'physical_contact': player.physical_contact if hasattr(player, 'physical_contact') else None,
+        'finishing': player.finishing if hasattr(player, 'finishing') else None,
+        'heading': player.heading if hasattr(player, 'heading') else None,
+        'acceleration': player.acceleration if hasattr(player, 'acceleration') else None,
+        'kicking_power': player.kicking_power if hasattr(player, 'kicking_power') else None,
+        'defensive_awareness': player.defensive_awareness if hasattr(player, 'defensive_awareness') else None,
+        'tackling': player.tackling if hasattr(player, 'tackling') else None,
+        'aggression': player.aggression if hasattr(player, 'aggression') else None,
+        'tight_possession': player.tight_possession if hasattr(player, 'tight_possession') else None,
+        'low_pass': player.low_pass if hasattr(player, 'low_pass') else None,
+        'lofted_pass': player.lofted_pass if hasattr(player, 'lofted_pass') else None,
+        'stamina': player.stamina if hasattr(player, 'stamina') else None,
+        'balance': player.balance if hasattr(player, 'balance') else None,
+        'defensive_engagement': player.defensive_engagement if hasattr(player, 'defensive_engagement') else None,
+        'set_piece_taking': player.set_piece_taking if hasattr(player, 'set_piece_taking') else None,
+        'curl': player.curl if hasattr(player, 'curl') else None,
+        'jumping': player.jumping if hasattr(player, 'jumping') else None,
+        'nationality': player.nationality if hasattr(player, 'nationality') else None,
+        'playing_style': player.playing_style if hasattr(player, 'playing_style') else None,
+        'team_name': player.team_name if hasattr(player, 'team_name') else None,
+        # Goalkeeper specific stats
+        'gk_awareness': player.gk_awareness if hasattr(player, 'gk_awareness') else None,
+        'gk_catching': player.gk_catching if hasattr(player, 'gk_catching') else None,
+        'gk_parrying': player.gk_parrying if hasattr(player, 'gk_parrying') else None,
+        'gk_reflexes': player.gk_reflexes if hasattr(player, 'gk_reflexes') else None,
+        'gk_reach': player.gk_reach if hasattr(player, 'gk_reach') else None,
     }
     
     return jsonify(player_data)
@@ -1337,111 +1403,6 @@ def admin_delete_player(player_id):
     db.session.commit()
     return jsonify({'message': 'Player deleted successfully'})
 
-@app.route('/admin/export_players')
-@login_required
-def export_players():
-    """Export all players to an Excel file with sheets organized by position"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    try:
-        import pandas as pd
-        from io import BytesIO
-        from openpyxl.utils import get_column_letter
-        
-        # Create a BytesIO object to save the Excel file
-        output = BytesIO()
-        
-        # Create Excel writer
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # Loop through each position
-            for position in Config.POSITIONS:
-                # Get players for this position
-                players = Player.query.filter_by(position=position).all()
-                
-                if not players:
-                    continue  # Skip if no players for this position
-                
-                # Create a data list for pandas DataFrame
-                data = []
-                for player in players:
-                    # Get team name if player is in a team
-                    team_name = None
-                    if player.team_id:
-                        team = Team.query.get(player.team_id)
-                        team_name = team.name if team else None
-                    
-                    # Create player data dictionary
-                    player_data = {
-                        'ID': player.id,
-                        'Name': player.name,
-                        'Position': player.position,
-                        'Overall Rating': player.overall_rating,
-                        'Playing Style': player.playing_style if hasattr(player, 'playing_style') else None,
-                        'Team': team_name,
-                    }
-                    
-                    # Add all available attribute fields
-                    all_attributes = [
-                        'speed', 'dribbling', 'offensive_awareness', 'ball_control', 
-                        'physical_contact', 'tight_possession', 'low_pass', 'lofted_pass',
-                        'finishing', 'heading', 'set_piece_taking', 'curl', 'acceleration',
-                        'kicking_power', 'jumping', 'balance', 'stamina', 'defensive_awareness',
-                        'tackling', 'aggression', 'defensive_engagement'
-                    ]
-                    
-                    for attr in all_attributes:
-                        if hasattr(player, attr):
-                            # Convert from snake_case to Title Case for display
-                            attr_display = ' '.join(word.capitalize() for word in attr.split('_'))
-                            player_data[attr_display] = getattr(player, attr)
-                    
-                    data.append(player_data)
-                
-                # Create DataFrame and write to Excel
-                df = pd.DataFrame(data)
-                df.to_excel(writer, sheet_name=position, index=False)
-                
-                # Auto-adjust columns' width
-                worksheet = writer.sheets[position]
-                
-                # Convert all values to strings before calculating column width
-                str_df = df.astype(str)
-                
-                for i, col in enumerate(df.columns):
-                    # Convert numeric column index to Excel-style letter (A, B, C, etc.)
-                    column_letter = get_column_letter(i + 1)
-                    
-                    # Find the maximum length in the column
-                    # Handle None values by converting to empty string
-                    max_len = max(
-                        max([len(str(x)) for x in str_df[col] if str(x) != 'None']+[0]),  # Length of largest item
-                        len(str(col))  # Length of column name
-                    ) + 2  # Add a little extra space
-                    
-                    # Set the column width
-                    worksheet.column_dimensions[column_letter].width = max_len
-        
-        # Seek to beginning of file
-        output.seek(0)
-        
-        # Create response with Excel file
-        from flask import send_file
-        filename = f"players_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        return send_file(
-            output,
-            as_attachment=True,
-            download_name=filename,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-    
-    except Exception as e:
-        import traceback
-        print(f"Error exporting players: {str(e)}")
-        traceback.print_exc()
-        flash(f"Error exporting players: {str(e)}", "error")
-        return redirect(url_for('admin_players'))
-
 @app.route('/api/active_tiebreakers')
 @login_required
 def get_active_tiebreakers():
@@ -1561,105 +1522,12 @@ def admin_view_round(round_id):
         teams=teams
     )
 
-@app.route('/admin/export_winning_bids')
-@login_required
-def export_winning_bids():
-    """Export winning bids to an Excel file"""
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    try:
-        import pandas as pd
-        from io import BytesIO
-        from openpyxl.utils import get_column_letter
-        
-        # Create a BytesIO object to save the Excel file
-        output = BytesIO()
-        
-        # Get all completed rounds
-        rounds = Round.query.filter_by(is_active=False).all()
-        
-        # Create Excel writer
-        with pd.ExcelWriter(output, engine='openpyxl') as writer:
-            # Create a data list for pandas DataFrame
-            data = []
-            
-            for round_obj in rounds:
-                # Get all players from this round that have been allocated to teams
-                allocated_players = Player.query.filter(
-                    (Player.round_id == round_obj.id) & 
-                    (Player.team_id != None)
-                ).all()
-                
-                # For each allocated player, find the winning bid
-                for player in allocated_players:
-                    # Find the winning bid (the bid from the team that won the player)
-                    winning_bid = Bid.query.filter_by(
-                        round_id=round_obj.id,
-                        player_id=player.id,
-                        team_id=player.team_id
-                    ).first()
-                    
-                    if winning_bid:
-                        team = Team.query.get(player.team_id)
-                        
-                        # Create bid data dictionary
-                        bid_data = {
-                            'Round ID': round_obj.id,
-                            'Position': round_obj.position,
-                            'Player Name': player.name,
-                            'Player Rating': player.overall_rating,
-                            'Playing Style': player.playing_style if hasattr(player, 'playing_style') else None,
-                            'Team Name': team.name if team else "Unknown",
-                            'Bid Amount': winning_bid.amount,
-                            'Bid Date': winning_bid.timestamp.strftime('%Y-%m-%d %H:%M:%S')
-                        }
-                        data.append(bid_data)
-            
-            # Create DataFrame and write to Excel
-            if data:
-                df = pd.DataFrame(data)
-                df.to_excel(writer, sheet_name='Winning Bids', index=False)
-                
-                # Auto-adjust columns' width
-                worksheet = writer.sheets['Winning Bids']
-                for i, col in enumerate(df.columns):
-                    # Convert numeric column index to Excel-style letter
-                    column_letter = get_column_letter(i + 1)
-                    
-                    # Find the maximum length in the column
-                    # Handle None values by converting to empty string
-                    max_len = max(
-                        max([len(str(x)) for x in df[col] if str(x) != 'None']+[0]),  # Length of largest item
-                        len(str(col))  # Length of column name
-                    ) + 2  # Add a little extra space
-                    
-                    # Set the column width
-                    worksheet.column_dimensions[column_letter].width = max_len
-            else:
-                # Create an empty sheet if no data
-                pd.DataFrame().to_excel(writer, sheet_name='Winning Bids', index=False)
-                writer.sheets['Winning Bids'].cell(row=1, column=1).value = "No winning bids found"
-        
-        # Seek to beginning of file
-        output.seek(0)
-        
-        # Create response with Excel file
-        from flask import send_file
-        filename = f"winning_bids_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.xlsx"
-        return send_file(
-            output,
-            as_attachment=True,
-            download_name=filename,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-    
-    except Exception as e:
-        import traceback
-        print(f"Error exporting winning bids: {str(e)}")
-        traceback.print_exc()
-        flash(f"Error exporting winning bids: {str(e)}", "error")
-        return redirect(url_for('admin_rounds'))
+# Add a route to serve player images
+@app.route('/images/player_photos/<filename>')
+def player_photos(filename):
+    # Use absolute path to images folder
+    root_dir = os.path.dirname(os.path.abspath(__file__))
+    return send_from_directory(os.path.join(root_dir, 'images', 'player_photos'), filename)
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=10000) 
