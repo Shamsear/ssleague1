@@ -17,6 +17,6 @@ class Config:
     MINIMUM_BID = 10
     POSITIONS = ['GK', 'CB', 'RB', 'LB', 'CMF', 'DMF', 'RMF', 'LMF', 'AMF', 'SS', 'CF'] 
     PLAYING_STYLES = ['Anchor Man', 'Box-to-Box', 'Creative Playmaker', 'Cross Specialist', 'Defensive Fullback', 
-                      'Destroyer', 'Fox in the Box', 'Goal Poacher', 'Hole Player', 'Orchestrator', 
+                      'Fox in the Box', 'Goal Poacher', 'Hole Player', 'Orchestrator', 
                       'Offensive Fullback', 'Prolific Winger', 'Target Man', 'The Destroyer', 'Build Up', 
-                      'Classic No. 10', 'Defensive Goalkeeper', 'Offensive Goalkeeper', 'None'] 
+                      'Classic No. 10', 'Defensive Goalkeeper', 'Offensive Goalkeeper'] 
