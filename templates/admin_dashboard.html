@@ -8,7 +8,7 @@
     <h1 class="text-2xl font-bold text-dark mb-6 text-center md:hidden gradient-text">Admin Dashboard</h1>
     
     <!-- Quick Stats -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
         <!-- Total Teams -->
         <div class="glass rounded-3xl p-4 sm:p-6 hover-float">
             <div class="flex items-center justify-between">
@@ -53,12 +53,27 @@
                 </div>
             </div>
         </div>
+        
+        <!-- Pending Approvals -->
+        <div class="glass rounded-3xl p-4 sm:p-6 hover-float">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm text-gray-600 mb-1">Pending Approvals</p>
+                    <h3 class="text-xl sm:text-2xl font-bold {% if pending_approvals > 0 %}text-accent{% else %}text-dark{% endif %}">{{ pending_approvals }}</h3>
+                </div>
+                <a href="{{ url_for('admin_users') }}" class="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl {% if pending_approvals > 0 %}bg-gradient-to-r from-orange-500 to-red-500{% else %}bg-gradient-to-r from-primary to-secondary{% endif %} flex items-center justify-center">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- Quick Actions -->
     <div class="glass rounded-3xl p-4 sm:p-6 mb-6 sm:mb-8">
         <h2 class="text-lg sm:text-xl font-bold text-dark mb-3 sm:mb-4">Quick Actions</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
             <a href="{{ url_for('admin_teams') }}" class="px-3 sm:px-4 py-3 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center">
                 <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -76,6 +91,12 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
                 <span class="text-sm sm:text-base">Rounds</span>
+            </a>
+            <a href="{{ url_for('admin_users') }}" class="px-3 sm:px-4 py-3 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center {% if pending_approvals > 0 %}border-2 border-accent{% endif %}">
+                <svg class="w-5 h-5 mr-2 {% if pending_approvals > 0 %}text-accent{% else %}text-primary{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                <span class="text-sm sm:text-base">Users{% if pending_approvals > 0 %} ({{ pending_approvals }}){% endif %}</span>
             </a>
             <button onclick="showStartRoundModal()" class="px-3 sm:px-4 py-3 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button flex items-center justify-center">
                 <svg class="w-5 h-5 mr-2 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">

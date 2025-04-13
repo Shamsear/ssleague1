@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - Football Auction{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Users Overview -->
+    <div class="glass rounded-3xl p-4 sm:p-6 mb-8 shadow-lg">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
+            <h2 class="text-xl font-bold text-dark">Users Overview</h2>
+        </div>
+        
+        <!-- Desktop Table (hidden on mobile) -->
+        <div class="hidden md:block overflow-x-auto rounded-xl shadow-sm">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50/50">
+                    <tr>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Username</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Team</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Registration Date</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                        <th class="px-5 py-3.5 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white/30">
+                    {% for user in users %}
+                    <tr class="hover:bg-white/60 transition-colors">
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-800">{{ user.username }}</div>
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-700">{{ user.team.name if user.team else 'No Team' }}</div>
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">Registration Date Not Available</div>
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap">
+                            {% if user.is_approved %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    Approved
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                    Pending Approval
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-5 py-4 whitespace-nowrap text-sm">
+                            <div class="flex space-x-4">
+                                {% if not user.is_approved %}
+                                <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post">
+                                    <button type="submit" class="text-green-600 hover:text-green-800 font-medium transition-colors duration-200 flex items-center">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Approve
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No users found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile Card View (visible only on mobile) -->
+        <div class="md:hidden space-y-4">
+            {% for user in users %}
+            <div class="bg-white/40 rounded-2xl p-4 shadow-sm border border-gray-100/20">
+                <div class="flex justify-between items-start mb-3">
+                    <h3 class="text-lg font-semibold text-gray-800">{{ user.username }}</h3>
+                    <div>
+                        {% if user.is_approved %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                Approved
+                            </span>
+                        {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                Pending
+                            </span>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <div class="mb-3">
+                    <p class="text-xs font-medium text-gray-500 mb-1">Team</p>
+                    <p class="text-sm font-bold text-gray-700">{{ user.team.name if user.team else 'No Team' }}</p>
+                </div>
+                
+                {% if not user.is_approved %}
+                <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post">
+                    <button type="submit" class="w-full px-3 py-2 rounded-xl bg-green-500 text-white hover:bg-green-600 transition-all duration-300 text-sm flex items-center justify-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Approve User
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+            {% else %}
+            <div class="bg-white/40 rounded-2xl p-4 shadow-sm border border-gray-100/20 text-center text-gray-500">
+                No users found
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -10,6 +10,7 @@ class User(UserMixin, db.Model):
     username = db.Column(db.String(80), unique=True, nullable=False)
     password_hash = db.Column(db.String(256), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
+    is_approved = db.Column(db.Boolean, default=False)
     team = db.relationship('Team', backref='user', uselist=False)
 
     def set_password(self, password):
@@ -120,4 +121,12 @@ class TiebreakerBid(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     team = db.relationship('Team', backref='tiebreaker_bids')
     player = db.relationship('Player', backref='tiebreaker_bids')
-    round = db.relationship('Round', backref='tiebreaker_bids') 
+    round = db.relationship('Round', backref='tiebreaker_bids')
+
+class StarredPlayer(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    team = db.relationship('Team', backref='starred_players')
+    player = db.relationship('Player', backref='starred_by') 

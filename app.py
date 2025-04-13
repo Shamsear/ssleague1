@@ -1,12 +1,14 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Team, Player, Round, Bid, TiebreakerBid
+from models import db, User, Team, Player, Round, Bid, TiebreakerBid, StarredPlayer
 from config import Config
 from forms import LoginForm, RegistrationForm
 from werkzeug.security import generate_password_hash
 import json
 from datetime import datetime, timedelta
 import os
+import pandas as pd
+import io
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -38,9 +40,14 @@ def login():
     if form.validate_on_submit():
         user = User.query.filter_by(username=form.username.data).first()
         if user and user.check_password(form.password.data):
-            login_user(user, remember=form.remember.data)
-            return redirect(url_for('dashboard'))
-        flash('Invalid username or password')
+            # Check if admin or approved user
+            if user.is_admin or user.is_approved:
+                login_user(user, remember=form.remember.data)
+                return redirect(url_for('dashboard'))
+            else:
+                flash('Your account is waiting for admin approval. Please try again later.', 'warning')
+        else:
+            flash('Invalid username or password')
     
     return render_template('login.html', form=form)
 
@@ -85,11 +92,16 @@ def dashboard():
         active_rounds = Round.query.filter_by(is_active=True, is_tiebreaker=False).all()
         active_tiebreakers = Round.query.filter_by(is_active=True, is_tiebreaker=True).all()
         rounds = Round.query.all()
+        
+        # Get pending user approvals count
+        pending_approvals = User.query.filter_by(is_approved=False, is_admin=False).count()
+        
         return render_template('admin_dashboard.html', 
                               teams=teams, 
                               active_rounds=active_rounds,
                               active_tiebreakers=active_tiebreakers,
                               rounds=rounds, 
+                              pending_approvals=pending_approvals,
                               config=Config)
     
     # For team users, get only the tiebreakers they're participating in
@@ -200,6 +212,7 @@ def team_players_data():
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 40, type=int)  # Default to 40 players per page
     position_filter = request.args.get('position', None)
+    playing_style_filter = request.args.get('playing_style', None)
     search_query = request.args.get('q', None)
     
     # Build the query
@@ -209,6 +222,10 @@ def team_players_data():
     if position_filter and position_filter in Config.POSITIONS:
         query = query.filter_by(position=position_filter)
     
+    # Apply playing style filter if provided
+    if playing_style_filter and playing_style_filter in Config.PLAYING_STYLES:
+        query = query.filter_by(playing_style=playing_style_filter)
+    
     # Apply search filter if provided
     if search_query and search_query.strip():
         search_term = f"%{search_query.strip()}%"
@@ -217,13 +234,20 @@ def team_players_data():
     # Get paginated results
     players_pagination = query.order_by(Player.overall_rating.desc()).paginate(page=page, per_page=per_page)
     
+    # Get the starred players for the current team
+    team_id = current_user.team.id
+    starred_players = StarredPlayer.query.filter_by(team_id=team_id).all()
+    starred_player_ids = [sp.player_id for sp in starred_players]
+    
     return render_template(
         'team_players_data.html',
         players_pagination=players_pagination,
         players=players_pagination.items,
         config=Config,
         current_position=position_filter,
-        search_query=search_query
+        current_playing_style=playing_style_filter,
+        search_query=search_query,
+        starred_player_ids=starred_player_ids
     )
 
 @app.route('/team/bids')
@@ -1478,6 +1502,7 @@ def admin_view_round(round_id):
     
     # Get all bids for this round
     all_bids = Bid.query.filter_by(round_id=round_id).all()
+    print(f"Found {len(all_bids)} bids for round {round_id}")
     
     # Get team bids data
     team_bids = {}
@@ -1495,13 +1520,26 @@ def admin_view_round(round_id):
         # Add to team bids
         if bid.team_id in team_bids:
             player = Player.query.get(bid.player_id)
+            if not player:
+                print(f"Warning: Player not found for bid {bid.id} (player_id: {bid.player_id})")
+                continue
+                
             is_winning = player.team_id == bid.team_id
             
-            team_bids[bid.team_id]['bids'].append({
-                'bid': bid,
+            # Format the timestamp for display
+            created_at = bid.timestamp.strftime('%d/%m/%Y %H:%M:%S') if bid.timestamp else 'N/A'
+            
+            # Create bid data structure
+            bid_data = {
                 'player': player,
-                'is_winning': is_winning
-            })
+                'amount': bid.amount,
+                'is_winning': is_winning,
+                'created_at': created_at
+            }
+            
+            # Add to team bids
+            team_bids[bid.team_id]['bids'].append(bid_data)
+            print(f"Added bid for player {player.name} to team {team_bids[bid.team_id]['team'].name} (amount: {bid.amount}, winning: {is_winning})")
             
             # If this is a winning bid, add to winning bids list
             if is_winning:
@@ -1511,8 +1549,16 @@ def admin_view_round(round_id):
                     'team': team_bids[bid.team_id]['team']
                 })
     
+    # Sort team bids by timestamp (newest first)
+    for team_id in team_bids:
+        team_bids[team_id]['bids'].sort(key=lambda x: x['created_at'], reverse=True)
+    
     # Sort winning bids by bid amount (descending)
     winning_bids.sort(key=lambda x: x['bid'].amount, reverse=True)
+    
+    # Debug count of bids per team
+    for team_id, team_data in team_bids.items():
+        print(f"Team {team_data['team'].name} has {len(team_data['bids'])} bids")
     
     return render_template(
         'admin_view_round.html',
@@ -1526,8 +1572,486 @@ def admin_view_round(round_id):
 @app.route('/images/player_photos/<filename>')
 def player_photos(filename):
     # Use absolute path to images folder
-    root_dir = os.path.dirname(os.path.abspath(__file__))
-    return send_from_directory(os.path.join(root_dir, 'images', 'player_photos'), filename)
+    return send_from_directory(os.path.join(app.root_path, 'static/images/player_photos'), filename)
+
+@app.route('/api/star_player/<int:player_id>', methods=['POST'])
+@login_required
+def star_player(player_id):
+    if not current_user.team:
+        return jsonify({'error': 'You need to be part of a team to star players'}), 403
+    
+    player = Player.query.get_or_404(player_id)
+    team_id = current_user.team.id
+    
+    # Check if player is already starred
+    existing_star = StarredPlayer.query.filter_by(team_id=team_id, player_id=player_id).first()
+    if existing_star:
+        return jsonify({'message': 'Player already starred'}), 200
+    
+    # Add player to starred list
+    star = StarredPlayer(team_id=team_id, player_id=player_id)
+    db.session.add(star)
+    db.session.commit()
+    
+    return jsonify({'message': 'Player starred successfully'})
+
+@app.route('/api/unstar_player/<int:player_id>', methods=['POST'])
+@login_required
+def unstar_player(player_id):
+    if not current_user.team:
+        return jsonify({'error': 'You need to be part of a team'}), 403
+    
+    team_id = current_user.team.id
+    
+    # Find and remove the star
+    star = StarredPlayer.query.filter_by(team_id=team_id, player_id=player_id).first()
+    if not star:
+        return jsonify({'message': 'Player is not starred'}), 200
+    
+    db.session.delete(star)
+    db.session.commit()
+    
+    return jsonify({'message': 'Player unstarred successfully'})
+
+@app.route('/export_winning_bids')
+@login_required
+def export_winning_bids():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Get the round ID from the query parameters
+    round_id = request.args.get('round_id')
+    if not round_id:
+        flash('Round ID is required', 'error')
+        return redirect(url_for('admin_rounds'))
+    
+    round = Round.query.get_or_404(round_id)
+    teams = Team.query.all()
+    
+    # Get all bids for this round
+    all_bids = Bid.query.filter_by(round_id=round_id).all()
+    
+    # Prepare team bids data
+    team_bids = {}
+    for team in teams:
+        team_bids[team.id] = {
+            'team': team,
+            'bids': []
+        }
+    
+    # Collect winning bids data
+    winning_bids = []
+    
+    # Process all bids
+    for bid in all_bids:
+        # Add to team bids
+        if bid.team_id in team_bids:
+            player = Player.query.get(bid.player_id)
+            is_winning = player.team_id == bid.team_id
+            
+            # If this is a winning bid, add to winning bids list
+            if is_winning:
+                winning_bids.append({
+                    'bid': bid,
+                    'player': player,
+                    'team': team_bids[bid.team_id]['team']
+                })
+    
+    # Sort winning bids by bid amount (descending)
+    winning_bids.sort(key=lambda x: x['bid'].amount, reverse=True)
+    
+    # Create a pandas DataFrame for export
+    if winning_bids:
+        data = {
+            'Player': [wb['player'].name for wb in winning_bids],
+            'Team': [wb['team'].name for wb in winning_bids],
+            'Bid Amount': [wb['bid'].amount for wb in winning_bids],
+            'Position': [wb['player'].position for wb in winning_bids],
+            'Rating': [wb['player'].overall_rating for wb in winning_bids]
+        }
+        df = pd.DataFrame(data)
+        
+        # Create Excel file in memory
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, sheet_name='Winning Bids', index=False)
+            
+            # Get the xlsxwriter workbook and worksheet objects
+            workbook = writer.book
+            worksheet = writer.sheets['Winning Bids']
+            
+            # Set column widths
+            worksheet.set_column('A:A', 25)  # Player name
+            worksheet.set_column('B:B', 25)  # Team name
+            worksheet.set_column('C:C', 15)  # Bid amount
+            worksheet.set_column('D:D', 10)  # Position
+            worksheet.set_column('E:E', 10)  # Rating
+            
+            # Add formatting
+            header_format = workbook.add_format({
+                'bold': True, 
+                'bg_color': '#D3D3D3',
+                'border': 1
+            })
+            
+            # Apply header formatting
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+        
+        # Set up response
+        output.seek(0)
+        round_position = round.position.replace(' ', '_')
+        now = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"winning_bids_{round_position}_{now}.xlsx"
+        
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    else:
+        flash('No winning bids found for this round', 'warning')
+        return redirect(url_for('admin_view_round', round_id=round_id))
+
+@app.route('/admin/export_players')
+@login_required
+def admin_export_players():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Get all players
+    players = Player.query.all()
+    
+    # Create a dictionary to organize players by position
+    players_by_position = {}
+    for position in Config.POSITIONS:
+        players_by_position[position] = []
+    
+    # Group players by position
+    for player in players:
+        if player.position in players_by_position:
+            players_by_position[player.position].append(player)
+    
+    # Create Excel file in memory
+    output = io.BytesIO()
+    
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        
+        # Create header format
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#D3D3D3',
+            'border': 1
+        })
+        
+        # Create a summary sheet first
+        all_players_data = []
+        for player in players:
+            team_name = player.team.name if player.team else "Free Agent"
+            all_players_data.append({
+                'Name': player.name,
+                'Position': player.position,
+                'Rating': player.overall_rating,
+                'Team': team_name
+            })
+        
+        # Create summary dataframe and sheet
+        if all_players_data:
+            df_all = pd.DataFrame(all_players_data)
+            df_all.to_excel(writer, sheet_name='All Players', index=False)
+            
+            # Format summary sheet
+            worksheet = writer.sheets['All Players']
+            worksheet.set_column('A:A', 25)  # Name
+            worksheet.set_column('B:B', 10)  # Position
+            worksheet.set_column('C:C', 10)  # Rating
+            worksheet.set_column('D:D', 20)  # Team
+            
+            # Apply header formatting
+            for col_num, value in enumerate(df_all.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+        
+        # Create a sheet for each position with detailed stats
+        for position, position_players in players_by_position.items():
+            if not position_players:
+                continue
+                
+            players_data = []
+            for player in position_players:
+                team_name = player.team.name if player.team else "Free Agent"
+                player_data = {
+                    'Name': player.name,
+                    'Team': team_name,
+                    'Overall Rating': player.overall_rating,
+                    'Nationality': player.nationality or 'N/A',
+                    'Playing Style': player.playing_style or 'N/A',
+                    'Speed': player.speed,
+                    'Acceleration': player.acceleration,
+                    'Ball Control': player.ball_control,
+                    'Dribbling': player.dribbling,
+                    'Low Pass': player.low_pass,
+                    'Lofted Pass': player.lofted_pass,
+                    'Finishing': player.finishing,
+                    'Heading': player.heading,
+                    'Set Piece Taking': player.set_piece_taking,
+                    'Curl': player.curl,
+                    'Physical Contact': player.physical_contact,
+                    'Balance': player.balance,
+                    'Stamina': player.stamina,
+                    'Defensive Awareness': player.defensive_awareness,
+                    'Tackling': player.tackling,
+                    'Aggression': player.aggression,
+                    'Defensive Engagement': player.defensive_engagement
+                }
+                
+                # Add goalkeeper specific stats if position is GK
+                if position == 'GK':
+                    player_data.update({
+                        'GK Awareness': player.gk_awareness,
+                        'GK Catching': player.gk_catching,
+                        'GK Parrying': player.gk_parrying,
+                        'GK Reflexes': player.gk_reflexes,
+                        'GK Reach': player.gk_reach
+                    })
+                
+                players_data.append(player_data)
+            
+            if players_data:
+                # Create dataframe and sheet for this position
+                df_position = pd.DataFrame(players_data)
+                sheet_name = position  # Use position as sheet name
+                df_position.to_excel(writer, sheet_name=sheet_name, index=False)
+                
+                # Format position sheet
+                worksheet = writer.sheets[sheet_name]
+                
+                # Set column widths
+                worksheet.set_column('A:A', 25)  # Name
+                worksheet.set_column('B:B', 20)  # Team
+                worksheet.set_column('C:C', 15)  # Overall Rating
+                worksheet.set_column('D:D', 15)  # Nationality
+                worksheet.set_column('E:E', 20)  # Playing Style
+                
+                # Apply header formatting
+                for col_num, value in enumerate(df_position.columns.values):
+                    worksheet.write(0, col_num, value, header_format)
+                
+                # Add conditional formatting for rating cells
+                worksheet.conditional_format(1, 2, len(players_data), 2, {
+                    'type': '3_color_scale',
+                    'min_color': '#FFFFFF',
+                    'mid_color': '#ADD8E6',
+                    'max_color': '#006400'
+                })
+                
+                # Add conditional formatting for attribute cells
+                attr_start_col = 5  # Starting from 'Speed' column
+                attr_end_col = len(df_position.columns) - 1
+                worksheet.conditional_format(1, attr_start_col, len(players_data), attr_end_col, {
+                    'type': '3_color_scale',
+                    'min_color': '#FFFFFF',
+                    'mid_color': '#FFEB84',
+                    'max_color': '#329932'
+                })
+    
+    # Set up response
+    output.seek(0)
+    now = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"players_database_{now}.xlsx"
+    
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+@app.route('/admin/export_team_squad/<int:team_id>')
+@login_required
+def export_team_squad(team_id):
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Get the team
+    team = Team.query.get_or_404(team_id)
+    
+    # Get all players in the team
+    players = Player.query.filter_by(team_id=team_id).all()
+    
+    if not players:
+        flash(f'No players found for team: {team.name}', 'warning')
+        return redirect(url_for('admin_teams'))
+    
+    # Group players by position
+    players_by_position = {}
+    for position in Config.POSITIONS:
+        players_by_position[position] = []
+    
+    # Calculate acquisition values and group by position
+    for player in players:
+        # Get player's acquisition value (from winning bid)
+        winning_bid = Bid.query.filter_by(
+            team_id=team.id,
+            player_id=player.id
+        ).order_by(Bid.amount.desc()).first()
+        
+        acquisition_value = winning_bid.amount if winning_bid else 0
+        
+        # Add player to position group
+        if player.position in players_by_position:
+            players_by_position[player.position].append({
+                'id': player.id,
+                'name': player.name,
+                'overall_rating': player.overall_rating,
+                'acquisition_value': acquisition_value,
+                'nationality': player.nationality or 'N/A',
+                'playing_style': player.playing_style or 'N/A'
+            })
+    
+    # Create Excel file in memory
+    output = io.BytesIO()
+    
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        workbook = writer.book
+        
+        # Create header format
+        header_format = workbook.add_format({
+            'bold': True,
+            'bg_color': '#D3D3D3',
+            'border': 1
+        })
+        
+        # Create summary sheet with all players
+        all_player_data = []
+        total_value = 0
+        
+        for position in Config.POSITIONS:
+            for player in players_by_position[position]:
+                total_value += player['acquisition_value']
+                all_player_data.append({
+                    'Name': player['name'],
+                    'Position': position,
+                    'Rating': player['overall_rating'],
+                    'Value': player['acquisition_value'],
+                    'Nationality': player['nationality'],
+                    'Playing Style': player['playing_style']
+                })
+        
+        # Create team summary sheet
+        summary_data = [{
+            'Team': team.name,
+            'Total Players': len(players),
+            'Total Value': total_value,
+            'Average Value': total_value / len(players) if players else 0,
+            'Balance': team.balance
+        }]
+        
+        df_summary = pd.DataFrame(summary_data)
+        df_summary.to_excel(writer, sheet_name='Team Summary', index=False)
+        
+        # Format team summary sheet
+        worksheet_summary = writer.sheets['Team Summary']
+        worksheet_summary.set_column('A:A', 25)  # Team
+        worksheet_summary.set_column('B:B', 15)  # Total Players
+        worksheet_summary.set_column('C:C', 15)  # Total Value
+        worksheet_summary.set_column('D:D', 15)  # Average Value
+        worksheet_summary.set_column('E:E', 15)  # Balance
+        
+        # Apply header formatting to summary
+        for col_num, value in enumerate(df_summary.columns.values):
+            worksheet_summary.write(0, col_num, value, header_format)
+        
+        # Create sheet with all players
+        if all_player_data:
+            df_all = pd.DataFrame(all_player_data)
+            df_all.to_excel(writer, sheet_name='All Players', index=False)
+            
+            # Format main player sheet
+            worksheet = writer.sheets['All Players']
+            worksheet.set_column('A:A', 25)  # Name
+            worksheet.set_column('B:B', 10)  # Position
+            worksheet.set_column('C:C', 10)  # Rating
+            worksheet.set_column('D:D', 15)  # Value
+            worksheet.set_column('E:E', 15)  # Nationality
+            worksheet.set_column('F:F', 20)  # Playing Style
+            
+            # Apply header formatting
+            for col_num, value in enumerate(df_all.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+        
+        # Create a sheet for each position with players
+        for position, position_players in players_by_position.items():
+            if not position_players:
+                continue
+            
+            # Sort players by rating (highest first)
+            position_players.sort(key=lambda x: x['overall_rating'], reverse=True)
+            
+            df_position = pd.DataFrame(position_players)
+            # Rename columns for better readability
+            df_position = df_position.rename(columns={
+                'name': 'Name',
+                'overall_rating': 'Rating',
+                'acquisition_value': 'Value',
+                'nationality': 'Nationality',
+                'playing_style': 'Playing Style'
+            })
+            # Select and order columns
+            df_position = df_position[['Name', 'Rating', 'Value', 'Nationality', 'Playing Style']]
+            
+            position_sheet_name = position[:31]  # Limit sheet name length
+            df_position.to_excel(writer, sheet_name=position_sheet_name, index=False)
+            
+            # Format position sheet
+            worksheet = writer.sheets[position_sheet_name]
+            worksheet.set_column('A:A', 25)  # Name
+            worksheet.set_column('B:B', 10)  # Rating
+            worksheet.set_column('C:C', 15)  # Value
+            worksheet.set_column('D:D', 15)  # Nationality
+            worksheet.set_column('E:E', 20)  # Playing Style
+            
+            # Apply header formatting
+            for col_num, value in enumerate(df_position.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+    
+    # Set up response
+    output.seek(0)
+    team_name = team.name.replace(' ', '_')
+    now = datetime.now().strftime('%Y%m%d_%H%M%S')
+    filename = f"team_squad_{team_name}_{now}.xlsx"
+    
+    return send_file(
+        output,
+        as_attachment=True,
+        download_name=filename,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+
+@app.route('/admin/users', methods=['GET'])
+@login_required
+def admin_users():
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    users = User.query.filter_by(is_admin=False).all()
+    return render_template('admin_users.html', users=users)
+
+@app.route('/admin/approve/<int:user_id>', methods=['POST'])
+@login_required
+def approve_user(user_id):
+    if not current_user.is_admin:
+        flash('You do not have permission to perform this action.', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    user = User.query.get_or_404(user_id)
+    user.is_approved = True
+    db.session.commit()
+    
+    flash(f'User {user.username} has been approved.', 'success')
+    return redirect(url_for('admin_users'))
 
 if __name__ == '__main__':
     with app.app_context():

@@ -63,6 +63,28 @@ python app.py
 
 2. Access the application at `http://localhost:5000`
 
+## Deploying on Render
+
+This application is configured for deployment on Render's cloud platform.
+
+1. Create a new Render account at [render.com](https://render.com) if you don't have one.
+
+2. From your Render dashboard, click "New" and select "Blueprint" to deploy from a Git repository.
+
+3. Connect your GitHub/GitLab repository containing this application.
+
+4. Render will automatically detect the `render.yaml` configuration file and set up your services.
+
+5. You'll need to set up the following environment variables in the Render dashboard:
+   - `SECRET_KEY`: A secure random string for session management
+   - `DATABASE_URL`: This will be automatically provided by Render if you create a PostgreSQL database
+
+6. After deployment, you can access your admin account with:
+   - Username: `admin`
+   - Password: `admin123`
+
+7. **IMPORTANT**: Change the admin password immediately after first login for security reasons.
+
 ## Usage
 
 ### For Teams
@@ -76,43 +98,6 @@ python app.py
 2. Start new rounds for different positions
 3. Monitor team activities and balances
 4. Finalize rounds to allocate players
-
-## Deployment on Vercel
-
-This application is configured for deployment on Vercel. Follow these steps to deploy:
-
-1. Install the Vercel CLI:
-```bash
-npm install -g vercel
-```
-
-2. Login to Vercel:
-```bash
-vercel login
-```
-
-3. Create a PostgreSQL database:
-   - You can use Vercel's Postgres database or an external provider like Supabase, Railway, or Neon.
-   - Update your database URL in the Vercel environment variables.
-
-4. Deploy the application:
-```bash
-vercel
-```
-
-5. Set the required environment variables on Vercel:
-   - SECRET_KEY
-   - DATABASE_URL (use the PostgreSQL connection string)
-
-6. To set up environment variables via the Vercel dashboard:
-   - Go to your Vercel project
-   - Click on "Settings"
-   - Navigate to "Environment Variables"
-   - Add the required variables
-
-7. For continuous deployment:
-   - Connect your GitHub repository to Vercel
-   - Vercel will automatically deploy when you push changes
 
 ## Project Structure
 

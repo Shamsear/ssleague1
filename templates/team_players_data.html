@@ -22,11 +22,25 @@
                         <option value="{{ position }}" {% if current_position == position %}selected{% endif %}>{{ position }}</option>
                         {% endfor %}
                     </select>
+                    <select id="playingStyleFilter" name="playing_style" class="w-full sm:w-auto py-2 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                        <option value="">All Playing Styles</option>
+                        {% for style in config.PLAYING_STYLES %}
+                        <option value="{{ style }}" {% if current_playing_style == style %}selected{% endif %}>{{ style }}</option>
+                        {% endfor %}
+                    </select>
                     <button type="submit" class="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all duration-300">
                         Filter
                     </button>
                 </form>
             </div>
+        </div>
+    </div>
+
+    <!-- Show Starred Players Toggle -->
+    <div class="mt-4 mb-6">
+        <div class="flex items-center space-x-2">
+            <input type="checkbox" id="showStarredOnly" class="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded">
+            <label for="showStarredOnly" class="text-sm font-medium text-gray-700">Show Only Starred Players</label>
         </div>
     </div>
 
@@ -38,19 +52,29 @@
         
         <div id="mobilePlayers" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {% for player in players %}
-            <div class="player-row glass-card p-4 rounded-xl hover:shadow-md transition-all duration-300">
+            <div class="player-row glass-card p-4 rounded-xl hover:shadow-md transition-all duration-300" data-player-id="{{ player.id }}" data-starred="{% if player.id in starred_player_ids %}true{% else %}false{% endif %}">
                 <div class="flex justify-between items-start mb-3">
                     <div>
                         <h4 class="font-medium text-gray-700 truncate max-w-[180px]">{{ player.name }}</h4>
                         <span class="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-lg">{{ player.position }}</span>
+                        {% if player.playing_style and player.playing_style != 'None' %}
+                        <span class="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg ml-1">{{ player.playing_style }}</span>
+                        {% endif %}
                     </div>
-                    <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full 
-                        {% if player.overall_rating >= 85 %}bg-green-100 text-green-800
-                        {% elif player.overall_rating >= 75 %}bg-blue-100 text-blue-800
-                        {% elif player.overall_rating >= 65 %}bg-yellow-100 text-yellow-800
-                        {% else %}bg-gray-100 text-gray-800{% endif %}">
-                        {{ player.overall_rating }}
-                    </span>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="toggleStarPlayer({{ player.id }}, event)" class="text-gray-400 hover:text-yellow-500 {% if player.id in starred_player_ids %}text-yellow-500{% endif %}">
+                            <svg class="w-5 h-5" fill="{% if player.id in starred_player_ids %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                            </svg>
+                        </button>
+                        <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full 
+                            {% if player.overall_rating >= 85 %}bg-green-100 text-green-800
+                            {% elif player.overall_rating >= 75 %}bg-blue-100 text-blue-800
+                            {% elif player.overall_rating >= 65 %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-gray-100 text-gray-800{% endif %}">
+                            {{ player.overall_rating }}
+                        </span>
+                    </div>
                 </div>
                 
                 <div class="grid grid-cols-2 gap-2 text-xs text-gray-600 mb-3">
@@ -91,8 +115,10 @@
             <table class="min-w-full divide-y divide-gray-200">
                 <thead>
                     <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Star</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Style</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Overall</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Speed</th>
                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acceleration</th>
@@ -106,12 +132,22 @@
                 </thead>
                 <tbody class="divide-y divide-gray-200 bg-white/30">
                     {% for player in players %}
-                    <tr class="player-row hover:bg-white/50 transition-colors">
+                    <tr class="player-row hover:bg-white/50 transition-colors" data-player-id="{{ player.id }}" data-starred="{% if player.id in starred_player_ids %}true{% else %}false{% endif %}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <button onclick="toggleStarPlayer({{ player.id }}, event)" class="text-gray-400 hover:text-yellow-500 {% if player.id in starred_player_ids %}text-yellow-500{% endif %}">
+                                <svg class="w-5 h-5" fill="{% if player.id in starred_player_ids %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
+                            </button>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm font-medium text-gray-700">{{ player.name }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <div class="text-sm text-gray-700">{{ player.position }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.playing_style or "None" }}</div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap">
                             <span class="px-2 py-1 text-xs rounded-full 
@@ -162,7 +198,7 @@
         <nav class="flex items-center space-x-1">
             <!-- Previous page -->
             {% if players_pagination.has_prev %}
-            <a href="{{ url_for('team_players_data', page=players_pagination.prev_num, position=current_position, q=search_query) }}" 
+            <a href="{{ url_for('team_players_data', page=players_pagination.prev_num, position=current_position, playing_style=current_playing_style, q=search_query) }}" 
                class="px-3 py-2 rounded-md bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -184,7 +220,7 @@
                 </span>
                 {% elif page_num <= 3 or page_num >= players_pagination.pages - 2 or 
                        (page_num >= players_pagination.page - 1 and page_num <= players_pagination.page + 1) %}
-                <a href="{{ url_for('team_players_data', page=page_num, position=current_position, q=search_query) }}" 
+                <a href="{{ url_for('team_players_data', page=page_num, position=current_position, playing_style=current_playing_style, q=search_query) }}" 
                    class="px-3 py-2 rounded-md bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
                     {{ page_num }}
                 </a>
@@ -198,7 +234,7 @@
             
             <!-- Next page -->
             {% if players_pagination.has_next %}
-            <a href="{{ url_for('team_players_data', page=players_pagination.next_num, position=current_position, q=search_query) }}" 
+            <a href="{{ url_for('team_players_data', page=players_pagination.next_num, position=current_position, playing_style=current_playing_style, q=search_query) }}" 
                class="px-3 py-2 rounded-md bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -400,6 +436,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchInput = document.getElementById('searchPlayer');
     const searchForm = searchInput.closest('form');
     const positionFilter = document.getElementById('positionFilter');
+    const playingStyleFilter = document.getElementById('playingStyleFilter');
+    const showStarredOnlyCheckbox = document.getElementById('showStarredOnly');
     
     // Debounce function to delay search
     let typingTimer;
@@ -421,10 +459,18 @@ document.addEventListener('DOMContentLoaded', function() {
         searchForm.submit();
     });
     
+    // Playing style filter changes should immediately search
+    playingStyleFilter.addEventListener('change', function() {
+        searchForm.submit();
+    });
+    
     // Cancel timer if user is still typing
     searchInput.addEventListener('keydown', function() {
         clearTimeout(typingTimer);
     });
+    
+    // Show only starred checkbox
+    showStarredOnlyCheckbox.addEventListener('change', filterStarredPlayers);
 });
 
 // Modal functionality
@@ -501,6 +547,77 @@ function closePlayerDetailsModal() {
     document.getElementById('playerLoadingState').classList.remove('hidden');
     document.getElementById('playerContent').classList.add('hidden');
     document.getElementById('playerErrorState').classList.add('hidden');
+}
+
+// Star/unstar functionality
+function toggleStarPlayer(playerId, event) {
+    event.stopPropagation(); // Prevent row click/modal open
+    
+    const playerRows = document.querySelectorAll(`.player-row[data-player-id="${playerId}"]`);
+    const isCurrentlyStarred = playerRows[0].getAttribute('data-starred') === 'true';
+    
+    // Determine which endpoint to call
+    const endpoint = isCurrentlyStarred ? `/api/unstar_player/${playerId}` : `/api/star_player/${playerId}`;
+    
+    // Make the API call
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Update all instances of this player in the DOM
+        playerRows.forEach(row => {
+            const newStarredStatus = !isCurrentlyStarred;
+            row.setAttribute('data-starred', newStarredStatus);
+            
+            // Update the star button
+            const starButton = row.querySelector('button[onclick^="toggleStarPlayer"]');
+            if (starButton) {
+                const starIcon = starButton.querySelector('svg');
+                if (newStarredStatus) {
+                    starButton.classList.add('text-yellow-500');
+                    starButton.classList.remove('text-gray-400');
+                    starIcon.setAttribute('fill', 'currentColor');
+                } else {
+                    starButton.classList.remove('text-yellow-500');
+                    starButton.classList.add('text-gray-400');
+                    starIcon.setAttribute('fill', 'none');
+                }
+            }
+        });
+        
+        // Apply filtered view if necessary
+        if (document.getElementById('showStarredOnly').checked) {
+            filterStarredPlayers();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to update starred status. Please try again.');
+    });
+}
+
+// Filter to show only starred players
+function filterStarredPlayers() {
+    const showOnlyStarred = document.getElementById('showStarredOnly').checked;
+    const playerRows = document.querySelectorAll('.player-row');
+    
+    playerRows.forEach(row => {
+        const isStarred = row.getAttribute('data-starred') === 'true';
+        if (showOnlyStarred && !isStarred) {
+            row.classList.add('hidden');
+        } else {
+            row.classList.remove('hidden');
+        }
+    });
 }
 </script>
 {% endblock %}
