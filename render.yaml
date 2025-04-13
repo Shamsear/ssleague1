@@ -1,7 +1,22 @@
 services:
   - type: web
-    name: flask-app
+    name: efootball-auction
     env: python
-    buildCommand: "pip install -r requirements.txt"
-    startCommand: "python app.py"
+    buildCommand: chmod +x build.sh && ./build.sh
+    startCommand: gunicorn app:app
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: efootball-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: FLASK_APP
+        value: app.py
+
+databases:
+  - name: efootball-db
+    databaseName: auction_db
     plan: free
