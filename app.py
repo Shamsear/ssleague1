@@ -1529,15 +1529,6 @@ def player_photos(filename):
     root_dir = os.path.dirname(os.path.abspath(__file__))
     return send_from_directory(os.path.join(root_dir, 'images', 'player_photos'), filename)
 
-# Create directories function without decorator
-def create_directories():
-    root_dir = os.path.dirname(os.path.abspath(__file__))
-    player_photos_dir = os.path.join(root_dir, 'images', 'player_photos')
-    os.makedirs(player_photos_dir, exist_ok=True)
-
-# Call the function to create directories
-create_directories()
-
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

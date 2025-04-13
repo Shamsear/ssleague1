@@ -77,6 +77,43 @@ python app.py
 3. Monitor team activities and balances
 4. Finalize rounds to allocate players
 
+## Deployment on Vercel
+
+This application is configured for deployment on Vercel. Follow these steps to deploy:
+
+1. Install the Vercel CLI:
+```bash
+npm install -g vercel
+```
+
+2. Login to Vercel:
+```bash
+vercel login
+```
+
+3. Create a PostgreSQL database:
+   - You can use Vercel's Postgres database or an external provider like Supabase, Railway, or Neon.
+   - Update your database URL in the Vercel environment variables.
+
+4. Deploy the application:
+```bash
+vercel
+```
+
+5. Set the required environment variables on Vercel:
+   - SECRET_KEY
+   - DATABASE_URL (use the PostgreSQL connection string)
+
+6. To set up environment variables via the Vercel dashboard:
+   - Go to your Vercel project
+   - Click on "Settings"
+   - Navigate to "Environment Variables"
+   - Add the required variables
+
+7. For continuous deployment:
+   - Connect your GitHub repository to Vercel
+   - Vercel will automatically deploy when you push changes
+
 ## Project Structure
 
 ```

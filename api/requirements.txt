@@ -1,0 +1,2 @@
+-r ../requirements.txt
+vercel_serverless_flask 
