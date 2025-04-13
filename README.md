@@ -85,26 +85,6 @@ This application is configured for deployment on Render's cloud platform.
 
 7. **IMPORTANT**: Change the admin password immediately after first login for security reasons.
 
-## Database Migration
-
-The application includes a database migration script to transfer player data from the SQLite database (`efootball_real.db`) to PostgreSQL on Render:
-
-1. Make sure your `efootball_real.db` file is included in your repository.
-
-2. The migration happens automatically during the build process on Render through the `init_db.py --import-data` command.
-
-3. To run the migration locally:
-```bash
-python init_db.py --import-data
-```
-
-4. To manually migrate only player data:
-```bash
-python migrate_sqlite_to_postgres.py
-```
-
-5. The migration script preserves player IDs, names, ratings, positions, nationalities, values, and playing styles.
-
 ## Usage
 
 ### For Teams
