@@ -4,7 +4,10 @@ from werkzeug.security import generate_password_hash
 import sqlite3
 import os
 import datetime
+<<<<<<< HEAD
 from migrate_db import migrate_database
+=======
+>>>>>>> b4cae2c6dcb41a60f515e37688ab0fae20069b68
 
 def create_players():
     # Check if the SQLite database file exists
