@@ -8,6 +8,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <!-- Socket.IO library -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <!-- Our real-time updates client -->
+    <script src="{{ url_for('static', filename='js/socketio-client.js') }}"></script>
     <script>
         tailwind.config = {
             theme: {

@@ -12,6 +12,7 @@ import io
 import pywebpush
 from pywebpush import webpush, WebPushException
 import base64
+import socket_events  # Import the socket events module
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -21,6 +22,14 @@ db.init_app(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Initialize Socket.IO
+socketio = socket_events.init_app(app)
+
+# Add a Jinja helper for current time
+@app.template_global()
+def now():
+    return datetime.utcnow()
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -428,12 +437,22 @@ def start_round():
         'body': f'A new round for {position} players has started. Place your bids now!',
         'data': {
             'type': 'round_start',
-        'round_id': round.id,
+            'round_id': round.id,
             'position': position,
             'duration': duration
         },
         'tag': f'round_start_{round.id}',
         'renotify': True
+    })
+    
+    # Broadcast round start via Socket.IO for real-time updates
+    socket_events.broadcast_round_start({
+        'round_id': round.id,
+        'position': position,
+        'duration': duration,
+        'start_time': round.start_time.isoformat() if round.start_time else datetime.utcnow().isoformat(),
+        'player_count': len(players),
+        'max_bids_per_team': max_bids_per_team
     })
     
     return jsonify({
@@ -619,6 +638,14 @@ def finalize_round_internal(round_id):
         },
         'tag': f'round_end_{round.id}',
         'renotify': True
+    })
+    
+    # Broadcast round end via Socket.IO for real-time updates
+    socket_events.broadcast_round_end({
+        'round_id': round.id,
+        'position': round.position,
+        'winning_bids': winning_bids,
+        'has_tiebreakers': len(tiebreaker_players) > 0
     })
     
     # Send notifications to teams that won players
@@ -812,6 +839,16 @@ def place_bid():
     # Players cannot see each other's bids, so outbid notifications would be confusing
     # Only the final results are important
     
+    # Send real-time update via Socket.IO to admins only
+    socket_events.broadcast_to_admins({
+        'type': 'new_bid',
+        'team_name': current_user.team.name,
+        'player_id': player_id,
+        'round_id': round_id,
+        'amount': amount,
+        'timestamp': datetime.utcnow().isoformat()
+    })
+    
     return jsonify({'message': 'Bid placed successfully'})
 
 @app.route('/delete_bid/<int:bid_id>', methods=['DELETE'])
@@ -889,6 +926,16 @@ def place_tiebreaker_bid():
     
     # In a closed auction, we don't send notifications about bid updates
     # The final results will be announced when the tiebreaker ends
+    
+    # Send real-time update via Socket.IO to admins only
+    socket_events.broadcast_to_admins({
+        'type': 'tiebreaker_bid',
+        'team_name': current_user.team.name,
+        'player_id': player_id,
+        'round_id': round_id,
+        'amount': amount,
+        'timestamp': datetime.utcnow().isoformat()
+    })
     
     return jsonify({'message': 'Tiebreaker bid placed successfully'})
 
@@ -2393,4 +2440,5 @@ def unsubscribe():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    app.run(debug=True) 
+    # Run with Socket.IO instead of the regular Flask development server
+    socketio.run(app, debug=True, host='0.0.0.0') 
