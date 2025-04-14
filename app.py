@@ -108,13 +108,18 @@ def dashboard():
     # For team users, get only the tiebreakers they're participating in
     team_id = current_user.team.id
     tiebreaker_round_ids = db.session.query(TiebreakerBid.round_id).filter_by(team_id=team_id).distinct().all()
-    tiebreaker_round_ids = [r[0] for r in tiebreaker_round_ids]
+    tiebreaker_round_ids = [r[0] for r in tiebreaker_round_ids]  # Extract IDs from result tuples
     
     active_tiebreakers = Round.query.filter(
         Round.id.in_(tiebreaker_round_ids) if tiebreaker_round_ids else False,
         Round.is_active == True,
         Round.is_tiebreaker == True
     ).all()
+    
+    # Check if the user is in an active tiebreaker - if so, redirect them there
+    if active_tiebreakers and len(active_tiebreakers) == 1:
+        active_tiebreaker = active_tiebreakers[0]
+        return redirect(url_for('team_tiebreaker', round_id=active_tiebreaker.id))
     
     active_rounds = Round.query.filter_by(is_active=True, is_tiebreaker=False).all()
     past_rounds = Round.query.filter_by(is_active=False).all()

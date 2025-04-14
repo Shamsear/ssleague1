@@ -152,6 +152,38 @@
         </div>
     </div>
 
+    <!-- Active Tiebreakers Alert (if any) -->
+    {% if active_tiebreakers %}
+    <div class="glass rounded-3xl p-4 sm:p-6 mb-6 sm:mb-8 border-2 border-accent">
+        <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center">
+                <svg class="w-6 h-6 text-accent mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                <h2 class="text-xl font-bold text-accent">Tiebreaker In Progress!</h2>
+            </div>
+            <div class="text-sm text-gray-500">{{ active_tiebreakers|length }} active</div>
+        </div>
+        <p class="mb-4 text-gray-700">You have {{ active_tiebreakers|length }} tiebreaker{% if active_tiebreakers|length > 1 %}s{% endif %} in progress. You must complete these tiebreakers to resolve bidding conflicts.</p>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {% for round in active_tiebreakers %}
+            {% set player = Player.query.get(round.player_id) %}
+            <div class="bg-white/30 p-4 rounded-xl flex items-center justify-between">
+                <div>
+                    <div class="font-medium">{{ player.name }}</div>
+                    <div class="text-sm text-gray-600">{{ player.position }} - Rating: {{ player.overall_rating }}</div>
+                    <div class="text-xs mt-1" id="tiebreaker-timer-small-{{ round.id }}">Loading...</div>
+                </div>
+                <a href="{{ url_for('team_tiebreaker', round_id=round.id) }}" class="px-4 py-2 rounded-xl bg-accent text-white font-medium hover:bg-accent/90 transition-all duration-300">
+                    Enter Tiebreaker
+                </a>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Active Rounds -->
     {% if active_rounds %}
     <div class="glass rounded-3xl p-4 sm:p-6 mb-6 sm:mb-8">
@@ -343,12 +375,110 @@
     </div>
 
     <script>
-    // Tiebreaker timers functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        updateRoundTimers();
+        updateTiebreakerTimers();
+    });
+    
+    function showAlert(type, message) {
+        const alertContainer = document.createElement('div');
+        alertContainer.className = 'fixed top-4 right-4 flex items-center p-4 mb-4 rounded-lg z-50 ';
+        
+        if (type === 'success') {
+            alertContainer.className += 'text-green-800 bg-green-50';
+        } else if (type === 'error') {
+            alertContainer.className += 'text-red-800 bg-red-50';
+        } else if (type === 'warning') {
+            alertContainer.className += 'text-yellow-800 bg-yellow-50';
+        } else {
+            alertContainer.className += 'text-blue-800 bg-blue-50';
+        }
+        
+        alertContainer.innerHTML = `
+            <div class="ml-3 text-sm font-medium">
+                ${message}
+            </div>
+            <button type="button" class="ml-auto -mx-1.5 -my-1.5 rounded-lg focus:ring-2 p-1.5 inline-flex items-center justify-center h-8 w-8" data-dismiss-target="#alert-1" aria-label="Close">
+                <span class="sr-only">Close</span>
+                <svg class="w-3 h-3" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 14 14">
+                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m1 1 6 6m0 0 6 6M7 7l6-6M7 7l-6 6"/>
+                </svg>
+            </button>
+        `;
+        
+        document.body.appendChild(alertContainer);
+        
+        // Add click event to close button
+        const closeButton = alertContainer.querySelector('button');
+        closeButton.addEventListener('click', function() {
+            document.body.removeChild(alertContainer);
+        });
+        
+        // Automatically remove after 5 seconds
+        setTimeout(function() {
+            if (document.body.contains(alertContainer)) {
+                document.body.removeChild(alertContainer);
+            }
+        }, 5000);
+    }
+    
+    function updateRoundTimers() {
+        {% for round in active_rounds %}
+        const startTime{{ round.id }} = new Date('{{ round.start_time.isoformat() }}Z');  // Add Z to make it UTC
+        const duration{{ round.id }} = {{ round.duration }};
+        const timerElement{{ round.id }} = document.getElementById('timer-{{ round.id }}');
+        let hasEnded{{ round.id }} = false;
+        
+        function update{{ round.id }}() {
+            const now = new Date();
+            const elapsed = Math.floor((now - startTime{{ round.id }}) / 1000);
+            const remaining = Math.max(0, duration{{ round.id }} - elapsed);
+            
+            if (remaining <= 0 && !hasEnded{{ round.id }}) {
+                hasEnded{{ round.id }} = true;
+                timerElement{{ round.id }}.textContent = "Round ended";
+                clearInterval(interval{{ round.id }});
+                
+                // Reload page to reflect changes
+                if (!document.hidden) {
+                    showAlert('info', 'Round has ended. Refreshing page...');
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                }
+            } else if (!hasEnded{{ round.id }}) {
+                const minutes = Math.floor(remaining / 60);
+                const seconds = remaining % 60;
+                timerElement{{ round.id }}.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+        
+        // Initial update
+        update{{ round.id }}();
+        
+        // Set up interval for updates
+        const interval{{ round.id }} = setInterval(update{{ round.id }}, 1000);
+        
+        // Clean up interval when the page is unloaded
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && interval{{ round.id }}) {
+                clearInterval(interval{{ round.id }});
+            } else if (!document.hidden && !hasEnded{{ round.id }}) {
+                update{{ round.id }}();
+                if (!interval{{ round.id }}) {
+                    interval{{ round.id }} = setInterval(update{{ round.id }}, 1000);
+                }
+            }
+        });
+        {% endfor %}
+    }
+    
     function updateTiebreakerTimers() {
         {% for round in active_tiebreakers %}
         const tiebreakerStartTime{{ round.id }} = new Date('{{ round.start_time.isoformat() }}Z');  // Add Z to make it UTC
         const tiebreakerDuration{{ round.id }} = {{ round.duration }};
         const tiebreakerTimerElement{{ round.id }} = document.getElementById('tiebreaker-timer-{{ round.id }}');
+        const tiebreakerTimerSmallElement{{ round.id }} = document.getElementById('tiebreaker-timer-small-{{ round.id }}');
         let tiebreakerHasEnded{{ round.id }} = false;
         
         function updateTiebreaker{{ round.id }}() {
@@ -358,7 +488,15 @@
             
             if (remaining <= 0 && !tiebreakerHasEnded{{ round.id }}) {
                 tiebreakerHasEnded{{ round.id }} = true;
-                tiebreakerTimerElement{{ round.id }}.textContent = "Round ended";
+                
+                if (tiebreakerTimerElement{{ round.id }}) {
+                    tiebreakerTimerElement{{ round.id }}.textContent = "Round ended";
+                }
+                
+                if (tiebreakerTimerSmallElement{{ round.id }}) {
+                    tiebreakerTimerSmallElement{{ round.id }}.textContent = "Round ended";
+                }
+                
                 clearInterval(tiebreakerInterval{{ round.id }});
                 
                 // Reload page to reflect changes
@@ -371,7 +509,15 @@
             } else if (!tiebreakerHasEnded{{ round.id }}) {
                 const minutes = Math.floor(remaining / 60);
                 const seconds = remaining % 60;
-                tiebreakerTimerElement{{ round.id }}.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                const timeDisplay = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                
+                if (tiebreakerTimerElement{{ round.id }}) {
+                    tiebreakerTimerElement{{ round.id }}.textContent = timeDisplay;
+                }
+                
+                if (tiebreakerTimerSmallElement{{ round.id }}) {
+                    tiebreakerTimerSmallElement{{ round.id }}.textContent = `Time remaining: ${timeDisplay}`;
+                }
             }
         }
         
@@ -382,14 +528,18 @@
         const tiebreakerInterval{{ round.id }} = setInterval(updateTiebreaker{{ round.id }}, 1000);
         
         // Clean up interval when the page is unloaded
-        window.addEventListener('beforeunload', () => {
-            clearInterval(tiebreakerInterval{{ round.id }});
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && tiebreakerInterval{{ round.id }}) {
+                clearInterval(tiebreakerInterval{{ round.id }});
+            } else if (!document.hidden && !tiebreakerHasEnded{{ round.id }}) {
+                updateTiebreaker{{ round.id }}();
+                if (!tiebreakerInterval{{ round.id }}) {
+                    tiebreakerInterval{{ round.id }} = setInterval(updateTiebreaker{{ round.id }}, 1000);
+                }
+            }
         });
         {% endfor %}
     }
-
-    // Initialize tiebreaker timers if there are active tiebreakers
-    updateTiebreakerTimers();
     </script>
     {% endif %}
 
