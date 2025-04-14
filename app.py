@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Team, Player, Round, Bid, TiebreakerBid, StarredPlayer, PushSubscription
+from models import db, User, Team, Player, Round, Bid, TiebreakerBid, StarredPlayer
 from config import Config
 from forms import LoginForm, RegistrationForm
 from werkzeug.security import generate_password_hash
@@ -9,9 +9,6 @@ from datetime import datetime, timedelta
 import os
 import pandas as pd
 import io
-import pywebpush
-from pywebpush import webpush, WebPushException
-import base64
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -422,25 +419,13 @@ def start_round():
     
     db.session.commit()
     
-    # Send notification to all teams about the new round
-    send_notification_to_all_teams({
-        'title': 'New Auction Round Started!',
-        'body': f'A new round for {position} players has started. Place your bids now!',
-        'data': {
-            'type': 'round_start',
-        'round_id': round.id,
-            'position': position,
-            'duration': duration,
-            'url': '/team/round'
-        },
-        'tag': f'round_start_{round.id}',
-        'renotify': True
-    })
-    
     return jsonify({
-        'success': True,
-        'message': f'Round for {position} started successfully',
-        'round_id': round.id
+        'message': 'Round started successfully',
+        'round_id': round.id,
+        'player_count': len(players),
+        'duration': duration,
+        'max_bids_per_team': max_bids_per_team,
+        'expires_at': (round.start_time.isoformat() if round.start_time else None)
     })
 
 @app.route('/update_round_timer/<int:round_id>', methods=['POST'])
@@ -468,25 +453,6 @@ def update_round_timer(round_id):
     round.duration = duration
     round.start_time = datetime.utcnow()  # Reset the timer
     db.session.commit()
-    
-    # Calculate new end time for notification
-    end_time = round.start_time + timedelta(seconds=duration)
-    formatted_end_time = end_time.strftime('%H:%M:%S')
-    
-    # Send notification to all teams about the timer update
-    send_notification_to_all_teams({
-        'title': 'Round Timer Updated',
-        'body': f'The {round.position} round timer has been updated. New end time: {formatted_end_time}.',
-        'data': {
-            'type': 'timer_update',
-            'round_id': round.id,
-            'duration': duration,
-            'position': round.position,
-            'url': '/team/round' if not round.is_tiebreaker else f'/team/tiebreaker/{round.id}'
-        },
-        'tag': f'timer_update_{round.id}',
-        'renotify': True
-    })
     
     return jsonify({
         'message': 'Round timer updated successfully',
@@ -523,258 +489,130 @@ def check_round_status(round_id):
     })
 
 def finalize_round_internal(round_id):
-    """
-    Internal function to finalize a round and allocate players systematically
-    1. When a round ends, bids are arranged in descending order
-    2. Process highest bid first
-    3. Check if the highest bid is tied or not
-    4. If not tied, allocate player to team and remove all bids for that player and team
-    5. Sort remaining bids in descending order
-    6. Repeat steps 2-5 until all bids are processed or a tie is found
-    7. If a tie is found, create tiebreaker and pause finalization
-    """
-    # Get the round
+    """Internal function to finalize a round, can be called programmatically"""
     round = Round.query.get(round_id)
-    if not round:
-        return False, "Round not found"
+    if not round or not round.is_active:
+        return False
     
-    if not round.is_active:
-        return False, "Round is already finalized"
+    print(f"Starting round finalization for round {round_id} (position: {round.position})")
     
-    # Mark the round as inactive
-    round.is_active = False
-    
-    # Get all bids for the round
+    # Get all bids for this round and sort by amount (highest first)
     all_bids = Bid.query.filter_by(round_id=round_id).all()
     
-    # Get all players in this round
-    players = Player.query.filter_by(round_id=round_id).all()
+    # Group bids by player and team to find the latest bid for each player-team combination
+    # This handles edited bids by keeping only the latest bid amount for each team-player pair
+    latest_bids = {}
+    for bid in all_bids:
+        key = f"{bid.player_id}-{bid.team_id}"
+        if key not in latest_bids or bid.timestamp > latest_bids[key].timestamp:
+            latest_bids[key] = bid
     
-    if not all_bids:
-        # If no bids were placed, just end the round and keep players available for the next round
-        db.session.commit()
-        
-        # Send notification to admins that round ended with no bids
-        send_notification_to_admins({
-            'title': 'Round Ended - No Bids',
-            'body': f'Round for {round.position} players ended with no bids placed.',
-            'data': {
-                'type': 'round_end',
-                'round_id': round.id,
-                'position': round.position,
-                'result': 'no_bids'
-            },
-            'tag': f'round_end_{round.id}',
-            'renotify': True
-        })
-        
-        return True, "Round finalized successfully (no bids)"
-
-    # Tracking variables for the systematic allocation process
-    winning_bids = []            # List to track winning bids
-    processed_teams = set()      # Set of teams that have won a player
-    processed_players = set()    # Set of players that have been allocated
-    tiebreaker_found = False     # Flag to indicate if a tiebreaker is needed
-    tiebreaker_data = None       # Data for creating the tiebreaker round
-    winning_teams = {}           # Track which teams won players (for notifications)
+    # Convert to list and sort by amount (highest first)
+    sorted_bids = sorted(latest_bids.values(), key=lambda x: x.amount, reverse=True)
     
-    # Process bids until there's a tiebreaker or all bids are processed
-    while all_bids and not tiebreaker_found:
-        # Sort all bids by amount (highest first)
-        all_bids.sort(key=lambda x: x.amount, reverse=True)
-        
-        # Get the highest bid amount
-        highest_amount = all_bids[0].amount
-        
-        # Find all bids with the highest amount
-        highest_bids = [b for b in all_bids if b.amount == highest_amount]
-        
-        if len(highest_bids) == 1:
-            # Clear winner for this bid - no tie
-            winning_bid = highest_bids[0]
-            team = Team.query.get(winning_bid.team_id)
-            player = Player.query.get(winning_bid.player_id)
-            
-            # Skip if this team already got a player or player already allocated
-            if (winning_bid.team_id in processed_teams or 
-                winning_bid.player_id in processed_players):
-                # Remove this bid and continue
-                all_bids.remove(winning_bid)
-                continue
-            
-            # Check if team has enough balance
-            if team.balance >= winning_bid.amount:
-                # Allocate player to team
-                player.team_id = team.id
-                player.round_id = None
-                player.cost = winning_bid.amount
-                player.acquired_at = datetime.utcnow()
-                
-                # Deduct amount from team balance
-                team.balance -= winning_bid.amount
-                
-                # Record this as a winning bid
-                winning_bids.append({
-                    'player_name': player.name,
-                    'team_name': team.name,
-                    'amount': winning_bid.amount
-                })
-                
-                # Track for notifications
-                if team.id not in winning_teams:
-                    winning_teams[team.id] = []
-                winning_teams[team.id].append(player.name)
-                
-                # Mark team and player as processed
-                processed_teams.add(winning_bid.team_id)
-                processed_players.add(winning_bid.player_id)
-                
-                # Remove all bids for this player and from this team
-                all_bids = [b for b in all_bids if b.player_id != winning_bid.player_id 
-                            and b.team_id != winning_bid.team_id]
-            else:
-                # Team doesn't have enough balance, remove this bid and continue
-                all_bids.remove(winning_bid)
-        else:
-            # Multiple highest bids with same amount - need tiebreaker
-            tiebreaker_found = True
-            
-            # Group tied bids by player
-            tied_bids_by_player = {}
-            for bid in highest_bids:
-                if bid.player_id not in tied_bids_by_player:
-                    tied_bids_by_player[bid.player_id] = []
-                tied_bids_by_player[bid.player_id].append(bid)
-            
-            # Find the players with tied bids
-            tiebreaker_players = []
-            tiebreaker_teams = {}
-            
-            for player_id, bids in tied_bids_by_player.items():
-                if len(bids) > 1:
-                    # This player has multiple teams bidding the same amount
-                    player = Player.query.get(player_id)
-                    tiebreaker_players.append(player)
-                    tiebreaker_teams[player_id] = [bid.team_id for bid in bids]
-            
-            # Store tiebreaker data for later creation
-            tiebreaker_data = {
-                'players': tiebreaker_players,
-                'teams': tiebreaker_teams
-            }
+    print(f"Found {len(sorted_bids)} unique bids after handling edited values")
     
-    # Commit all changes made so far
-    db.session.commit()
+    # Keep track of allocated teams and players to prevent duplicates
+    allocated_teams = set()
+    allocated_players = set()
     
-    # Send notification to all teams about the round ending
-    send_notification_to_all_teams({
-        'title': 'Auction Round Ended',
-        'body': f'The auction round for {round.position} players has ended.',
-        'data': {
-            'type': 'round_end',
-            'round_id': round.id,
-            'position': round.position
-        },
-        'tag': f'round_end_{round.id}',
-        'renotify': True
-    })
+    # Track ties that need tiebreaker rounds
+    ties_to_resolve = []
     
-    # Send notifications to teams that won players
-    for team_id, player_names in winning_teams.items():
-        if player_names:
-            player_list = ', '.join(player_names)
-            send_notification_to_team(team_id, {
-                'title': 'You Won Players!',
-                'body': f'You successfully acquired: {player_list}',
-                'data': {
-                    'type': 'player_won',
-                    'player_names': player_names
-                },
-                'tag': f'player_won_{round.id}_{team_id}',
-                'renotify': True
-            })
-    
-    # If there are tiebreakers needed, create tiebreaker rounds
-    if tiebreaker_found and tiebreaker_data:
-        tiebreaker_rounds = []
+    # First pass: identify ties and create tiebreaker rounds
+    i = 0
+    while i < len(sorted_bids):
+        current_bid = sorted_bids[i]
         
-        for player in tiebreaker_data['players']:
-            team_ids = tiebreaker_data['teams'][player.id]
-                
+        # Skip if team or player already allocated
+        if current_bid.team_id in allocated_teams or current_bid.player_id in allocated_players:
+            i += 1
+            continue
+            
+        # Check for ties (same amount for same player)
+        tied_bids = []
+        j = i
+        while j < len(sorted_bids) and sorted_bids[j].amount == current_bid.amount and sorted_bids[j].player_id == current_bid.player_id:
+            if sorted_bids[j].team_id not in allocated_teams:
+                tied_bids.append(sorted_bids[j])
+            j += 1
+            
+        # Process ties
+        if len(tied_bids) > 1:
+            print(f"Found tie: {len(tied_bids)} teams bid {current_bid.amount} for player ID {current_bid.player_id}")
             # Create a tiebreaker round
-            tiebreaker = Round(
+            player = Player.query.get(current_bid.player_id)
+            tiebreaker_round = Round(
                 position=round.position,
                 is_active=True,
                 is_tiebreaker=True,
                 parent_round_id=round.id,
-                player_id=player.id,
-                start_time=datetime.utcnow(),
-                duration=300  # Default to 5 minutes for tiebreaker
+                player_id=current_bid.player_id,
+                duration=180  # 3 minutes for tiebreaker
             )
-            db.session.add(tiebreaker)
-            db.session.flush()  # Get the tiebreaker ID
+            db.session.add(tiebreaker_round)
+            db.session.flush()  # Get the ID without committing
             
-            # Create initial bids for all teams involved
-            for team_id in team_ids:
-                team = Team.query.get(team_id)
+            # Add the tied teams to the tiebreaker round
+            for tied_bid in tied_bids:
+                tiebreaker_bid = TiebreakerBid(
+                    team_id=tied_bid.team_id,
+                    player_id=tied_bid.player_id,
+                    round_id=tiebreaker_round.id,
+                    amount=0  # Initial bid amount for tiebreaker
+                )
+                db.session.add(tiebreaker_bid)
                 
-                # Find the original bid amount
-                original_bid = Bid.query.filter_by(
-                    round_id=round.id,
-                    team_id=team_id,
-                    player_id=player.id
-                ).first()
-                
-                if original_bid:
-                    tiebreaker_bid = TiebreakerBid(
-                        team_id=team_id,
-                        player_id=player.id,
-                        round_id=tiebreaker.id,
-                        amount=original_bid.amount
-                    )
-                    db.session.add(tiebreaker_bid)
+            # Store tie information for later processing
+            ties_to_resolve.append({
+                'tiebreaker_round_id': tiebreaker_round.id,
+                'player_id': current_bid.player_id,
+                'bid_amount': current_bid.amount,
+                'tied_teams': [bid.team_id for bid in tied_bids]
+            })
             
-            tiebreaker_rounds.append(tiebreaker)
-        
-        db.session.commit()
-        
-        # Send notifications to teams in tiebreaker
-        for player in tiebreaker_data['players']:
-            team_ids = tiebreaker_data['teams'][player.id]
-            tiebreaker_round = Round.query.filter_by(player_id=player.id, parent_round_id=round.id).first()
-            
-            if tiebreaker_round:
-                for team_id in team_ids:
-                    send_notification_to_team(team_id, {
-                        'title': 'Tiebreaker Round Started',
-                        'body': f'Your bid for {player.name} is tied. Please enter the tiebreaker round.',
-                        'data': {
-                            'type': 'tiebreaker_start',
-                            'round_id': tiebreaker_round.id,
-                            'player_id': player.id,
-                            'url': f'/team/tiebreaker/{tiebreaker_round.id}'
-                        },
-                        'tag': f'tiebreaker_{tiebreaker_round.id}',
-                        'renotify': True
-                    })
-        
-        # Send notification to admins about tiebreaker
-        send_notification_to_admins({
-            'title': 'Tiebreaker Rounds Created',
-            'body': f'{len(tiebreaker_rounds)} tiebreaker(s) created for {round.position} players.',
-            'data': {
-                'type': 'tiebreaker_created',
-                'round_id': round.id,
-                'position': round.position
-            },
-            'tag': f'tiebreaker_created_{round.id}',
-            'renotify': True
-        })
-        
-        return True, "Round finalization partially complete (waiting for tiebreakers)"
+            # Skip all these tied bids
+            i = j
+        else:
+            # No tie, just a single bid
+            i += 1
     
-    # If no tiebreakers, the finalization is complete
-    return True, "Round finalized successfully"
+    # Commit tiebreaker rounds to the database
+    db.session.commit()
+    
+    # If we have ties to resolve, we need to pause the main finalization
+    if ties_to_resolve:
+        print(f"Round {round_id} has {len(ties_to_resolve)} ties to resolve. Pausing main finalization.")
+        round.is_active = False  # Deactivate the main round
+        db.session.commit()
+        return True
+        
+    # Second pass: allocate players to teams based on highest bids
+    print("No ties found. Proceeding with player allocation.")
+    for bid in sorted_bids:
+        # Skip if team or player already allocated
+        if bid.team_id in allocated_teams or bid.player_id in allocated_players:
+            continue
+            
+        # Allocate player to team
+        print(f"Allocating player ID {bid.player_id} to team ID {bid.team_id} for {bid.amount}")
+        player = Player.query.get(bid.player_id)
+        team = Team.query.get(bid.team_id)
+        
+        # Update team's balance
+        team.balance -= bid.amount
+        
+        # Set the player's team
+        player.team_id = team.id
+        
+        # Mark as allocated
+        allocated_teams.add(team.id)
+        allocated_players.add(player.id)
+    
+    round.is_active = False
+    db.session.commit()
+    print(f"Round {round_id} finalization completed. {len(allocated_teams)} allocations made.")
+    return True
 
 @app.route('/finalize_round/<int:round_id>', methods=['POST'])
 @login_required
@@ -868,7 +706,6 @@ def place_bid():
             'error': f'You have already placed a bid of {amount} on {other_player.name}. Each bid amount must be unique across all players in a round.'
         }), 400
     
-    # Create the new bid
     bid = Bid(
         team_id=team.id,
         player_id=player_id,
@@ -877,28 +714,6 @@ def place_bid():
     )
     db.session.add(bid)
     db.session.commit()
-    
-    # Get player info for notification
-    player = Player.query.get(player_id)
-    
-    # Send mobile notification for bid placed
-    send_push_notification(current_user.id, {
-        'title': 'Bid Placed Successfully',
-        'body': f'Your bid of {amount} for {player.name} has been placed.',
-        'tag': 'bid_placed',
-        'renotify': True,
-        'data': {
-            'type': 'bid_placed',
-            'round_id': round_id,
-            'player_id': player_id,
-            'amount': amount,
-            'url': '/team/round'
-        }
-    })
-    
-    # We don't need to send outbid notifications since this is a closed auction
-    # Players cannot see each other's bids, so outbid notifications would be confusing
-    # Only the final results are important
     
     return jsonify({'message': 'Bid placed successfully'})
 
@@ -925,27 +740,8 @@ def delete_bid(bid_id):
     if not bid.round.is_active:
         return jsonify({'error': 'Cannot delete bid from a finalized round'}), 400
     
-    # Get player info for notification before deleting the bid
-    player = Player.query.get(bid.player_id)
-    amount = bid.amount
-    round_id = bid.round_id
-    
     db.session.delete(bid)
     db.session.commit()
-    
-    # Send mobile notification for bid deletion
-    send_push_notification(current_user.id, {
-        'title': 'Bid Deleted',
-        'body': f'Your bid of {amount} for {player.name} has been deleted.',
-        'tag': 'bid_deleted',
-        'renotify': True,
-        'data': {
-            'type': 'bid_deleted',
-            'round_id': round_id,
-            'player_id': player.id,
-            'url': '/team/round'
-        }
-    })
     
     return jsonify({'message': 'Bid deleted successfully'})
 
@@ -994,613 +790,194 @@ def place_tiebreaker_bid():
     existing_bid.amount = amount
     db.session.commit()
     
-    # Get player info for the notification
-    player = Player.query.get(player_id)
-    
-    # Send mobile notification for tiebreaker bid update
-    send_push_notification(current_user.id, {
-        'title': 'Tiebreaker Bid Updated',
-        'body': f'Your tiebreaker bid for {player.name} has been updated to {amount}.',
-        'tag': 'tiebreaker_bid',
-        'renotify': True,
-        'data': {
-            'type': 'bid_placed',
-            'round_id': round_id,
-            'player_id': player_id,
-            'amount': amount,
-            'url': f'/team/tiebreaker/{round_id}'
-        }
-    })
-    
-    # In a closed auction, we don't send notifications about bid updates
-    # The final results will be announced when the tiebreaker ends
-    
     return jsonify({'message': 'Tiebreaker bid placed successfully'})
 
 def finalize_tiebreaker_round(round_id):
-    """
-    Finalize a tiebreaker round, determine the winner and allocate the player.
-    The result is integrated with the parent round results.
-    If there's still a tie after this tiebreaker, we'll either:
-    1. Create another tiebreaker with the still-tied teams
-    2. Resume the parent round's systematic allocation with the resolved player
-    """
-    tiebreaker_round = Round.query.get(round_id)
-    if not tiebreaker_round or not tiebreaker_round.is_active or not tiebreaker_round.is_tiebreaker:
+    """Finalize a tiebreaker round and allocate the player"""
+    round = Round.query.get(round_id)
+    if not round or not round.is_tiebreaker or not round.is_active:
         return False
     
-    # Mark the round as inactive
-    tiebreaker_round.is_active = False
+    print(f"Finalizing tiebreaker round {round_id} for player ID {round.player_id}")
     
-    # Get the player being contested
-    player = Player.query.get(tiebreaker_round.player_id)
-    if not player:
-        db.session.commit()
-        return False
-    
-    # Get all tiebreaker bids for this round
+    # Get all bids for this tiebreaker round
     bids = TiebreakerBid.query.filter_by(round_id=round_id).all()
-    
-    # Get the parent round for integration of results
-    parent_round = Round.query.get(tiebreaker_round.parent_round_id) if tiebreaker_round.parent_round_id else None
-    
     if not bids:
-        # No bids placed in tiebreaker round, just end it and return to parent round
+        print("No bids found in tiebreaker round")
+        round.is_active = False
         db.session.commit()
-        
-        # If there was a parent round, check if all tiebreakers are resolved
-        if parent_round:
-            # Add a note to the admin view that this tiebreaker ended with no bids
-            send_notification_to_admins({
-                'title': 'Tiebreaker Ended - No Bids',
-                'body': f'Tiebreaker for {player.name} ended with no bids placed.',
-                'data': {
-                    'type': 'tiebreaker_no_bids',
-                    'round_id': round_id,
-                    'parent_round_id': parent_round.id,
-                    'player_name': player.name,
-                    'url': f'/admin/round/{parent_round.id}'
-                },
-                'tag': f'tiebreaker_no_bids_{round_id}',
-                'renotify': True
-            })
-            resume_after_tiebreaker(parent_round.id)
-            
+        return False
+    
+    # Get the parent round
+    parent_round = Round.query.get(round.parent_round_id)
+    if not parent_round:
+        print(f"Parent round {round.parent_round_id} not found")
+        round.is_active = False
+        db.session.commit()
+        return False
+    
+    # Get teams that already have a player allocated from the parent round
+    allocated_teams = set()
+    allocated_players = set()
+    
+    # Find allocations from parent round
+    for player in Player.query.filter_by(round_id=parent_round.id).all():
+        if player.team_id:
+            allocated_teams.add(player.team_id)
+            allocated_players.add(player.id)
+    
+    # Find allocations from other tiebreaker rounds of the same parent
+    other_tiebreakers = Round.query.filter(
+        Round.parent_round_id == round.parent_round_id,
+        Round.id != round.id,
+        Round.is_active == False
+    ).all()
+    
+    for tiebreaker in other_tiebreakers:
+        player = Player.query.get(tiebreaker.player_id)
+        if player and player.team_id:
+            allocated_teams.add(player.team_id)
+    
+    # Filter out teams that already have a player
+    eligible_bids = [bid for bid in bids if bid.team_id not in allocated_teams]
+    
+    # If no eligible bids left, player stays unallocated
+    if not eligible_bids:
+        print("No eligible bids remain after filtering allocated teams")
+        round.is_active = False
+        db.session.commit()
         return True
     
-    # Find the highest bid amount
-    highest_amount = max(bid.amount for bid in bids)
+    # Sort eligible bids by amount (highest first)
+    eligible_bids.sort(key=lambda x: x.amount, reverse=True)
+    highest_bid = eligible_bids[0]
     
-    # Check if there's still a tie
-    matching_bids = [bid for bid in bids if bid.amount == highest_amount]
-    
-    if len(matching_bids) == 1:
-        # Clear winner
-        winning_bid = matching_bids[0]
-        team = Team.query.get(winning_bid.team_id)
-        
-        # Check if team has enough balance
-        if team.balance >= winning_bid.amount:
-            # Allocate player to team
-            player.team_id = team.id
-            player.cost = winning_bid.amount
-            player.acquired_at = datetime.utcnow()
-            
-            # Record this result for integration with parent round results
-            if parent_round:
-                # Create a record in the parent round's results
-                # This ensures the tiebreaker outcome is reflected in the main round's results
-                winning_result = {
-                    'player_id': player.id,
-                    'player_name': player.name,
-                    'team_id': team.id,
-                    'team_name': team.name,
-                    'amount': winning_bid.amount,
-                    'was_tiebreaker': True,
-                    'timestamp': datetime.utcnow().isoformat()
-                }
-                
-                # Store this in the database, or alternatively, you could use the session
-                # The implementation depends on how you're storing round results
-                
-                # For this implementation, we'll just log it with the admin notification
-            
-            # Deduct amount from team balance
-            team.balance -= winning_bid.amount
-            
-            # Send notification to winning team
-            send_notification_to_team(team.id, {
-                'title': 'You Won the Tiebreaker!',
-                'body': f'You successfully acquired {player.name} for {winning_bid.amount} coins!',
-                'data': {
-                    'type': 'player_won',
-                    'player_name': player.name,
-                    'player_id': player.id,
-                    'amount': winning_bid.amount,
-                    'was_tiebreaker': True,
-                    'url': '/team/players'
-                },
-                'tag': f'tiebreaker_won_{round_id}_{team.id}',
-                'renotify': True
-            })
-            
-            # Notify other teams that participated in the tiebreaker
-            for bid in bids:
-                if bid.team_id != team.id:
-                    send_notification_to_team(bid.team_id, {
-                        'title': 'Tiebreaker Ended',
-                        'body': f'The tiebreaker for {player.name} has ended. Another team placed a higher bid.',
-                        'data': {
-                            'type': 'tiebreaker_lost',
-                            'player_name': player.name,
-                            'player_id': player.id,
-                            'url': '/dashboard'
-                        },
-                        'tag': f'tiebreaker_lost_{round_id}_{bid.team_id}',
-                        'renotify': True
-                    })
-        else:
-            # Team doesn't have enough balance - let's find the next highest bid
-            # First, remove the insufficient balance bid
-            bids.remove(winning_bid)
-            
-            if bids:
-                # Find the next highest bid amount
-                next_highest_amount = max(bid.amount for bid in bids)
-                next_matching_bids = [bid for bid in bids if bid.amount == next_highest_amount]
-                
-                # If there's only one bid at this amount, allocate to that team
-                if len(next_matching_bids) == 1:
-                    next_winning_bid = next_matching_bids[0]
-                    next_team = Team.query.get(next_winning_bid.team_id)
-                    
-                    if next_team.balance >= next_winning_bid.amount:
-                        # Allocate player to next team
-                        player.team_id = next_team.id
-                        player.cost = next_winning_bid.amount
-                        player.acquired_at = datetime.utcnow()
-                        
-                        # Record in parent round results if applicable
-                        if parent_round:
-                            # Similar integration as above, recording that this was a tiebreaker
-                            # with the original highest bidder having insufficient balance
-                            next_winning_result = {
-                                'player_id': player.id,
-                                'player_name': player.name,
-                                'team_id': next_team.id,
-                                'team_name': next_team.name,
-                                'amount': next_winning_bid.amount,
-                                'was_tiebreaker': True,
-                                'original_winner_insufficient_balance': True,
-                                'timestamp': datetime.utcnow().isoformat()
-                            }
-                            
-                            # Implementation specific storage would go here
-                            
-                        # Deduct amount from team balance
-                        next_team.balance -= next_winning_bid.amount
-                        
-                        # Notify both teams
-                        send_notification_to_team(winning_bid.team_id, {
-                'title': 'Insufficient Balance',
-                'body': f'Your winning bid of {winning_bid.amount} for {player.name} couldn\'t be processed due to insufficient balance.',
-                'data': {
-                    'type': 'insufficient_balance',
-                    'player_name': player.name,
-                                'amount': winning_bid.amount,
-                                'url': '/dashboard'
-                },
-                            'tag': f'insufficient_balance_{round_id}_{winning_bid.team_id}',
-                'renotify': True
-            })
-                        
-                        send_notification_to_team(next_team.id, {
-                'title': 'You Won the Tiebreaker!',
-                            'body': f'After the highest bidder had insufficient balance, you acquired {player.name} for {next_winning_bid.amount} coins!',
-                'data': {
-                    'type': 'player_won',
-                    'player_name': player.name,
-                    'player_id': player.id,
-                                'amount': next_winning_bid.amount,
-                                'was_tiebreaker': True,
-                                'after_insufficient_balance': True,
-                                'url': '/team/players'
-                            },
-                            'tag': f'tiebreaker_won_{round_id}_{next_team.id}',
-                            'renotify': True
-                        })
-                    else:
-                        # Next team also doesn't have enough balance, don't allocate player
-                        send_notification_to_team(winning_bid.team_id, {
-                            'title': 'Insufficient Balance',
-                            'body': f'Your winning bid of {winning_bid.amount} for {player.name} couldn\'t be processed due to insufficient balance.',
-                            'data': {
-                                'type': 'insufficient_balance',
-                                'player_name': player.name,
-                    'amount': winning_bid.amount,
-                                'url': '/dashboard'
-                },
-                            'tag': f'insufficient_balance_{round_id}_{winning_bid.team_id}',
-                'renotify': True
-            })
-                else:
-                    # Multiple bids at next highest amount - create a new tiebreaker
-                    # This will be handled in a future implementation if needed
-                    # For now, just don't allocate the player
-                    send_notification_to_team(winning_bid.team_id, {
-                        'title': 'Insufficient Balance',
-                        'body': f'Your winning bid of {winning_bid.amount} for {player.name} couldn\'t be processed due to insufficient balance.',
-                        'data': {
-                            'type': 'insufficient_balance',
-                            'player_name': player.name,
-                            'amount': winning_bid.amount,
-                            'url': '/dashboard'
-                        },
-                        'tag': f'insufficient_balance_{round_id}_{winning_bid.team_id}',
-                        'renotify': True
-                    })
-            else:
-                # No other bids, just don't allocate player
-                send_notification_to_team(winning_bid.team_id, {
-                    'title': 'Insufficient Balance',
-                    'body': f'Your winning bid of {winning_bid.amount} for {player.name} couldn\'t be processed due to insufficient balance.',
-                    'data': {
-                        'type': 'insufficient_balance',
-                        'player_name': player.name,
-                        'amount': winning_bid.amount,
-                        'url': '/dashboard'
-                    },
-                    'tag': f'insufficient_balance_{round_id}_{winning_bid.team_id}',
-                    'renotify': True
-                })
-    else:
-        # Still a tie - create a new tiebreaker round
-        # But make sure this new tiebreaker is still linked to the original parent round
-        tied_teams = [bid.team_id for bid in matching_bids]
-        parent_round_id = tiebreaker_round.parent_round_id or tiebreaker_round.id
-        
-        # Create a new tiebreaker round for the same player
+    # Check for another tie at the highest bid amount
+    tied_bids = [bid for bid in eligible_bids if bid.amount == highest_bid.amount]
+    if len(tied_bids) > 1:
+        print(f"Found another tie in tiebreaker round with {len(tied_bids)} teams")
+        # Create another tiebreaker round
         new_tiebreaker = Round(
-            position=tiebreaker_round.position,
+            position=round.position,
             is_active=True,
             is_tiebreaker=True,
-            parent_round_id=parent_round_id,  # Link to the original parent to maintain result integration
-            player_id=player.id,
-            start_time=datetime.utcnow(),
-            duration=300  # 5 minutes for tiebreaker
+            parent_round_id=round.parent_round_id,  # Keep the original parent
+            player_id=round.player_id,
+            duration=180
         )
         db.session.add(new_tiebreaker)
-        db.session.flush()  # Get the new tiebreaker ID
-        
-        # Create initial bids for all teams still tied
-        for bid in matching_bids:
-            new_bid = TiebreakerBid(
-                team_id=bid.team_id,
-                player_id=player.id,
-                round_id=new_tiebreaker.id,
-                amount=bid.amount
-            )
-            db.session.add(new_bid)
-        
-        # Commit the new tiebreaker
         db.session.commit()
         
-        # Notify teams about the new tiebreaker
-        for team_id in tied_teams:
-            send_notification_to_team(team_id, {
-                'title': 'Still Tied! New Tiebreaker Started',
-                'body': f'Your bid for {player.name} is still tied. Please enter the new tiebreaker round.',
-                        'data': {
-                    'type': 'tiebreaker_start',
-                    'round_id': new_tiebreaker.id,
-                    'player_id': player.id,
-                    'parent_round_id': parent_round_id,  # Include parent for context
-                    'url': f'/team/tiebreaker/{new_tiebreaker.id}'
-                },
-                'tag': f'tiebreaker_{new_tiebreaker.id}',
-                        'renotify': True
-                    })
+        # Add the tied teams to the new tiebreaker
+        for bid in tied_bids:
+            new_bid = TiebreakerBid(
+                team_id=bid.team_id,
+                player_id=bid.player_id,
+                round_id=new_tiebreaker.id,
+                amount=0
+            )
+            db.session.add(new_bid)
+    else:
+        # We have a winner - allocate the player
+        print(f"Allocating player ID {round.player_id} to team ID {highest_bid.team_id} for {highest_bid.amount}")
+        player = Player.query.get(round.player_id)
+        team = Team.query.get(highest_bid.team_id)
         
-        # Notify admins about the new tiebreaker
-        send_notification_to_admins({
-            'title': 'Still Tied! New Tiebreaker Created',
-            'body': f'The tiebreaker for {player.name} ended in another tie. A new tiebreaker has been created.',
-            'data': {
-                'type': 'tiebreaker_created',
-                'round_id': new_tiebreaker.id,
-                'player_id': player.id,
-                'parent_round_id': parent_round_id,
-                'url': f'/admin/round/{new_tiebreaker.id}'
-            },
-            'tag': f'new_tiebreaker_admin_{new_tiebreaker.id}',
-            'renotify': True
-        })
+        # For tiebreaker rounds, we need to find the original bid amount from the parent round
+        original_bid = Bid.query.filter_by(
+            round_id=round.parent_round_id,
+            team_id=highest_bid.team_id,
+            player_id=round.player_id
+        ).first()
         
-        # Return without resuming the parent round, since we're still resolving this tie
-        return True
+        if original_bid:
+            team.balance -= original_bid.amount
+            player.team_id = team.id
+            
+            # Mark this player and team as allocated
+            allocated_teams.add(team.id)
+            allocated_players.add(player.id)
+        else:
+            print(f"Warning: Could not find original bid for team {team.id} on player {player.id}")
     
-    # Clear the round_id to remove player from auction
-    player.round_id = None
-    
-    # If there was a parent round, check if all tiebreakers are resolved
-    if parent_round:
-        resume_after_tiebreaker(parent_round.id)
-    
-    # Commit all changes
+    # Deactivate this tiebreaker round
+    round.is_active = False
     db.session.commit()
     
-    # Notify admins about the tiebreaker result as part of the parent round results
-    parent_round_url = f'/admin/round/{parent_round.id}' if parent_round else '/admin/rounds'
-    send_notification_to_admins({
-        'title': 'Tiebreaker Round Completed',
-        'body': f'Tiebreaker for {player.name} has been completed and integrated with the main round results.',
-        'data': {
-            'type': 'tiebreaker_completed',
-            'round_id': round_id,
-            'player_name': player.name,
-            'player_id': player.id,
-            'parent_round_id': parent_round.id if parent_round else None,
-            'url': parent_round_url
-        },
-        'tag': f'tiebreaker_admin_{round_id}',
-        'renotify': True
-    })
+    # Check if the parent round has any unresolved tiebreakers
+    active_tiebreakers = Round.query.filter_by(
+        parent_round_id=round.parent_round_id,
+        is_active=True
+    ).count()
+    
+    # If parent round has no active tiebreakers, resume its finalization
+    if active_tiebreakers == 0 and not parent_round.is_active:
+        print(f"All tiebreakers resolved for parent round {parent_round.id}, resuming finalization")
+        # Continue with the auction process
+        resume_after_tiebreaker(parent_round.id)
     
     return True
 
 def resume_after_tiebreaker(round_id):
-    """
-    Resume the systematic auction finalization process after tiebreakers are resolved.
-    This function follows the same logic as finalize_round_internal but starts
-    from a state where some players and teams are already allocated.
-    
-    The steps are:
-    1. Get all remaining bids
-    2. Sort bids by amount in descending order
-    3. Process highest bid first (skipping teams and players already allocated)
-    4. Continue process until all bids are processed or another tie is found
-    """
+    """Resume the finalization process after tiebreakers have been resolved"""
     round = Round.query.get(round_id)
     if not round:
         return False
     
-    print(f"Resuming systematic finalization for round {round_id} after tiebreakers")
+    print(f"Resuming finalization for round {round_id} after tiebreakers")
     
-    # Get all bids for the round
+    # Get latest bids (edited bids handled)
     all_bids = Bid.query.filter_by(round_id=round_id).all()
+    latest_bids = {}
+    for bid in all_bids:
+        key = f"{bid.player_id}-{bid.team_id}"
+        if key not in latest_bids or bid.timestamp > latest_bids[key].timestamp:
+            latest_bids[key] = bid
     
-    # Find currently allocated teams and players from this round
-    # This includes players allocated directly and through tiebreakers
-    processed_teams = set()
-    processed_players = set()
-    winning_teams = {}  # For notifications
+    # Convert to list and sort by amount (highest first)
+    sorted_bids = sorted(latest_bids.values(), key=lambda x: x.amount, reverse=True)
     
-    # Check direct allocations from the main round
-    for player in Player.query.filter(Player.team_id != None).all():
-        processed_players.add(player.id)
-        processed_teams.add(player.team_id)
-        
-        # Add to winning teams for notifications
-        if player.team_id not in winning_teams:
-            winning_teams[player.team_id] = []
-        winning_teams[player.team_id].append(player.name)
+    # Find currently allocated teams and players
+    allocated_teams = set()
+    allocated_players = set()
     
-    # Check allocations from tiebreaker rounds
-    tiebreaker_rounds = Round.query.filter_by(parent_round_id=round_id, is_active=False).all()
-    for tiebreaker in tiebreaker_rounds:
-        player = Player.query.get(tiebreaker.player_id)
-        if player and player.team_id:
-            processed_players.add(player.id)
-            processed_teams.add(player.team_id)
-            
-            # Add to winning teams for notifications
-            if player.team_id not in winning_teams:
-                winning_teams[player.team_id] = []
-            winning_teams[player.team_id].append(player.name)
+    for player in Player.query.filter_by(round_id=round_id).all():
+        if player.team_id:
+            allocated_teams.add(player.team_id)
+            allocated_players.add(player.id)
     
-    # Check if there are any active tiebreakers - if so, we don't continue processing
-    active_tiebreakers = Round.query.filter_by(parent_round_id=round_id, is_active=True).count()
-    if active_tiebreakers > 0:
-        print(f"Still {active_tiebreakers} active tiebreakers. Waiting for them to resolve.")
-        return False
+    # Also check tiebreaker rounds
+    for tiebreaker in Round.query.filter_by(parent_round_id=round_id).all():
+        if tiebreaker.player_id and not tiebreaker.is_active:
+            player = Player.query.get(tiebreaker.player_id)
+            if player and player.team_id:
+                allocated_teams.add(player.team_id)
+                allocated_players.add(player.id)
     
-    # Flag to detect if we found new tiebreakers that need to be resolved
-    tiebreaker_found = False
-    tiebreaker_data = None
-    
-    # Process remaining bids until we hit a tiebreaker or finish all bids
-    while all_bids and not tiebreaker_found:
-        # Sort all bids by amount (highest first)
-        all_bids.sort(key=lambda x: x.amount, reverse=True)
-        
-        # Get the highest bid amount
-        highest_amount = all_bids[0].amount
-        
-        # Find all bids with the highest amount
-        highest_bids = [b for b in all_bids if b.amount == highest_amount]
-        
-        if len(highest_bids) == 1:
-            # Clear winner for this bid - no tie
-            winning_bid = highest_bids[0]
-            team = Team.query.get(winning_bid.team_id)
-            player = Player.query.get(winning_bid.player_id)
-            
-            # Skip if this team already got a player or player already allocated
-            if (winning_bid.team_id in processed_teams or 
-                winning_bid.player_id in processed_players):
-                # Remove this bid and continue
-                all_bids.remove(winning_bid)
+    # Process remaining bids
+    for bid in sorted_bids:
+        # Skip if team or player already allocated
+        if bid.team_id in allocated_teams or bid.player_id in allocated_players:
             continue
             
-            # Check if team has enough balance
-            if team.balance >= winning_bid.amount:
-                print(f"Allocating player {player.name} (ID {player.id}) to team {team.name} (ID {team.id}) for {winning_bid.amount}")
-                
+        # No need to check for ties - they should have been handled already
         # Allocate player to team
-                player.team_id = team.id
-                player.round_id = None
-                player.cost = winning_bid.amount
-                player.acquired_at = datetime.utcnow()
-                
-                # Deduct amount from team balance
-                team.balance -= winning_bid.amount
-                
-                # Track for notifications
-                if team.id not in winning_teams:
-                    winning_teams[team.id] = []
-                winning_teams[team.id].append(player.name)
-                
-                # Mark team and player as processed
-                processed_teams.add(winning_bid.team_id)
-                processed_players.add(winning_bid.player_id)
-                
-                # Remove all bids for this player and from this team
-                all_bids = [b for b in all_bids if b.player_id != winning_bid.player_id 
-                            and b.team_id != winning_bid.team_id]
-            else:
-                # Team doesn't have enough balance, remove this bid and continue
-                all_bids.remove(winning_bid)
-        else:
-            # Multiple highest bids with same amount - need tiebreaker
-            tiebreaker_found = True
-            
-            # Group tied bids by player
-            tied_bids_by_player = {}
-            for bid in highest_bids:
-                if bid.player_id not in tied_bids_by_player:
-                    tied_bids_by_player[bid.player_id] = []
-                tied_bids_by_player[bid.player_id].append(bid)
-            
-            # Find the players with tied bids
-            tiebreaker_players = []
-            tiebreaker_teams = {}
-            
-            for player_id, bids in tied_bids_by_player.items():
-                if len(bids) > 1:
-                    # This player has multiple teams bidding the same amount
-                    player = Player.query.get(player_id)
-                    tiebreaker_players.append(player)
-                    tiebreaker_teams[player_id] = [bid.team_id for bid in bids]
-            
-            # Store tiebreaker data for later creation
-            tiebreaker_data = {
-                'players': tiebreaker_players,
-                'teams': tiebreaker_teams
-            }
+        print(f"Allocating player ID {bid.player_id} to team ID {bid.team_id} for {bid.amount}")
+        player = Player.query.get(bid.player_id)
+        team = Team.query.get(bid.team_id)
+        
+        # Update team's balance
+        team.balance -= bid.amount
+        
+        # Set the player's team
+        player.team_id = team.id
+        
+        # Mark as allocated
+        allocated_teams.add(team.id)
+        allocated_players.add(player.id)
     
-    # Commit all changes made so far
     db.session.commit()
-    
-    # Send notifications to teams that won players
-    for team_id, player_names in winning_teams.items():
-        if player_names:
-            player_list = ', '.join(player_names)
-            send_notification_to_team(team_id, {
-                'title': 'You Won Players!',
-                'body': f'You successfully acquired: {player_list}',
-                'data': {
-                    'type': 'player_won',
-                    'player_names': player_names
-                },
-                'tag': f'player_won_{round.id}_{team_id}',
-                'renotify': True
-            })
-    
-    # If there are new tiebreakers needed, create tiebreaker rounds
-    if tiebreaker_found and tiebreaker_data:
-        tiebreaker_rounds = []
-        
-        for player in tiebreaker_data['players']:
-            team_ids = tiebreaker_data['teams'][player.id]
-            
-            # Create a tiebreaker round
-            tiebreaker = Round(
-                position=round.position,
-                is_active=True,
-                is_tiebreaker=True,
-                parent_round_id=round.id,
-                player_id=player.id,
-                start_time=datetime.utcnow(),
-                duration=300  # Default to 5 minutes for tiebreaker
-            )
-            db.session.add(tiebreaker)
-            db.session.flush()  # Get the tiebreaker ID
-            
-            # Create initial bids for all teams involved
-            for team_id in team_ids:
-                team = Team.query.get(team_id)
-                
-                # Find the original bid amount
-                original_bid = Bid.query.filter_by(
-                    round_id=round.id,
-                    team_id=team_id,
-                    player_id=player.id
-                ).first()
-                
-                if original_bid:
-                    tiebreaker_bid = TiebreakerBid(
-                        team_id=team_id,
-                        player_id=player.id,
-                        round_id=tiebreaker.id,
-                        amount=original_bid.amount
-                    )
-                    db.session.add(tiebreaker_bid)
-            
-            tiebreaker_rounds.append(tiebreaker)
-        
-        db.session.commit()
-        
-        # Send notifications to teams in tiebreaker
-        for player in tiebreaker_data['players']:
-            team_ids = tiebreaker_data['teams'][player.id]
-            tiebreaker_round = Round.query.filter_by(player_id=player.id, parent_round_id=round.id, is_active=True).first()
-            
-            if tiebreaker_round:
-                for team_id in team_ids:
-                    send_notification_to_team(team_id, {
-                        'title': 'Tiebreaker Round Started',
-                        'body': f'Your bid for {player.name} is tied. Please enter the tiebreaker round.',
-                        'data': {
-                            'type': 'tiebreaker_start',
-                            'round_id': tiebreaker_round.id,
-                            'player_id': player.id,
-                            'url': f'/team/tiebreaker/{tiebreaker_round.id}'
-                        },
-                        'tag': f'tiebreaker_{tiebreaker_round.id}',
-                        'renotify': True
-                    })
-        
-        # Send notification to admins about tiebreaker
-        send_notification_to_admins({
-            'title': 'New Tiebreaker Rounds Created',
-            'body': f'{len(tiebreaker_rounds)} new tiebreaker(s) created for {round.position} players while resuming.',
-            'data': {
-                'type': 'tiebreaker_created',
-                'round_id': round.id,
-                'position': round.position
-            },
-            'tag': f'tiebreaker_created_{round.id}',
-            'renotify': True
-        })
-        
-        return True
-    
-    # If we get here, all bids are processed and no more tiebreakers
-    print(f"Finalization completed for round {round_id} after all tiebreakers")
-    
-    # Send a final notification to admins
-    send_notification_to_admins({
-        'title': 'Round Finalization Complete',
-        'body': f'The {round.position} round has been fully finalized after all tiebreakers.',
-        'data': {
-            'type': 'round_finalized',
-            'round_id': round.id,
-            'position': round.position
-        },
-        'tag': f'round_finalized_{round.id}',
-        'renotify': True
-    })
-    
+    print(f"Finalization completed for round {round_id} after tiebreakers")
     return True
 
 @app.route('/finalize_tiebreaker/<int:round_id>', methods=['POST'])
@@ -2158,8 +1535,7 @@ def admin_view_round(round_id):
                 'player': player,
                 'amount': bid.amount,
                 'is_winning': is_winning,
-                'created_at': created_at,
-                'from_tiebreaker': False
+                'created_at': created_at
             }
             
             # Add to team bids
@@ -2171,109 +1547,15 @@ def admin_view_round(round_id):
                 winning_bids.append({
                     'bid': bid,
                     'player': player,
-                    'team': team_bids[bid.team_id]['team'],
-                    'from_tiebreaker': False
+                    'team': team_bids[bid.team_id]['team']
                 })
-    
-    # Get tiebreaker rounds for this round
-    tiebreaker_rounds = Round.query.filter_by(parent_round_id=round_id).all()
-    
-    # Process tiebreaker results and integrate them
-    tiebreaker_results = []
-    for tiebreaker in tiebreaker_rounds:
-        # Get the player for this tiebreaker
-        player = Player.query.get(tiebreaker.player_id)
-        if not player:
-            continue
-        
-        # If the player has been allocated to a team, this tiebreaker has a result
-        if player.team_id:
-            winning_team = Team.query.get(player.team_id)
-            
-            # Find the original bid amount from the main round
-            original_bid = Bid.query.filter_by(
-                round_id=round_id,
-                team_id=player.team_id,
-                player_id=player.id
-            ).first()
-            
-            # Find the winning tiebreaker bid amount
-            tiebreaker_bid = TiebreakerBid.query.filter_by(
-                round_id=tiebreaker.id,
-                team_id=player.team_id,
-                player_id=player.id
-            ).first()
-            
-            bid_amount = tiebreaker_bid.amount if tiebreaker_bid else (original_bid.amount if original_bid else player.cost)
-            
-            # Add to tiebreaker results
-            tiebreaker_results.append({
-                'player': player,
-                'team': winning_team,
-                'amount': bid_amount,
-                'tiebreaker_round': tiebreaker,
-                'is_active': tiebreaker.is_active
-            })
-            
-            # Add to winning bids list for unified display
-            if not tiebreaker.is_active:  # Only add if tiebreaker is completed
-                # Create a pseudo-bid object (since we don't have the actual bid object)
-                pseudo_bid = {
-                    'amount': bid_amount,
-                    'timestamp': datetime.utcnow(),  # Use current time as an approximation
-                    'team_id': player.team_id,
-                    'player_id': player.id
-                }
-                
-                winning_bids.append({
-                    'bid': pseudo_bid,
-                    'player': player,
-                    'team': winning_team,
-                    'from_tiebreaker': True,
-                    'tiebreaker_round': tiebreaker
-                })
-                
-                # Also add to team bids for completeness
-                if player.team_id in team_bids:
-                    team_bids[player.team_id]['bids'].append({
-                        'player': player,
-                        'amount': bid_amount,
-                        'is_winning': True,
-                        'created_at': datetime.utcnow().strftime('%d/%m/%Y %H:%M:%S'),
-                        'from_tiebreaker': True,
-                        'tiebreaker_round': tiebreaker
-                    })
-        
-        # Find all teams that participated in this tiebreaker
-        tiebreaker_bids = TiebreakerBid.query.filter_by(round_id=tiebreaker.id).all()
-        for tb_bid in tiebreaker_bids:
-            tb_team = Team.query.get(tb_bid.team_id)
-            
-            # Skip if we've already recorded this as a winning bid
-            if tb_team.id == player.team_id and not tiebreaker.is_active:
-                continue
-                
-            # Add to team bids
-            if tb_team.id in team_bids:
-                team_bids[tb_team.id]['bids'].append({
-                    'player': player,
-                    'amount': tb_bid.amount,
-                    'is_winning': tb_team.id == player.team_id and not tiebreaker.is_active,
-                    'created_at': tb_bid.timestamp.strftime('%d/%m/%Y %H:%M:%S') if tb_bid.timestamp else 'N/A',
-                    'from_tiebreaker': True,
-                    'tiebreaker_round': tiebreaker,
-                    'is_active_tiebreaker': tiebreaker.is_active
-                })
-    
-    # Identify active tiebreakers
-    active_tiebreakers = [t for t in tiebreaker_rounds if t.is_active]
     
     # Sort team bids by timestamp (newest first)
     for team_id in team_bids:
         team_bids[team_id]['bids'].sort(key=lambda x: x['created_at'], reverse=True)
     
     # Sort winning bids by bid amount (descending)
-    winning_bids.sort(key=lambda x: x['bid']['amount'] if isinstance(x['bid'], dict) else x['bid'].amount, reverse=True)
+    winning_bids.sort(key=lambda x: x['bid'].amount, reverse=True)
     
     # Debug count of bids per team
     for team_id, team_data in team_bids.items():
@@ -2284,9 +1566,6 @@ def admin_view_round(round_id):
         round=round,
         team_bids=team_bids,
         winning_bids=winning_bids,
-        tiebreaker_rounds=tiebreaker_rounds,
-        tiebreaker_results=tiebreaker_results,
-        active_tiebreakers=active_tiebreakers,
         teams=teams
     )
 
@@ -2772,274 +2051,10 @@ def approve_user(user_id):
     user.is_approved = True
     db.session.commit()
     
-    # Send notification to the approved user
-    send_push_notification(user.id, {
-        'title': 'Account Approved',
-        'body': 'Your account has been approved! You can now access all team features.',
-        'data': {
-            'type': 'user_approved',
-            'url': '/dashboard'
-        },
-        'tag': 'user_approved',
-        'renotify': True
-    })
-    
     flash(f'User {user.username} has been approved.', 'success')
     return redirect(url_for('admin_users'))
-
-# Helper function to determine if a notification should be sent in a closed auction
-def should_send_notification(notification_type, payload=None):
-    """
-    Filter notifications based on closed auction rules
-    Return True if notification should be sent, False otherwise
-    """
-    # In a closed auction, we only want essential notifications:
-    important_notifications = [
-        'round_start',        # New auction round started
-        'round_end',          # Auction round ended
-        'player_won',         # Player won by a team
-        'tiebreaker_start',   # Tiebreaker round started
-        'tiebreaker_completed', # Tiebreaker round completed
-        'bid_placed',         # User placed a bid successfully
-        'bid_deleted',        # User's bid was deleted
-        'balance_update',     # Team balance updated
-        'timer_update',       # Round timer was updated
-        'user_approved',      # User account was approved
-        'system_alert'        # Important system-wide alert
-    ]
-    
-    # Skip outbid notifications in closed auctions
-    skip_notifications = [
-        'outbid',             # Player has been outbid
-        'bid_update'          # Bid has been updated
-    ]
-    
-    if notification_type in important_notifications:
-        return True
-    
-    if notification_type in skip_notifications:
-        return False
-    
-    # For any other notification types, allow them by default
-    return True
-
-# Helper function for sending push notifications
-def send_push_notification(user_id, payload):
-    """
-    Send push notification to a specific user via their stored push subscriptions
-    """
-    try:
-        # Skip notification if it's not important for a closed auction
-        notification_type = payload.get('data', {}).get('type')
-        if notification_type and not should_send_notification(notification_type, payload):
-            print(f"Skipping notification of type {notification_type} in closed auction")
-            return False
-            
-        # Get all push subscriptions for the user
-        subscriptions = PushSubscription.query.filter_by(user_id=user_id).all()
-        
-        if not subscriptions:
-            return False
-        
-        for subscription in subscriptions:
-            subscription_info = {
-                "endpoint": subscription.endpoint,
-                "keys": {
-                    "p256dh": subscription.p256dh,
-                    "auth": subscription.auth
-                }
-            }
-            
-            try:
-                webpush(
-                    subscription_info=subscription_info,
-                    data=json.dumps(payload),
-                    vapid_private_key=Config.VAPID_PRIVATE_KEY,
-                    vapid_claims=Config.VAPID_CLAIMS
-                )
-            except WebPushException as e:
-                # If pushing failed due to subscription expiration or invalidation
-                if e.response and e.response.status_code in [404, 410]:
-                    db.session.delete(subscription)
-                    db.session.commit()
-                print(f"Error sending notification: {e}")
-                
-        return True
-    except Exception as e:
-        print(f"Error in send_push_notification: {e}")
-        return False
-
-def send_notification_to_all_teams(payload, exclude_user_ids=None):
-    """
-    Send push notification to all team users except those in exclude_user_ids
-    """
-    exclude_user_ids = exclude_user_ids or []
-    users = User.query.filter(User.is_admin.is_(False), User.id.notin_(exclude_user_ids)).all()
-    
-    for user in users:
-        send_push_notification(user.id, payload)
-    
-    return True
-
-def send_notification_to_team(team_id, payload):
-    """
-    Send push notification to a specific team
-    """
-    team = Team.query.get(team_id)
-    if team and team.user:
-        return send_push_notification(team.user.id, payload)
-    return False
-
-def send_notification_to_admins(payload):
-    """
-    Send push notification to all admin users
-    """
-    admin_users = User.query.filter_by(is_admin=True).all()
-    
-    for admin in admin_users:
-        send_push_notification(admin.id, payload)
-    
-    return True
-
-# API endpoint to get the public VAPID key
-@app.route('/api/vapid-public-key')
-@login_required
-def get_vapid_public_key():
-    return jsonify({'publicKey': Config.VAPID_PUBLIC_KEY})
-
-# API endpoint to subscribe to push notifications
-@app.route('/api/subscribe', methods=['POST'])
-@login_required
-def subscribe():
-    try:
-        # Get the subscription info from the request
-        subscription_json = request.json.get('subscription')
-        
-        if not subscription_json:
-            return jsonify({'error': 'No subscription data provided'}), 400
-        
-        # Extract the necessary data
-        endpoint = subscription_json.get('endpoint')
-        p256dh = subscription_json.get('keys', {}).get('p256dh')
-        auth = subscription_json.get('keys', {}).get('auth')
-        
-        if not endpoint or not p256dh or not auth:
-            return jsonify({'error': 'Invalid subscription data'}), 400
-        
-        # Check if subscription already exists
-        existing_sub = PushSubscription.query.filter_by(
-            user_id=current_user.id,
-            endpoint=endpoint
-        ).first()
-        
-        if existing_sub:
-            # Update the keys if they've changed
-            existing_sub.p256dh = p256dh
-            existing_sub.auth = auth
-            existing_sub.updated_at = datetime.utcnow()
-        else:
-            # Create a new subscription
-            new_subscription = PushSubscription(
-                user_id=current_user.id,
-                endpoint=endpoint,
-                p256dh=p256dh,
-                auth=auth
-            )
-            db.session.add(new_subscription)
-        
-        db.session.commit()
-        
-        # Send a test notification
-        send_push_notification(current_user.id, {
-            'title': 'Notifications Enabled',
-            'body': 'You will now receive notifications for important updates!',
-            'tag': 'welcome',
-            'renotify': True
-        })
-        
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Error in subscribe: {e}")
-        return jsonify({'error': str(e)}), 500
-
-# API endpoint to unsubscribe from push notifications
-@app.route('/api/unsubscribe', methods=['POST'])
-@login_required
-def unsubscribe():
-    try:
-        # Get the subscription info from the request
-        subscription_json = request.json.get('subscription')
-        
-        if not subscription_json:
-            return jsonify({'error': 'No subscription data provided'}), 400
-        
-        # Extract the endpoint
-        endpoint = subscription_json.get('endpoint')
-        
-        if not endpoint:
-            return jsonify({'error': 'Invalid subscription data'}), 400
-        
-        # Find and delete the subscription
-        subscription = PushSubscription.query.filter_by(
-            user_id=current_user.id,
-            endpoint=endpoint
-        ).first()
-        
-        if subscription:
-            db.session.delete(subscription)
-            db.session.commit()
-        
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"Error in unsubscribe: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/admin/send_system_alert', methods=['POST'])
-@login_required
-def send_system_alert():
-    """
-    Endpoint for admins to send a system-wide alert notification to all users
-    """
-    if not current_user.is_admin:
-        return jsonify({'error': 'Unauthorized'}), 403
-    
-    data = request.json
-    title = data.get('title')
-    message = data.get('message')
-    
-    if not title or not message:
-        return jsonify({'error': 'Title and message are required'}), 400
-    
-    # Generate a unique ID for this alert
-    alert_id = f"system_alert_{int(datetime.utcnow().timestamp())}"
-    
-    # Send to all users (admins and teams)
-    all_users = User.query.all()
-    success_count = 0
-    
-    for user in all_users:
-        sent = send_push_notification(user.id, {
-            'title': title,
-            'body': message,
-            'data': {
-                'type': 'system_alert',
-                'url': '/dashboard',
-                'alert_id': alert_id
-            },
-            'tag': alert_id,
-            'renotify': True
-        })
-        if sent:
-            success_count += 1
-    
-    return jsonify({
-        'success': True,
-        'message': f'System alert sent to {success_count} users',
-        'alert_id': alert_id
-    })
 
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    # Running with mobile notification support enabled
     app.run(debug=True) 

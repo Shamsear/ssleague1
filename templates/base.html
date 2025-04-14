@@ -7,7 +7,6 @@
     <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -195,32 +194,6 @@
                 {% endfor %}
             {% endif %}
         {% endwith %}
-
-        {% if current_user.is_authenticated %}
-        <div id="notification-container" class="glass mb-6 px-5 py-4 rounded-3xl animate__animated animate__fadeIn">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center">
-                    <svg class="w-6 h-6 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
-                    </svg>
-                    <div>
-                        <h3 class="font-medium">Notifications</h3>
-                        <p class="text-sm text-gray-500" id="notification-info">Get important updates about rounds, tiebreakers, and your winning bids</p>
-                        <p class="text-sm font-medium mt-1" id="notification-status">Checking status...</p>
-                        <input type="hidden" id="user-id" value="{{ current_user.id }}">
-                    </div>
-                </div>
-                <div>
-                    <button id="enable-notifications" class="px-3 py-1.5 text-sm bg-primary text-white rounded-xl vision-button">
-                        Enable
-                    </button>
-                    <button id="disable-notifications" class="px-3 py-1.5 text-sm bg-red-500 text-white rounded-xl vision-button hidden">
-                        Disable
-                    </button>
-                </div>
-            </div>
-        </div>
-        {% endif %}
 
         {% block content %}{% endblock %}
         
