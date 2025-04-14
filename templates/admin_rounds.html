@@ -71,29 +71,38 @@
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Started At</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Time Remaining</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Players</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type/Status</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 bg-white/30">
                     {% for round in active_rounds %}
                     <tr class="hover:bg-white/50 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ round.position }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">{{ round.position }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ round.start_time.strftime('%H:%M:%S - %d/%m/%Y') }}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary" id="desktop-timer-{{ round.id }}"></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-primary font-medium">
+                            <span id="timer-desktop-{{ round.id }}"></span>
+                        </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ round.players|length }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <span class="px-2 py-1 rounded-md bg-green-100 text-green-800">Active</span>
+                            <span class="px-2 py-1 rounded-md bg-green-100 text-green-800">Main Round</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <div class="flex space-x-3">
-                                <button onclick="editRoundDuration({{ round.id }})" class="text-primary hover:text-primary/80 font-medium transition-colors duration-200 flex items-center">
+                                <button onclick="viewRoundDetails({{ round.id }})" class="text-primary hover:text-primary/80 font-medium transition-colors duration-200 flex items-center">
                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
-                                    Edit
+                                    View
                                 </button>
-                                <button onclick="finalizeRound({{ round.id }})" class="text-accent hover:text-accent/80 font-medium transition-colors duration-200 flex items-center">
+                                <button onclick="editRoundDuration({{ round.id }})" class="text-gray-700 hover:text-gray-900 font-medium transition-colors duration-200 flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                    </svg>
+                                    Add Time
+                                </button>
+                                <button onclick="finalizeRound({{ round.id }})" class="text-secondary hover:text-secondary/80 font-medium transition-colors duration-200 flex items-center">
                                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                                     </svg>
@@ -102,6 +111,53 @@
                             </div>
                         </td>
                     </tr>
+                    
+                    <!-- Show associated active tiebreakers indented below the main round -->
+                    {% if round.id in active_tiebreakers_by_parent %}
+                        {% for tiebreaker in active_tiebreakers_by_parent[round.id] %}
+                        <tr class="hover:bg-white/50 transition-colors bg-blue-50/30">
+                            <td class="pl-10 pr-6 py-3 whitespace-nowrap text-sm text-gray-600">
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                    {{ round.position }} (Tiebreaker)
+                                </div>
+                            </td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-600">{{ tiebreaker.start_time.strftime('%H:%M:%S - %d/%m/%Y') }}</td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm text-primary font-medium">
+                                <span id="timer-desktop-{{ tiebreaker.id }}"></span>
+                            </td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-600">
+                                {% if tiebreaker.player_id %}
+                                    1 (ID: {{ tiebreaker.player_id }})
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm">
+                                <span class="px-2 py-1 rounded-md bg-blue-100 text-blue-800 text-xs">Active Tiebreaker</span>
+                            </td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm">
+                                <div class="flex space-x-3">
+                                    <button onclick="viewRoundDetails({{ tiebreaker.id }})" class="text-primary hover:text-primary/80 font-medium transition-colors duration-200 flex items-center">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                        </svg>
+                                        View
+                                    </button>
+                                    <button onclick="finalizeTiebreaker({{ tiebreaker.id }})" class="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200 flex items-center">
+                                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Finalize
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endif %}
                     {% else %}
                     <tr>
                         <td colspan="6" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No active rounds</td>
@@ -172,7 +228,7 @@
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Started At</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Duration</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Players</th>
-                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Type/Status</th>
                         <th class="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Actions</th>
                     </tr>
                 </thead>
@@ -184,7 +240,7 @@
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ round.duration // 60 }} min {{ round.duration % 60 }} sec</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ round.players|length }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <span class="px-2 py-1 rounded-md bg-gray-100 text-gray-800">Completed</span>
+                            <span class="px-2 py-1 rounded-md bg-gray-100 text-gray-800">Main Round</span>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
                             <div class="flex space-x-3">
@@ -204,6 +260,43 @@
                             </div>
                         </td>
                     </tr>
+                    
+                    <!-- Show associated tiebreakers indented below the main round -->
+                    {% if round.id in past_tiebreakers_by_parent %}
+                        {% for tiebreaker in past_tiebreakers_by_parent[round.id] %}
+                        <tr class="hover:bg-white/50 transition-colors bg-gray-50/30">
+                            <td class="pl-10 pr-6 py-3 whitespace-nowrap text-sm text-gray-600">
+                                <div class="flex items-center">
+                                    <svg class="w-4 h-4 mr-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                    {{ round.position }} (Tiebreaker)
+                                </div>
+                            </td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-600">{{ tiebreaker.start_time.strftime('%H:%M:%S - %d/%m/%Y') }}</td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-600">{{ tiebreaker.duration // 60 }} min {{ tiebreaker.duration % 60 }} sec</td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm text-gray-600">
+                                {% if tiebreaker.player_id %}
+                                    1 (Tiebreaker for ID: {{ tiebreaker.player_id }})
+                                {% else %}
+                                    0
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm">
+                                <span class="px-2 py-1 rounded-md bg-blue-100 text-blue-800 text-xs">Tiebreaker</span>
+                            </td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm">
+                                <button onclick="viewRoundDetails({{ tiebreaker.id }})" class="text-primary hover:text-primary/80 font-medium transition-colors duration-200 flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    View Details
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% endif %}
                     {% else %}
                     <tr>
                         <td colspan="6" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No past rounds</td>
