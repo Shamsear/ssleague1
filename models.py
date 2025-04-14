@@ -130,4 +130,20 @@ class StarredPlayer(db.Model):
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     team = db.relationship('Team', backref='starred_players')
-    player = db.relationship('Player', backref='starred_by') 
+    player = db.relationship('Player', backref='starred_by')
+
+class AuctionStatus(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    current_round = db.Column(db.Integer, default=0)
+    is_active = db.Column(db.Boolean, default=False)
+    last_updated = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(50), default="not_started")  # not_started, in_progress, paused, completed
+    finalization_status = db.Column(db.String(100), nullable=True)
+    last_finalization_message = db.Column(db.String(500), nullable=True)
+    
+    def update_status(self, status, message=None):
+        self.status = status
+        self.last_updated = datetime.utcnow()
+        if message:
+            self.last_finalization_message = message
+        db.session.commit() 
