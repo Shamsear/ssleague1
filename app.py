@@ -782,25 +782,12 @@ def place_bid():
             'error': f'You can only bid on {round.max_bids_per_team} player(s) per round. Please delete an existing bid if you wish to bid on a different player.'
         }), 400
     
-    # Check if the team has already placed this bid amount on the same player
-    existing_same_amount_bid = Bid.query.filter_by(
-        team_id=team.id,
-        round_id=round_id,
-        player_id=player_id,
-        amount=amount
-    ).first()
-    
-    if existing_same_amount_bid:
-        return jsonify({
-            'error': f'You have already placed a bid of {amount} on this player. Please use a different amount.'
-        }), 400
-    
     # Check if the team has already placed this bid amount on ANY player in this round
     existing_bid_with_same_amount = Bid.query.filter_by(
         team_id=team.id,
         round_id=round_id,
         amount=amount
-    ).first()
+    ).filter(Bid.player_id != player_id).first()
     
     if existing_bid_with_same_amount:
         other_player = Player.query.get(existing_bid_with_same_amount.player_id)
@@ -816,6 +803,17 @@ def place_bid():
         }), 400
     
     try:
+        # First, check if there's an existing bid for this player-team combination and delete it
+        existing_bid = Bid.query.filter_by(
+            team_id=team.id,
+            player_id=player_id,
+            round_id=round_id
+        ).first()
+        
+        if existing_bid:
+            db.session.delete(existing_bid)
+            
+        # Now create the new bid
         bid = Bid(
             team_id=team.id,
             player_id=player_id,
@@ -852,6 +850,46 @@ def delete_bid(bid_id):
     
     # Check if the round is still active
     if not bid.round.is_active:
+        return jsonify({'error': 'Cannot delete bid from a finalized round'}), 400
+    
+    db.session.delete(bid)
+    db.session.commit()
+    
+    return jsonify({'message': 'Bid deleted successfully'})
+
+@app.route('/delete_bid', methods=['POST'])
+@login_required
+def delete_bid_by_player():
+    if current_user.is_admin:
+        return jsonify({'error': 'Admins cannot delete bids'}), 403
+    
+    data = request.json
+    player_id = data.get('player_id')
+    round_id = data.get('round_id')
+    
+    if not all([player_id, round_id]):
+        return jsonify({'error': 'Missing required fields'}), 400
+    
+    round = Round.query.get_or_404(round_id)
+    
+    # Check if the round timer has expired
+    if round and round.is_timer_expired():
+        # If timer expired, finalize the round and reject the deletion
+        finalize_round_internal(round.id)
+        return jsonify({'error': 'Round timer has expired'}), 400
+    
+    # Find the bid by player_id, round_id, and team_id
+    bid = Bid.query.filter_by(
+        team_id=current_user.team.id,
+        player_id=player_id,
+        round_id=round_id
+    ).first()
+    
+    if not bid:
+        return jsonify({'error': 'Bid not found'}), 404
+    
+    # Check if the round is still active
+    if not round.is_active:
         return jsonify({'error': 'Cannot delete bid from a finalized round'}), 400
     
     db.session.delete(bid)
