@@ -1,8 +1,10 @@
 from app import app, db
-from models import User, Player
+from models import User, Player, Team, Round, Bid, TiebreakerBid, AuctionStatus
 from werkzeug.security import generate_password_hash
 import sqlite3
 import os
+import datetime
+from migrate_db import migrate_database
 
 def create_players():
     # Check if the SQLite database file exists
@@ -69,10 +71,65 @@ def create_players():
     conn.close()
     return players
 
+def create_teams():
+    """Create default teams for the auction"""
+    teams = []
+    
+    # Check if teams already exist
+    if Team.query.count() > 0:
+        print("Teams already exist, skipping team creation.")
+        return teams
+    
+    # Create default teams with initial balance
+    default_teams = [
+        {"name": "Team Alpha", "balance": 1000000},
+        {"name": "Team Beta", "balance": 1000000},
+        {"name": "Team Gamma", "balance": 1000000},
+        {"name": "Team Delta", "balance": 1000000},
+        {"name": "Team Epsilon", "balance": 1000000},
+        {"name": "Team Zeta", "balance": 1000000},
+        {"name": "Team Eta", "balance": 1000000},
+        {"name": "Team Theta", "balance": 1000000}
+    ]
+    
+    for team_data in default_teams:
+        team = Team(
+            name=team_data["name"],
+            balance=team_data["balance"],
+            is_active=True
+        )
+        db.session.add(team)
+        teams.append(team)
+    
+    print(f"{len(teams)} teams created successfully!")
+    return teams
+
+def initialize_auction_status():
+    """Initialize or update the auction status"""
+    status = AuctionStatus.query.first()
+    
+    if not status:
+        status = AuctionStatus(
+            current_round=0,
+            is_active=False,
+            last_updated=datetime.datetime.now(),
+            status="not_started"
+        )
+        db.session.add(status)
+        print("Auction status initialized!")
+    else:
+        print("Auction status already exists.")
+    
+    return status
+
 def init_db():
     with app.app_context():
         # Create all tables
         db.create_all()
+        
+        # Run migrations to ensure the schema is up to date
+        print("Checking database schema and running migrations if needed...")
+        migrate_database()
         
         # Check if admin user exists
         admin = User.query.filter_by(username='admin').first()
@@ -88,6 +145,9 @@ def init_db():
             db.session.commit()
             print("Admin user created!")
         
+        # Initialize teams
+        teams = create_teams()
+        
         # Check if players exist
         if Player.query.count() == 0:
             print("Importing players from SQLite database...")
@@ -95,6 +155,12 @@ def init_db():
             if players:
                 db.session.commit()
                 print(f"{len(players)} players imported successfully!")
+        
+        # Initialize auction status
+        initialize_auction_status()
+        
+        # Commit all changes
+        db.session.commit()
         
         print("Database initialized!")
 
