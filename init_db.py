@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash
 import sqlite3
 import os
 import datetime
+from migrate_db import migrate_database
 
 def create_players():
     # Check if the SQLite database file exists
@@ -125,6 +126,10 @@ def init_db():
     with app.app_context():
         # Create all tables
         db.create_all()
+        
+        # Run migrations to ensure the schema is up to date
+        print("Checking database schema and running migrations if needed...")
+        migrate_database()
         
         # Check if admin user exists
         admin = User.query.filter_by(username='admin').first()
