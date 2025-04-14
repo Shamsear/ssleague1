@@ -31,11 +31,11 @@
                         <p class="text-xs text-gray-600">Avg. Rating</p>
                         <p class="text-lg font-medium text-dark">
                             {% if current_user.team.players|length > 0 %}
-                                {% set total_rating = 0 %}
+                                {% set total_rating = namespace(value=0) %}
                                 {% for player in current_user.team.players %}
-                                    {% set total_rating = total_rating + player.overall_rating %}
+                                    {% set total_rating.value = total_rating.value + player.overall_rating %}
                                 {% endfor %}
-                                {{ (total_rating / current_user.team.players|length)|round(1) }}
+                                {{ (total_rating.value / current_user.team.players|length)|round(1) }}
                             {% else %}
                                 -
                             {% endif %}
@@ -44,27 +44,27 @@
                     <div class="bg-white/20 p-2 sm:p-3 rounded-xl">
                         <p class="text-xs text-gray-600">Active Bids</p>
                         <p class="text-lg font-medium text-dark">
-                            {% set active_bids = 0 %}
+                            {% set active_bids = namespace(count=0) %}
                             {% for bid in current_user.team.bids %}
                                 {% if bid.round.is_active %}
-                                    {% set active_bids = active_bids + 1 %}
-                        {% endif %}
+                                    {% set active_bids.count = active_bids.count + 1 %}
+                                {% endif %}
                             {% endfor %}
-                            {{ active_bids }}
+                            {{ active_bids.count }}
                         </p>
                     </div>
                     <div class="bg-white/20 p-2 sm:p-3 rounded-xl">
                         <p class="text-xs text-gray-600">Total Spent</p>
                         <p class="text-lg font-medium text-dark">
-                            {% set total_spent = 0 %}
+                            {% set total_spent = namespace(value=0) %}
                             {% for player in current_user.team.players %}
                                 {% for bid in player.bids %}
                                     {% if bid.team_id == current_user.team.id and not bid.round.is_active %}
-                                        {% set total_spent = total_spent + bid.amount %}
+                                        {% set total_spent.value = total_spent.value + bid.amount %}
                                     {% endif %}
                                 {% endfor %}
                             {% endfor %}
-                            £{{ "{:,}".format(total_spent) }}
+                            £{{ "{:,}".format(total_spent.value) }}
                         </p>
                     </div>
                     </div>
@@ -270,8 +270,8 @@
         <!-- Mobile view (card layout) -->
         <div class="block md:hidden space-y-4">
             {% for round in active_tiebreakers %}
-            {% set player = round.tiebreaker_player %}
-            {% set user_bid = round.tiebreaker_bids|selectattr('team_id', 'equalto', current_user.team.id)|first %}
+            {% set player = Player.query.get(round.player_id) %}
+            {% set user_bid = TiebreakerBid.query.filter_by(round_id=round.id, team_id=current_user.team.id).first() %}
             
             <div class="glass-card p-4 rounded-xl hover:shadow-md transition-all duration-300">
                 <div class="flex justify-between items-start mb-3">
@@ -319,8 +319,8 @@
                 <tbody class="divide-y divide-gray-200 bg-white/30">
                     {% for round in active_tiebreakers %}
                     <tr class="hover:bg-white/50 transition-colors">
-                        {% set player = round.tiebreaker_player %}
-                        {% set user_bid = round.tiebreaker_bids|selectattr('team_id', 'equalto', current_user.team.id)|first %}
+                        {% set player = Player.query.get(round.player_id) %}
+                        {% set user_bid = TiebreakerBid.query.filter_by(round_id=round.id, team_id=current_user.team.id).first() %}
                         
                         <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-700">{{ player.name }}</td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ player.position }}</td>
@@ -448,7 +448,18 @@
                                 {% elif winning_bid.team_id == current_user.team.id %}
                                     <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Won</span>
                                 {% else %}
-                                    <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Lost</span>
+                                    {% set is_in_tiebreaker = false %}
+                                    {% for tiebreaker in active_tiebreakers %}
+                                        {% if tiebreaker.player_id == player.id and tiebreaker.parent_round_id == round.id %}
+                                            {% set is_in_tiebreaker = true %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if is_in_tiebreaker %}
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">In Tiebreaker</span>
+                                    {% else %}
+                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Lost</span>
+                                    {% endif %}
                                 {% endif %}
                             </div>
                         </div>
@@ -564,7 +575,18 @@
                                     {% elif winning_bid.team_id == current_user.team.id %}
                                         <span class="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">Won</span>
                                     {% else %}
-                                        <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Lost</span>
+                                        {% set is_in_tiebreaker = false %}
+                                        {% for tiebreaker in active_tiebreakers %}
+                                            {% if tiebreaker.player_id == player.id and tiebreaker.parent_round_id == round.id %}
+                                                {% set is_in_tiebreaker = true %}
+                                            {% endif %}
+                                        {% endfor %}
+                                        
+                                        {% if is_in_tiebreaker %}
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">In Tiebreaker</span>
+                                        {% else %}
+                                            <span class="px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">Lost</span>
+                                        {% endif %}
                                     {% endif %}
                                 </td>
                             </tr>

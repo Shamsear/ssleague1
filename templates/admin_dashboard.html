@@ -190,6 +190,12 @@
                     <div>
                         <span class="font-medium">{{ round.position }} - Tiebreaker</span>
                         <div class="text-xs font-medium text-orange-600">Player: {{ round.player.name }}</div>
+                        <div class="text-xs text-gray-500 mt-1">
+                            Started: {{ round.start_time.strftime('%H:%M - %d/%m') }}
+                            {% if round.parent_round_id %}
+                            <span class="ml-2">Parent Round: {{ round.parent_round_id }}</span>
+                            {% endif %}
+                        </div>
                     </div>
                     <span class="text-primary font-medium" id="mobile-tiebreaker-timer-{{ round.id }}"></span>
                 </div>
@@ -198,7 +204,7 @@
                         <div class="text-xs text-gray-600 mb-1">Teams with Bids:</div>
                         <div class="text-sm">
                             {% for bid in round.tiebreaker_bids %}
-                            <span class="px-2 py-1 mr-1 mb-1 inline-block rounded-full text-xs bg-blue-100 text-blue-800">
+                            <span class="px-2 py-1 mr-1 mb-1 inline-block rounded-full text-xs {% if bid.amount > round.tiebreaker_bids[0].amount %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
                                 {{ bid.team.name }}: {{ bid.amount }}
                             </span>
                             {% else %}
@@ -206,7 +212,14 @@
                             {% endfor %}
                         </div>
                     </div>
-                    <div class="flex justify-end">
+                    <div class="flex justify-end gap-2">
+                        <a href="{{ url_for('admin_view_round', round_id=round.id) }}" class="text-primary hover:text-primary/80 font-medium transition-colors duration-200 flex items-center bg-white/50 px-3 py-1.5 rounded-xl">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            Details
+                        </a>
                         <button onclick="finalizeTiebreaker({{ round.id }})" class="text-accent hover:text-accent/80 font-medium transition-colors duration-200 flex items-center bg-white/50 px-3 py-1.5 rounded-xl">
                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -245,6 +258,12 @@
                                 <div class="ml-4">
                                     <div class="text-sm font-medium text-gray-900">{{ round.player.name }}</div>
                                     <div class="text-sm text-gray-500">{{ round.player.position }} - Rating: {{ round.player.overall_rating }}</div>
+                                    <div class="text-xs text-orange-600 mt-1">
+                                        Started: {{ round.start_time.strftime('%H:%M:%S - %d/%m/%Y') }}
+                                        {% if round.parent_round_id %}
+                                        <span class="ml-2">Parent Round: {{ round.parent_round_id }}</span>
+                                        {% endif %}
+                                    </div>
                                 </div>
                             </div>
                         </td>
@@ -268,12 +287,21 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            <button onclick="finalizeTiebreaker({{ round.id }})" class="text-accent hover:text-accent/80 font-medium transition-colors duration-200 flex items-center">
-                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                                Finalize
-                            </button>
+                            <div class="flex space-x-2">
+                                <button onclick="finalizeTiebreaker({{ round.id }})" class="text-accent hover:text-accent/80 font-medium transition-colors duration-200 flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Finalize
+                                </button>
+                                <a href="{{ url_for('admin_view_round', round_id=round.id) }}" class="text-primary hover:text-primary/80 font-medium transition-colors duration-200 flex items-center">
+                                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    View Details
+                                </a>
+                            </div>
                         </td>
                     </tr>
                     {% else %}
