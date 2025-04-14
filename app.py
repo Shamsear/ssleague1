@@ -512,107 +512,140 @@ def finalize_round_internal(round_id):
     
     print(f"Found {len(sorted_bids)} unique bids after handling edited values")
     
+    # Ensure we get the latest allocation state from the database
+    # This helps prevent issues if other processes have modified allocations
+    db.session.flush()
+    
     # Keep track of allocated teams and players to prevent duplicates
     allocated_teams = set()
     allocated_players = set()
     
+    # Pre-load current allocations to ensure we don't create conflicts
+    # Get all players that already have a team assigned (globally, not just this round)
+    for player in Player.query.filter(Player.team_id != None).all():
+        allocated_players.add(player.id)
+        allocated_teams.add(player.team_id)
+    
+    print(f"Pre-loaded {len(allocated_players)} allocated players and {len(allocated_teams)} allocated teams")
+    
     # Track ties that need tiebreaker rounds
     ties_to_resolve = []
     
-    # First pass: identify ties and create tiebreaker rounds
-    i = 0
-    while i < len(sorted_bids):
-        current_bid = sorted_bids[i]
-        
-        # Skip if team or player already allocated
-        if current_bid.team_id in allocated_teams or current_bid.player_id in allocated_players:
-            i += 1
-            continue
+    try:
+        # First pass: identify ties and create tiebreaker rounds
+        i = 0
+        while i < len(sorted_bids):
+            current_bid = sorted_bids[i]
             
-        # Check for ties (same amount for same player)
-        tied_bids = []
-        j = i
-        while j < len(sorted_bids) and sorted_bids[j].amount == current_bid.amount and sorted_bids[j].player_id == current_bid.player_id:
-            if sorted_bids[j].team_id not in allocated_teams:
-                tied_bids.append(sorted_bids[j])
-            j += 1
-            
-        # Process ties
-        if len(tied_bids) > 1:
-            print(f"Found tie: {len(tied_bids)} teams bid {current_bid.amount} for player ID {current_bid.player_id}")
-            # Create a tiebreaker round
-            player = Player.query.get(current_bid.player_id)
-            tiebreaker_round = Round(
-                position=round.position,
-                is_active=True,
-                is_tiebreaker=True,
-                parent_round_id=round.id,
-                player_id=current_bid.player_id,
-                duration=180  # 3 minutes for tiebreaker
-            )
-            db.session.add(tiebreaker_round)
-            db.session.flush()  # Get the ID without committing
-            
-            # Add the tied teams to the tiebreaker round
-            for tied_bid in tied_bids:
-                tiebreaker_bid = TiebreakerBid(
-                    team_id=tied_bid.team_id,
-                    player_id=tied_bid.player_id,
-                    round_id=tiebreaker_round.id,
-                    amount=0  # Initial bid amount for tiebreaker
-                )
-                db.session.add(tiebreaker_bid)
+            # Skip if team or player already allocated
+            if current_bid.team_id in allocated_teams or current_bid.player_id in allocated_players:
+                i += 1
+                continue
                 
-            # Store tie information for later processing
-            ties_to_resolve.append({
-                'tiebreaker_round_id': tiebreaker_round.id,
-                'player_id': current_bid.player_id,
-                'bid_amount': current_bid.amount,
-                'tied_teams': [bid.team_id for bid in tied_bids]
-            })
-            
-            # Skip all these tied bids
-            i = j
-        else:
-            # No tie, just a single bid
-            i += 1
-    
-    # Commit tiebreaker rounds to the database
-    db.session.commit()
-    
-    # If we have ties to resolve, we need to pause the main finalization
-    if ties_to_resolve:
-        print(f"Round {round_id} has {len(ties_to_resolve)} ties to resolve. Pausing main finalization.")
-        round.is_active = False  # Deactivate the main round
+            # Check for ties (same amount for same player)
+            tied_bids = []
+            j = i
+            while j < len(sorted_bids) and sorted_bids[j].amount == current_bid.amount and sorted_bids[j].player_id == current_bid.player_id:
+                if sorted_bids[j].team_id not in allocated_teams:
+                    tied_bids.append(sorted_bids[j])
+                j += 1
+                
+            # Process ties
+            if len(tied_bids) > 1:
+                print(f"Found tie: {len(tied_bids)} teams bid {current_bid.amount} for player ID {current_bid.player_id}")
+                # Create a tiebreaker round
+                player = Player.query.get(current_bid.player_id)
+                tiebreaker_round = Round(
+                    position=round.position,
+                    is_active=True,
+                    is_tiebreaker=True,
+                    parent_round_id=round.id,
+                    player_id=current_bid.player_id,
+                    duration=180  # 3 minutes for tiebreaker
+                )
+                db.session.add(tiebreaker_round)
+                db.session.flush()  # Get the ID without committing
+                
+                # Add the tied teams to the tiebreaker round
+                for tied_bid in tied_bids:
+                    tiebreaker_bid = TiebreakerBid(
+                        team_id=tied_bid.team_id,
+                        player_id=tied_bid.player_id,
+                        round_id=tiebreaker_round.id,
+                        amount=0  # Initial bid amount for tiebreaker
+                    )
+                    db.session.add(tiebreaker_bid)
+                    
+                # Store tie information for later processing
+                ties_to_resolve.append({
+                    'tiebreaker_round_id': tiebreaker_round.id,
+                    'player_id': current_bid.player_id,
+                    'bid_amount': current_bid.amount,
+                    'tied_teams': [bid.team_id for bid in tied_bids]
+                })
+                
+                # Reserve this player to prevent other allocations
+                allocated_players.add(current_bid.player_id)
+                
+                # Skip all these tied bids
+                i = j
+            else:
+                # No tie, just a single bid
+                i += 1
+        
+        # Commit tiebreaker rounds to the database
         db.session.commit()
+        
+        # If we have ties to resolve, we need to pause the main finalization
+        if ties_to_resolve:
+            print(f"Round {round_id} has {len(ties_to_resolve)} ties to resolve. Pausing main finalization.")
+            round.is_active = False  # Deactivate the main round
+            db.session.commit()
+            return True
+            
+        # Second pass: allocate players to teams based on highest bids
+        print("No ties found. Proceeding with player allocation.")
+        allocation_count = 0
+        
+        for bid in sorted_bids:
+            # Skip if team or player already allocated
+            if bid.team_id in allocated_teams or bid.player_id in allocated_players:
+                continue
+                
+            # Double-check current allocation status in database before proceeding
+            player = Player.query.get(bid.player_id)
+            team = Team.query.get(bid.team_id)
+            
+            if player.team_id is not None:
+                # Player already allocated elsewhere - skip
+                allocated_players.add(player.id)
+                continue
+                
+            # Allocate player to team
+            print(f"Allocating player ID {bid.player_id} to team ID {bid.team_id} for {bid.amount}")
+            
+            # Update team's balance
+            team.balance -= bid.amount
+            
+            # Set the player's team
+            player.team_id = team.id
+            
+            # Mark as allocated
+            allocated_teams.add(team.id)
+            allocated_players.add(player.id)
+            allocation_count += 1
+        
+        round.is_active = False
+        db.session.commit()
+        print(f"Round {round_id} finalization completed. {allocation_count} allocations made.")
         return True
         
-    # Second pass: allocate players to teams based on highest bids
-    print("No ties found. Proceeding with player allocation.")
-    for bid in sorted_bids:
-        # Skip if team or player already allocated
-        if bid.team_id in allocated_teams or bid.player_id in allocated_players:
-            continue
-            
-        # Allocate player to team
-        print(f"Allocating player ID {bid.player_id} to team ID {bid.team_id} for {bid.amount}")
-        player = Player.query.get(bid.player_id)
-        team = Team.query.get(bid.team_id)
-        
-        # Update team's balance
-        team.balance -= bid.amount
-        
-        # Set the player's team
-        player.team_id = team.id
-        
-        # Mark as allocated
-        allocated_teams.add(team.id)
-        allocated_players.add(player.id)
-    
-    round.is_active = False
-    db.session.commit()
-    print(f"Round {round_id} finalization completed. {len(allocated_teams)} allocations made.")
-    return True
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"Error in round finalization: {str(e)}")
+        traceback.print_exc()
+        return False
 
 @app.route('/finalize_round/<int:round_id>', methods=['POST'])
 @login_required
@@ -644,6 +677,12 @@ def place_bid():
     if not all([round_id, player_id, amount]):
         return jsonify({'error': 'Missing required fields'}), 400
     
+    try:
+        # Convert amount to integer if it's not already
+        amount = int(amount)
+    except ValueError:
+        return jsonify({'error': 'Bid amount must be a valid number'}), 400
+    
     round = Round.query.get_or_404(round_id)
     if round.is_timer_expired():
         # If timer expired, finalize the round and reject the bid
@@ -661,6 +700,29 @@ def place_bid():
     total_bids = Bid.query.filter_by(team_id=team.id).count()
     if total_bids >= 20:
         return jsonify({'error': 'Maximum bid limit (20) reached for your team'}), 400
+    
+    # Check if the team is already involved in any active tiebreaker rounds
+    active_tiebreakers = TiebreakerBid.query.join(Round, TiebreakerBid.round_id == Round.id).filter(
+        TiebreakerBid.team_id == team.id,
+        Round.is_active == True
+    ).count()
+    
+    if active_tiebreakers > 0:
+        return jsonify({
+            'error': 'Your team is currently involved in a tiebreaker round. Please complete that first.'
+        }), 400
+    
+    # Check if the player is already in an active tiebreaker round
+    player_in_tiebreaker = Round.query.filter(
+        Round.player_id == player_id,
+        Round.is_active == True,
+        Round.is_tiebreaker == True
+    ).first() is not None
+    
+    if player_in_tiebreaker:
+        return jsonify({
+            'error': 'This player is currently involved in a tiebreaker round and cannot receive bids.'
+        }), 400
     
     # Count number of unique players this team has bid on in this round
     unique_player_bids_count = db.session.query(Bid.player_id).filter_by(
@@ -706,16 +768,28 @@ def place_bid():
             'error': f'You have already placed a bid of {amount} on {other_player.name}. Each bid amount must be unique across all players in a round.'
         }), 400
     
-    bid = Bid(
-        team_id=team.id,
-        player_id=player_id,
-        round_id=round_id,
-        amount=amount
-    )
-    db.session.add(bid)
-    db.session.commit()
+    # Verify player doesn't already have a team
+    player = Player.query.get(player_id)
+    if player.team_id is not None:
+        return jsonify({
+            'error': f'This player is already allocated to a team and cannot receive bids.'
+        }), 400
     
-    return jsonify({'message': 'Bid placed successfully'})
+    try:
+        bid = Bid(
+            team_id=team.id,
+            player_id=player_id,
+            round_id=round_id,
+            amount=amount
+        )
+        db.session.add(bid)
+        db.session.commit()
+        
+        return jsonify({'message': 'Bid placed successfully'})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error placing bid: {str(e)}")
+        return jsonify({'error': 'An error occurred while placing your bid'}), 500
 
 @app.route('/delete_bid/<int:bid_id>', methods=['DELETE'])
 @login_required
@@ -765,6 +839,12 @@ def place_tiebreaker_bid():
     if not all([round_id, player_id, amount]):
         return jsonify({'error': 'Missing required fields'}), 400
     
+    try:
+        # Convert amount to integer if it's not already
+        amount = int(amount)
+    except ValueError:
+        return jsonify({'error': 'Bid amount must be a valid number'}), 400
+    
     round = Round.query.get_or_404(round_id)
     if not round.is_tiebreaker:
         return jsonify({'error': 'This is not a tiebreaker round'}), 400
@@ -786,11 +866,29 @@ def place_tiebreaker_bid():
     if not existing_bid:
         return jsonify({'error': 'Your team is not part of this tiebreaker'}), 403
     
-    # Update the bid amount
-    existing_bid.amount = amount
-    db.session.commit()
+    # Verify that player isn't already allocated
+    player = Player.query.get(player_id)
+    if not player:
+        return jsonify({'error': 'Player not found'}), 404
+        
+    if player.team_id is not None:
+        return jsonify({'error': 'This player has already been allocated to a team'}), 400
     
-    return jsonify({'message': 'Tiebreaker bid placed successfully'})
+    # Verify this team isn't already allocated another player globally
+    team_has_player = Player.query.filter_by(team_id=team.id).first() is not None
+    if team_has_player:
+        return jsonify({'error': 'Your team already has a player allocated. You cannot bid on another.'}), 400
+    
+    try:
+        # Update the bid amount
+        existing_bid.amount = amount
+        db.session.commit()
+        
+        return jsonify({'message': 'Tiebreaker bid placed successfully'})
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error placing tiebreaker bid: {str(e)}")
+        return jsonify({'error': 'An error occurred while placing your tiebreaker bid'}), 500
 
 def finalize_tiebreaker_round(round_id):
     """Finalize a tiebreaker round and allocate the player"""
@@ -816,107 +914,141 @@ def finalize_tiebreaker_round(round_id):
         db.session.commit()
         return False
     
-    # Get teams that already have a player allocated from the parent round
-    allocated_teams = set()
-    allocated_players = set()
-    
-    # Find allocations from parent round
-    for player in Player.query.filter_by(round_id=parent_round.id).all():
-        if player.team_id:
+    try:
+        # Ensure we get the latest allocation state
+        db.session.flush()
+        
+        # Get teams that already have a player allocated (global check)
+        allocated_teams = set()
+        allocated_players = set()
+        
+        # Check all players with a team assigned
+        for player in Player.query.filter(Player.team_id != None).all():
             allocated_teams.add(player.team_id)
             allocated_players.add(player.id)
-    
-    # Find allocations from other tiebreaker rounds of the same parent
-    other_tiebreakers = Round.query.filter(
-        Round.parent_round_id == round.parent_round_id,
-        Round.id != round.id,
-        Round.is_active == False
-    ).all()
-    
-    for tiebreaker in other_tiebreakers:
-        player = Player.query.get(tiebreaker.player_id)
-        if player and player.team_id:
-            allocated_teams.add(player.team_id)
-    
-    # Filter out teams that already have a player
-    eligible_bids = [bid for bid in bids if bid.team_id not in allocated_teams]
-    
-    # If no eligible bids left, player stays unallocated
-    if not eligible_bids:
-        print("No eligible bids remain after filtering allocated teams")
+        
+        print(f"Found {len(allocated_teams)} teams and {len(allocated_players)} players already allocated")
+        
+        # Filter out teams that already have a player
+        eligible_bids = [bid for bid in bids if bid.team_id not in allocated_teams]
+        
+        # If no eligible bids left, player stays unallocated
+        if not eligible_bids:
+            print("No eligible bids remain after filtering allocated teams")
+            round.is_active = False
+            db.session.commit()
+            return True
+        
+        # Sort eligible bids by amount (highest first)
+        eligible_bids.sort(key=lambda x: x.amount, reverse=True)
+        highest_bid = eligible_bids[0]
+        
+        # Check for another tie at the highest bid amount
+        tied_bids = [bid for bid in eligible_bids if bid.amount == highest_bid.amount]
+        if len(tied_bids) > 1:
+            print(f"Found another tie in tiebreaker round with {len(tied_bids)} teams")
+            # Create another tiebreaker round
+            new_tiebreaker = Round(
+                position=round.position,
+                is_active=True,
+                is_tiebreaker=True,
+                parent_round_id=round.parent_round_id,  # Keep the original parent
+                player_id=round.player_id,
+                duration=180
+            )
+            db.session.add(new_tiebreaker)
+            db.session.commit()
+            
+            # Add the tied teams to the new tiebreaker
+            for bid in tied_bids:
+                new_bid = TiebreakerBid(
+                    team_id=bid.team_id,
+                    player_id=bid.player_id,
+                    round_id=new_tiebreaker.id,
+                    amount=0
+                )
+                db.session.add(new_bid)
+        else:
+            # We have a winner - allocate the player
+            print(f"Allocating player ID {round.player_id} to team ID {highest_bid.team_id} for {highest_bid.amount}")
+            player = Player.query.get(round.player_id)
+            team = Team.query.get(highest_bid.team_id)
+            
+            # Double-check the player isn't already allocated
+            if player.team_id is not None:
+                print(f"Warning: Player {player.id} already allocated to team {player.team_id}, cannot reallocate")
+                round.is_active = False
+                db.session.commit()
+                return True
+            
+            # For tiebreaker rounds, we need to find the original bid amount from the parent round
+            original_bid = Bid.query.filter_by(
+                round_id=round.parent_round_id,
+                team_id=highest_bid.team_id,
+                player_id=round.player_id
+            ).first()
+            
+            if original_bid:
+                # Verify team has sufficient balance
+                if team.balance < original_bid.amount:
+                    print(f"Warning: Team {team.id} has insufficient balance for bid {original_bid.amount}")
+                    round.is_active = False
+                    db.session.commit()
+                    return True
+                    
+                team.balance -= original_bid.amount
+                player.team_id = team.id
+                
+                # Mark this player and team as allocated
+                allocated_teams.add(team.id)
+                allocated_players.add(player.id)
+                
+                print(f"Successfully allocated player {player.id} to team {team.id} for {original_bid.amount}")
+            else:
+                print(f"ERROR: Could not find original bid for team {team.id} on player {player.id}")
+                # Create a default bid based on the tiebreaker amount
+                print(f"Using tiebreaker amount {highest_bid.amount} as fallback")
+                
+                # Verify team has sufficient balance
+                if team.balance < highest_bid.amount:
+                    print(f"Warning: Team {team.id} has insufficient balance for tiebreaker amount {highest_bid.amount}")
+                    round.is_active = False
+                    db.session.commit()
+                    return True
+                
+                team.balance -= highest_bid.amount
+                player.team_id = team.id
+                
+                # Mark this player and team as allocated
+                allocated_teams.add(team.id)
+                allocated_players.add(player.id)
+                
+                print(f"Successfully allocated player {player.id} to team {team.id} for {highest_bid.amount} (tiebreaker amount)")
+        
+        # Deactivate this tiebreaker round
         round.is_active = False
         db.session.commit()
+        
+        # Check if the parent round has any unresolved tiebreakers
+        active_tiebreakers = Round.query.filter_by(
+            parent_round_id=round.parent_round_id,
+            is_active=True
+        ).count()
+        
+        # If parent round has no active tiebreakers, resume its finalization
+        if active_tiebreakers == 0 and not parent_round.is_active:
+            print(f"All tiebreakers resolved for parent round {parent_round.id}, resuming finalization")
+            # Continue with the auction process
+            resume_after_tiebreaker(parent_round.id)
+        
         return True
-    
-    # Sort eligible bids by amount (highest first)
-    eligible_bids.sort(key=lambda x: x.amount, reverse=True)
-    highest_bid = eligible_bids[0]
-    
-    # Check for another tie at the highest bid amount
-    tied_bids = [bid for bid in eligible_bids if bid.amount == highest_bid.amount]
-    if len(tied_bids) > 1:
-        print(f"Found another tie in tiebreaker round with {len(tied_bids)} teams")
-        # Create another tiebreaker round
-        new_tiebreaker = Round(
-            position=round.position,
-            is_active=True,
-            is_tiebreaker=True,
-            parent_round_id=round.parent_round_id,  # Keep the original parent
-            player_id=round.player_id,
-            duration=180
-        )
-        db.session.add(new_tiebreaker)
-        db.session.commit()
         
-        # Add the tied teams to the new tiebreaker
-        for bid in tied_bids:
-            new_bid = TiebreakerBid(
-                team_id=bid.team_id,
-                player_id=bid.player_id,
-                round_id=new_tiebreaker.id,
-                amount=0
-            )
-            db.session.add(new_bid)
-    else:
-        # We have a winner - allocate the player
-        print(f"Allocating player ID {round.player_id} to team ID {highest_bid.team_id} for {highest_bid.amount}")
-        player = Player.query.get(round.player_id)
-        team = Team.query.get(highest_bid.team_id)
-        
-        # For tiebreaker rounds, we need to find the original bid amount from the parent round
-        original_bid = Bid.query.filter_by(
-            round_id=round.parent_round_id,
-            team_id=highest_bid.team_id,
-            player_id=round.player_id
-        ).first()
-        
-        if original_bid:
-            team.balance -= original_bid.amount
-            player.team_id = team.id
-            
-            # Mark this player and team as allocated
-            allocated_teams.add(team.id)
-            allocated_players.add(player.id)
-        else:
-            print(f"Warning: Could not find original bid for team {team.id} on player {player.id}")
-    
-    # Deactivate this tiebreaker round
-    round.is_active = False
-    db.session.commit()
-    
-    # Check if the parent round has any unresolved tiebreakers
-    active_tiebreakers = Round.query.filter_by(
-        parent_round_id=round.parent_round_id,
-        is_active=True
-    ).count()
-    
-    # If parent round has no active tiebreakers, resume its finalization
-    if active_tiebreakers == 0 and not parent_round.is_active:
-        print(f"All tiebreakers resolved for parent round {parent_round.id}, resuming finalization")
-        # Continue with the auction process
-        resume_after_tiebreaker(parent_round.id)
-    
-    return True
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"Error in tiebreaker finalization: {str(e)}")
+        traceback.print_exc()
+        return False
 
 def resume_after_tiebreaker(round_id):
     """Resume the finalization process after tiebreakers have been resolved"""
@@ -926,59 +1058,79 @@ def resume_after_tiebreaker(round_id):
     
     print(f"Resuming finalization for round {round_id} after tiebreakers")
     
-    # Get latest bids (edited bids handled)
-    all_bids = Bid.query.filter_by(round_id=round_id).all()
-    latest_bids = {}
-    for bid in all_bids:
-        key = f"{bid.player_id}-{bid.team_id}"
-        if key not in latest_bids or bid.timestamp > latest_bids[key].timestamp:
-            latest_bids[key] = bid
-    
-    # Convert to list and sort by amount (highest first)
-    sorted_bids = sorted(latest_bids.values(), key=lambda x: x.amount, reverse=True)
-    
-    # Find currently allocated teams and players
-    allocated_teams = set()
-    allocated_players = set()
-    
-    for player in Player.query.filter_by(round_id=round_id).all():
-        if player.team_id:
+    try:
+        # Get latest bids (edited bids handled)
+        all_bids = Bid.query.filter_by(round_id=round_id).all()
+        latest_bids = {}
+        for bid in all_bids:
+            key = f"{bid.player_id}-{bid.team_id}"
+            if key not in latest_bids or bid.timestamp > latest_bids[key].timestamp:
+                latest_bids[key] = bid
+        
+        # Convert to list and sort by amount (highest first)
+        sorted_bids = sorted(latest_bids.values(), key=lambda x: x.amount, reverse=True)
+        
+        # Ensure we have the latest DB state
+        db.session.flush()
+        
+        # Find currently allocated teams and players (globally)
+        allocated_teams = set()
+        allocated_players = set()
+        
+        # Check all players with a team assigned (global check)
+        for player in Player.query.filter(Player.team_id != None).all():
             allocated_teams.add(player.team_id)
             allocated_players.add(player.id)
-    
-    # Also check tiebreaker rounds
-    for tiebreaker in Round.query.filter_by(parent_round_id=round_id).all():
-        if tiebreaker.player_id and not tiebreaker.is_active:
-            player = Player.query.get(tiebreaker.player_id)
-            if player and player.team_id:
-                allocated_teams.add(player.team_id)
-                allocated_players.add(player.id)
-    
-    # Process remaining bids
-    for bid in sorted_bids:
-        # Skip if team or player already allocated
-        if bid.team_id in allocated_teams or bid.player_id in allocated_players:
-            continue
             
-        # No need to check for ties - they should have been handled already
-        # Allocate player to team
-        print(f"Allocating player ID {bid.player_id} to team ID {bid.team_id} for {bid.amount}")
-        player = Player.query.get(bid.player_id)
-        team = Team.query.get(bid.team_id)
+        print(f"Found {len(allocated_teams)} teams and {len(allocated_players)} players already allocated globally")
         
-        # Update team's balance
-        team.balance -= bid.amount
+        # Process remaining bids
+        allocation_count = 0
+        for bid in sorted_bids:
+            # Skip if team or player already allocated
+            if bid.team_id in allocated_teams or bid.player_id in allocated_players:
+                continue
+                
+            # Double-check current allocation status directly from database
+            player = Player.query.get(bid.player_id)
+            team = Team.query.get(bid.team_id)
+            
+            # Skip if player or team doesn't exist or player already has a team
+            if not player or not team or player.team_id is not None:
+                if player and player.team_id is not None:
+                    allocated_players.add(player.id)
+                continue
+            
+            # Verify team has sufficient balance
+            if team.balance < bid.amount:
+                print(f"Team {team.id} has insufficient balance ({team.balance}) for bid amount {bid.amount}")
+                continue
+                
+            # No need to check for ties - they should have been handled already
+            # Allocate player to team
+            print(f"Allocating player ID {bid.player_id} to team ID {bid.team_id} for {bid.amount}")
+            
+            # Update team's balance
+            team.balance -= bid.amount
+            
+            # Set the player's team
+            player.team_id = team.id
+            
+            # Mark as allocated
+            allocated_teams.add(team.id)
+            allocated_players.add(player.id)
+            allocation_count += 1
         
-        # Set the player's team
-        player.team_id = team.id
+        db.session.commit()
+        print(f"Finalization completed for round {round_id} after tiebreakers. {allocation_count} additional allocations made.")
+        return True
         
-        # Mark as allocated
-        allocated_teams.add(team.id)
-        allocated_players.add(player.id)
-    
-    db.session.commit()
-    print(f"Finalization completed for round {round_id} after tiebreakers")
-    return True
+    except Exception as e:
+        db.session.rollback()
+        import traceback
+        print(f"Error in resuming after tiebreaker: {str(e)}")
+        traceback.print_exc()
+        return False
 
 @app.route('/finalize_tiebreaker/<int:round_id>', methods=['POST'])
 @login_required
