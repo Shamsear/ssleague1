@@ -129,4 +129,19 @@ class StarredPlayer(db.Model):
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     team = db.relationship('Team', backref='starred_players')
-    player = db.relationship('Player', backref='starred_by') 
+    player = db.relationship('Player', backref='starred_by')
+
+class PushSubscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    endpoint = db.Column(db.String(500), nullable=False)
+    p256dh = db.Column(db.String(500), nullable=False)
+    auth = db.Column(db.String(500), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    # Relationship with User
+    user = db.relationship('User', backref=db.backref('push_subscriptions', lazy=True))
+    
+    # Define unique constraint to prevent duplicate subscriptions
+    __table_args__ = (db.UniqueConstraint('user_id', 'endpoint', name='_user_endpoint_uc'),) 
