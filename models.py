@@ -25,30 +25,6 @@ class Team(db.Model):
     balance = db.Column(db.Integer, default=15000)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     players = db.relationship('Player', backref='team', lazy=True)
-    is_active = db.Column(db.Boolean, default=True)
-
-    def get_player_count(self):
-        return Player.query.filter_by(team_id=self.id).count()
-    
-    def get_position_counts(self):
-        positions = {}
-        for player in self.players:
-            positions[player.position] = positions.get(player.position, 0) + 1
-        return positions
-    
-    def get_total_bid_amount(self):
-        """Get the total amount spent on successful bids by this team"""
-        bids = Bid.query.filter_by(team_id=self.id).all()
-        total = 0
-        for bid in bids:
-            player = Player.query.get(bid.player_id)
-            if player and player.team_id == self.id:
-                total += bid.amount
-        return total
-    
-    def can_afford(self, amount):
-        """Check if the team can afford a bid amount"""
-        return self.balance >= amount
 
 class Player(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -98,41 +74,6 @@ class Player(db.Model):
         total_bids = Bid.query.filter_by(team_id=team_id).count()
         return total_bids < 20
 
-    def highest_bid(self, round_id=None):
-        """Get the highest bid for this player in a specific round or any round"""
-        query = Bid.query.filter_by(player_id=self.id)
-        if round_id:
-            query = query.filter_by(round_id=round_id)
-        highest = query.order_by(Bid.amount.desc()).first()
-        return highest
-    
-    def get_position_category(self):
-        """Return a general position category (GK, DEF, MID, FWD)"""
-        if self.position in ['GK']:
-            return 'GK'
-        elif self.position in ['CB', 'LB', 'RB', 'LWB', 'RWB']:
-            return 'DEF'
-        elif self.position in ['DMF', 'CMF', 'AMF', 'LMF', 'RMF']:
-            return 'MID'
-        elif self.position in ['LWF', 'RWF', 'SS', 'CF']:
-            return 'FWD'
-        else:
-            return 'OTHER'
-    
-    def to_dict(self):
-        """Return a dictionary representation of the player for API responses"""
-        return {
-            'id': self.id,
-            'name': self.name,
-            'position': self.position,
-            'team_id': self.team_id,
-            'team_name': self.team_name,
-            'nationality': self.nationality,
-            'overall_rating': self.overall_rating,
-            'playing_style': self.playing_style,
-            'player_id': self.player_id
-        }
-
 class Round(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     position = db.Column(db.String(10), nullable=False)
@@ -160,37 +101,6 @@ class Round(db.Model):
 
     def get_team_bid_count(self, team_id):
         return sum(1 for bid in self.bids if bid.team_id == team_id)
-
-    def get_remaining_time(self):
-        """Get the remaining time in seconds for this round"""
-        if not self.start_time:
-            return self.duration
-        
-        elapsed = (datetime.utcnow() - self.start_time).total_seconds()
-        remaining = self.duration - elapsed
-        return max(0, remaining)
-    
-    def get_highest_bid_for_player(self, player_id):
-        """Get the highest bid for a specific player in this round"""
-        return Bid.query.filter_by(
-            round_id=self.id,
-            player_id=player_id
-        ).order_by(Bid.amount.desc()).first()
-    
-    def to_dict(self):
-        """Return a dictionary representation of the round for API responses"""
-        return {
-            'id': self.id,
-            'position': self.position,
-            'is_active': self.is_active,
-            'status': self.status,
-            'start_time': self.start_time.isoformat() if self.start_time else None,
-            'duration': self.duration,
-            'is_tiebreaker': self.is_tiebreaker,
-            'parent_round_id': self.parent_round_id,
-            'player_id': self.player_id,
-            'remaining_time': self.get_remaining_time()
-        }
 
 class Bid(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -236,25 +146,4 @@ class AuctionStatus(db.Model):
         self.last_updated = datetime.utcnow()
         if message:
             self.last_finalization_message = message
-        db.session.commit()
-    
-    def get_current_round(self):
-        """Get the current active round object"""
-        if self.current_round <= 0:
-            return None
-        return Round.query.filter_by(position=str(self.current_round), is_active=True).first()
-    
-    def get_tiebreaker_count(self):
-        """Get the count of active tiebreaker rounds"""
-        return Round.query.filter_by(is_active=True, is_tiebreaker=True).count()
-    
-    def to_dict(self):
-        """Return a dictionary representation of the auction status for API responses"""
-        return {
-            'current_round': self.current_round,
-            'is_active': self.is_active,
-            'status': self.status,
-            'last_updated': self.last_updated.isoformat() if self.last_updated else None,
-            'finalization_status': self.finalization_status,
-            'tiebreaker_count': self.get_tiebreaker_count()
-        } 
+        db.session.commit() 
