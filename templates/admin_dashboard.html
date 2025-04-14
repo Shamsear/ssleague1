@@ -88,9 +88,15 @@
             </a>
             <a href="{{ url_for('admin_rounds') }}" class="px-3 sm:px-4 py-3 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center">
                 <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                <span class="text-sm sm:text-base">Rounds</span>
+                <span class="text-sm sm:text-base">Manage Rounds</span>
+            </a>
+            <a href="{{ url_for('admin_auction_status') }}" class="px-3 sm:px-4 py-3 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center">
+                <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                <span class="text-sm sm:text-base">Monitor Auction</span>
             </a>
             <a href="{{ url_for('admin_users') }}" class="px-3 sm:px-4 py-3 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center {% if pending_approvals > 0 %}border-2 border-accent{% endif %}">
                 <svg class="w-5 h-5 mr-2 {% if pending_approvals > 0 %}text-accent{% else %}text-primary{% endif %}" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -165,6 +171,114 @@
                     {% else %}
                     <tr>
                         <td colspan="4" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No active rounds</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Active Tiebreaker Rounds -->
+    <div class="glass rounded-3xl p-4 sm:p-6 mt-6">
+        <h2 class="text-lg sm:text-xl font-bold text-dark mb-3 sm:mb-4">Active Tiebreaker Rounds</h2>
+        
+        <!-- Mobile Card View (visible on small screens) -->
+        <div class="block md:hidden">
+            {% for round in tiebreaker_rounds %}
+            <div class="glass bg-white/30 rounded-2xl p-4 mb-3">
+                <div class="flex justify-between items-center mb-2">
+                    <div>
+                        <span class="font-medium">{{ round.position }} - Tiebreaker</span>
+                        <div class="text-xs font-medium text-orange-600">Player: {{ round.player.name }}</div>
+                    </div>
+                    <span class="text-primary font-medium" id="mobile-tiebreaker-timer-{{ round.id }}"></span>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <div class="bg-white/20 p-2 rounded-lg">
+                        <div class="text-xs text-gray-600 mb-1">Teams with Bids:</div>
+                        <div class="text-sm">
+                            {% for bid in round.tiebreaker_bids %}
+                            <span class="px-2 py-1 mr-1 mb-1 inline-block rounded-full text-xs bg-blue-100 text-blue-800">
+                                {{ bid.team.name }}: {{ bid.amount }}
+                            </span>
+                            {% else %}
+                            <span class="text-gray-500 text-xs">No bids yet</span>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="flex justify-end">
+                        <button onclick="finalizeTiebreaker({{ round.id }})" class="text-accent hover:text-accent/80 font-medium transition-colors duration-200 flex items-center bg-white/50 px-3 py-1.5 rounded-xl">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Finalize
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="text-center text-gray-500 py-4">
+                No active tiebreaker rounds
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Desktop Table View (hidden on small screens) -->
+        <div class="hidden md:block overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead>
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Remaining</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Bid</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teams Bidding</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white/30">
+                    {% for round in tiebreaker_rounds %}
+                    <tr class="hover:bg-white/50 transition-colors">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">{{ round.position }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-900">{{ round.player.name }}</div>
+                                    <div class="text-sm text-gray-500">{{ round.player.position }} - Rating: {{ round.player.overall_rating }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-primary" id="tiebreaker-timer-{{ round.id }}"></td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            {% for bid in round.tiebreaker_bids %}
+                                {% if loop.first %}
+                                    {{ bid.amount }}
+                                {% endif %}
+                            {% endfor %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                            <div class="flex flex-wrap gap-1">
+                                {% for bid in round.tiebreaker_bids %}
+                                <span class="px-2 py-0.5 rounded-full text-xs {% if bid.amount > round.tiebreaker_bids[0].amount %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                                    {{ bid.team.name }}: {{ bid.amount }}
+                                </span>
+                                {% else %}
+                                <span class="text-gray-500">No bids</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <button onclick="finalizeTiebreaker({{ round.id }})" class="text-accent hover:text-accent/80 font-medium transition-colors duration-200 flex items-center">
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Finalize
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No active tiebreaker rounds</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -342,6 +456,60 @@ function updateTimers() {
         clearInterval(interval{{ round.id }});
     });
     {% endfor %}
+    
+    // Tiebreaker round timers
+    {% for round in tiebreaker_rounds %}
+    const tiebreakerStartTime{{ round.id }} = new Date('{{ round.start_time.isoformat() }}Z');  // Add Z to make it UTC
+    const tiebreakerDuration{{ round.id }} = {{ round.duration }};
+    const tiebreakerTimerElement{{ round.id }} = document.getElementById('tiebreaker-timer-{{ round.id }}');
+    const mobileTiebreakerTimerElement{{ round.id }} = document.getElementById('mobile-tiebreaker-timer-{{ round.id }}');
+    let tiebreakerHasEnded{{ round.id }} = false;
+    
+    function updateTiebreaker{{ round.id }}() {
+        const now = new Date();
+        const elapsed = Math.floor((now - tiebreakerStartTime{{ round.id }}) / 1000);
+        const remaining = Math.max(0, tiebreakerDuration{{ round.id }} - elapsed);
+        
+        if (remaining <= 0 && !tiebreakerHasEnded{{ round.id }}) {
+            tiebreakerHasEnded{{ round.id }} = true;
+            if (tiebreakerTimerElement{{ round.id }}) tiebreakerTimerElement{{ round.id }}.textContent = "Round ended";
+            if (mobileTiebreakerTimerElement{{ round.id }}) mobileTiebreakerTimerElement{{ round.id }}.textContent = "Round ended";
+            clearInterval(tiebreakerInterval{{ round.id }});
+            
+            // Check round status from server
+            fetch(`/check_round_status/{{ round.id }}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ended' && !document.hidden) {
+                        showAlert('info', 'Tiebreaker round has ended. Refreshing page...');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking tiebreaker round status:', error);
+                });
+        } else if (!tiebreakerHasEnded{{ round.id }}) {
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            if (tiebreakerTimerElement{{ round.id }}) tiebreakerTimerElement{{ round.id }}.textContent = timeString;
+            if (mobileTiebreakerTimerElement{{ round.id }}) mobileTiebreakerTimerElement{{ round.id }}.textContent = timeString;
+        }
+    }
+    
+    // Initial update
+    updateTiebreaker{{ round.id }}();
+    
+    // Set up interval for updates
+    const tiebreakerInterval{{ round.id }} = setInterval(updateTiebreaker{{ round.id }}, 1000);
+    
+    // Clean up interval when the page is unloaded
+    window.addEventListener('beforeunload', () => {
+        clearInterval(tiebreakerInterval{{ round.id }});
+    });
+    {% endfor %}
 }
 
 // Add visibility change handler to prevent refreshes when tab is not visible
@@ -433,6 +601,35 @@ function finalizeRound(roundId) {
     .catch(error => {
         console.error('Error:', error);
         showAlert('error', error.message || 'An error occurred while finalizing the round');
+    });
+}
+
+// Finalize tiebreaker
+function finalizeTiebreaker(roundId) {
+    if (!confirm('Are you sure you want to finalize this tiebreaker round?')) {
+        return;
+    }
+
+    fetch(`/finalize_tiebreaker/${roundId}`, {
+        method: 'POST'
+    })
+    .then(response => {
+        if (!response.ok) {
+            return response.json().then(data => {
+                throw new Error(data.error || 'Failed to finalize tiebreaker round');
+            });
+        }
+        return response.json();
+    })
+    .then(data => {
+        showAlert('success', 'Tiebreaker round finalized successfully');
+        setTimeout(() => {
+            window.location.reload();
+        }, 1500);
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        showAlert('error', error.message || 'An error occurred while finalizing the tiebreaker round');
     });
 }
 
