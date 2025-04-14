@@ -78,6 +78,7 @@ class Round(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     position = db.Column(db.String(10), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+    status = db.Column(db.String(50), default="active")  # active, completed, waiting_for_tiebreakers
     players = db.relationship('Player', backref='round', lazy=True, foreign_keys='Player.round_id')
     bids = db.relationship('Bid', backref='round', lazy=True)
     start_time = db.Column(db.DateTime, default=datetime.utcnow)

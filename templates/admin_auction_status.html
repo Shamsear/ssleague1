@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+
+{% block title %}Auction Status - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Auction Status Dashboard</h1>
+        <p class="text-gray-600">Monitor and manage auction rounds and tiebreakers</p>
+    </div>
+
+    <!-- Action buttons -->
+    <div class="mb-8 flex flex-wrap gap-3">
+        <a href="{{ url_for('dashboard') }}" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors">
+            Back to Dashboard
+        </a>
+        <button onclick="window.location.reload()" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors">
+            Refresh Status
+        </button>
+    </div>
+
+    <!-- Regular Rounds Section -->
+    <div class="mb-8 bg-white rounded-lg shadow overflow-hidden">
+        <div class="bg-gray-50 px-6 py-4 border-b">
+            <h2 class="text-xl font-semibold text-gray-800">Regular Auction Rounds</h2>
+            <p class="text-sm text-gray-600">Main auction rounds for each position</p>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Players</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Remaining</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for round in regular_rounds %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ round.round.id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ round.round.position }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if round.round.is_active %}
+                                {% if round.round.status == "waiting_for_tiebreakers" %}
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-yellow-100 text-yellow-800">
+                                        Waiting for Tiebreakers
+                                    </span>
+                                {% else %}
+                                    <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                                        Active
+                                    </span>
+                                {% endif %}
+                            {% else %}
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-gray-100 text-gray-800">
+                                    Completed
+                                </span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ round.player_count }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" id="regular-timer-{{ round.round.id }}">
+                            {% if round.round.is_active and round.round.status != "waiting_for_tiebreakers" %}
+                                Calculating...
+                            {% elif round.round.status == "waiting_for_tiebreakers" %}
+                                <span class="text-yellow-600">Waiting for Tiebreakers</span>
+                            {% else %}
+                                <span class="text-gray-500">Completed</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {% if round.round.is_active and round.round.status != "waiting_for_tiebreakers" %}
+                                <button onclick="finalizeRound({{ round.round.id }})" class="text-red-600 hover:text-red-900 mr-3">Finalize</button>
+                            {% endif %}
+                            <a href="{{ url_for('admin_view_round', round_id=round.round.id) }}" class="text-blue-600 hover:text-blue-900">View Details</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No regular rounds found</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Tiebreaker Rounds Section -->
+    <div class="mb-8 bg-white rounded-lg shadow overflow-hidden">
+        <div class="bg-gray-50 px-6 py-4 border-b">
+            <h2 class="text-xl font-semibold text-gray-800">Tiebreaker Rounds</h2>
+            <p class="text-sm text-gray-600">Active tiebreaker rounds for tied bids</p>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Parent Round</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tied Teams</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time Remaining</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for round in tiebreaker_rounds %}
+                    <tr>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ round.round.id }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ round.round.position }}</td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div>
+                                    <div class="text-sm font-medium text-gray-900">
+                                        {% if round.round.tiebreaker_player %}
+                                            {{ round.round.tiebreaker_player.name }}
+                                        {% else %}
+                                            Unknown
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-sm text-gray-500">
+                                        {% if round.round.tiebreaker_player %}
+                                            Rating: {{ round.round.tiebreaker_player.overall_rating }}
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            <a href="{{ url_for('admin_view_round', round_id=round.round.parent_round_id) }}" class="text-blue-600 hover:text-blue-900">
+                                Round #{{ round.round.parent_round_id }}
+                            </a>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex flex-wrap gap-1">
+                                {% for bid in round.round.tiebreaker_bids %}
+                                <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
+                                    {{ bid.team.name }}: {{ bid.amount }}
+                                </span>
+                                {% else %}
+                                <span class="text-gray-500">No bids yet</span>
+                                {% endfor %}
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900" id="tiebreaker-timer-{{ round.round.id }}">
+                            {% if round.round.is_active %}
+                                Calculating...
+                            {% else %}
+                                <span class="text-gray-500">Completed</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            {% if round.round.is_active %}
+                                <button onclick="finalizeTiebreaker({{ round.round.id }})" class="text-red-600 hover:text-red-900 mr-3">Finalize</button>
+                            {% endif %}
+                            <a href="{{ url_for('admin_view_round', round_id=round.round.parent_round_id) }}" class="text-blue-600 hover:text-blue-900">View Details</a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="7" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No active tiebreaker rounds</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Auction Status Summary -->
+    <div class="mb-8 bg-white rounded-lg shadow">
+        <div class="bg-gray-50 px-6 py-4 border-b">
+            <h2 class="text-xl font-semibold text-gray-800">Auction Status Summary</h2>
+        </div>
+        
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-lg font-medium text-gray-800 mb-2">Total Regular Rounds</h3>
+                    <p class="text-3xl font-bold text-blue-600">{{ regular_rounds|length }}</p>
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-lg font-medium text-gray-800 mb-2">Active Tiebreakers</h3>
+                    <p class="text-3xl font-bold text-yellow-600">{{ tiebreaker_rounds|length }}</p>
+                </div>
+                
+                <div class="bg-gray-50 p-4 rounded-lg">
+                    <h3 class="text-lg font-medium text-gray-800 mb-2">System Status</h3>
+                    {% set has_waiting = false %}
+                    {% for round in regular_rounds %}
+                        {% if round.round.status == "waiting_for_tiebreakers" %}
+                            {% set has_waiting = true %}
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if has_waiting %}
+                        <p class="text-xl font-bold text-yellow-600">Processing Tiebreakers</p>
+                    {% elif tiebreaker_rounds|length > 0 %}
+                        <p class="text-xl font-bold text-blue-600">Tiebreaker Bidding</p>
+                    {% else %}
+                        <p class="text-xl font-bold text-green-600">Normal Operation</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Timer update functions
+function updateTimers() {
+    // Regular round timers
+    {% for round in regular_rounds %}
+        {% if round.round.is_active and round.round.status != "waiting_for_tiebreakers" %}
+            const regularStartTime{{ round.round.id }} = new Date("{{ round.round.start_time.isoformat() }}Z");
+            const regularDuration{{ round.round.id }} = {{ round.round.duration }};
+            const regularTimerElement{{ round.round.id }} = document.getElementById("regular-timer-{{ round.round.id }}");
+            
+            function updateRegularTimer{{ round.round.id }}() {
+                const now = new Date();
+                const elapsed = Math.floor((now - regularStartTime{{ round.round.id }}) / 1000);
+                const remaining = Math.max(0, regularDuration{{ round.round.id }} - elapsed);
+                
+                if (remaining <= 0) {
+                    regularTimerElement{{ round.round.id }}.innerHTML = '<span class="text-red-600">Expired - Finalizing...</span>';
+                    setTimeout(() => { window.location.reload(); }, 5000);
+                } else {
+                    const minutes = Math.floor(remaining / 60);
+                    const seconds = remaining % 60;
+                    regularTimerElement{{ round.round.id }}.innerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }
+            }
+            
+            updateRegularTimer{{ round.round.id }}();
+            setInterval(updateRegularTimer{{ round.round.id }}, 1000);
+        {% endif %}
+    {% endfor %}
+    
+    // Tiebreaker round timers
+    {% for round in tiebreaker_rounds %}
+        {% if round.round.is_active %}
+            const tiebreakerStartTime{{ round.round.id }} = new Date("{{ round.round.start_time.isoformat() }}Z");
+            const tiebreakerDuration{{ round.round.id }} = {{ round.round.duration }};
+            const tiebreakerTimerElement{{ round.round.id }} = document.getElementById("tiebreaker-timer-{{ round.round.id }}");
+            
+            function updateTiebreakerTimer{{ round.round.id }}() {
+                const now = new Date();
+                const elapsed = Math.floor((now - tiebreakerStartTime{{ round.round.id }}) / 1000);
+                const remaining = Math.max(0, tiebreakerDuration{{ round.round.id }} - elapsed);
+                
+                if (remaining <= 0) {
+                    tiebreakerTimerElement{{ round.round.id }}.innerHTML = '<span class="text-red-600">Expired - Finalizing...</span>';
+                    setTimeout(() => { window.location.reload(); }, 5000);
+                } else {
+                    const minutes = Math.floor(remaining / 60);
+                    const seconds = remaining % 60;
+                    tiebreakerTimerElement{{ round.round.id }}.innerText = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+                }
+            }
+            
+            updateTiebreakerTimer{{ round.round.id }}();
+            setInterval(updateTiebreakerTimer{{ round.round.id }}, 1000);
+        {% endif %}
+    {% endfor %}
+}
+
+// Manual finalization functions
+function finalizeRound(roundId) {
+    if (confirm(`Are you sure you want to finalize Round #${roundId}?`)) {
+        fetch(`/finalize_round/${roundId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                window.location.reload();
+            } else if (data.error) {
+                alert(`Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    }
+}
+
+function finalizeTiebreaker(roundId) {
+    if (confirm(`Are you sure you want to finalize Tiebreaker Round #${roundId}?`)) {
+        fetch(`/finalize_tiebreaker/${roundId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                alert(data.message);
+                window.location.reload();
+            } else if (data.error) {
+                alert(`Error: ${data.error}`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred. Please try again.');
+        });
+    }
+}
+
+// Initialize timers
+document.addEventListener('DOMContentLoaded', function() {
+    updateTimers();
+    
+    // Auto refresh the page every 30 seconds
+    setInterval(() => {
+        window.location.reload();
+    }, 30000);
+});
+</script>
+{% endblock %} 
