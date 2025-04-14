@@ -20,9 +20,7 @@ self.addEventListener('push', function(event) {
     notificationData = event.data.json();
   }
   
-  // Since this is a closed auction, we prioritize only important notifications
-  // We don't need outbid notifications as players can't see others' bids
-  
+  // Configure notification options
   const title = notificationData.title || 'South Soccers PES';
   const options = {
     body: notificationData.body || 'New notification from South Soccers PES',
@@ -31,8 +29,42 @@ self.addEventListener('push', function(event) {
     data: notificationData.data || {},
     tag: notificationData.tag || 'default',
     vibrate: [100, 50, 100], // Vibration pattern
-    renotify: notificationData.renotify || false
+    renotify: notificationData.renotify || false,
+    actions: []
   };
+  
+  // Add actions based on notification type
+  const notificationType = notificationData.data?.type;
+  
+  if (notificationType === 'round_start') {
+    options.actions = [
+      {
+        action: 'view_round',
+        title: 'View Round'
+      }
+    ];
+  } else if (notificationType === 'bid_placed' || notificationType === 'bid_deleted') {
+    options.actions = [
+      {
+        action: 'view_bids',
+        title: 'View Bids'
+      }
+    ];
+  } else if (notificationType === 'player_won') {
+    options.actions = [
+      {
+        action: 'view_players',
+        title: 'View Players'
+      }
+    ];
+  } else if (notificationType === 'tiebreaker_start') {
+    options.actions = [
+      {
+        action: 'view_tiebreaker',
+        title: 'View Tiebreaker'
+      }
+    ];
+  }
   
   event.waitUntil(
     self.registration.showNotification(title, options)
@@ -49,7 +81,17 @@ self.addEventListener('notificationclick', function(event) {
   const notificationData = event.notification.data;
   let url = '/';
   
-  if (notificationData) {
+  // Handle action buttons
+  if (event.action === 'view_round') {
+    url = '/team/round';
+  } else if (event.action === 'view_bids') {
+    url = '/team/round';
+  } else if (event.action === 'view_players') {
+    url = '/team/players';
+  } else if (event.action === 'view_tiebreaker' && notificationData.round_id) {
+    url = `/team/tiebreaker/${notificationData.round_id}`;
+  } else if (notificationData) {
+    // Use URL from notification data if available
     if (notificationData.url) {
       url = notificationData.url;
     } else if (notificationData.type === 'round_start') {
@@ -60,6 +102,16 @@ self.addEventListener('notificationclick', function(event) {
       url = '/dashboard';
     } else if (notificationData.type === 'player_won') {
       url = '/team/players';
+    } else if (notificationData.type === 'bid_placed' || notificationData.type === 'bid_deleted') {
+      url = '/team/round';
+    } else if (notificationData.type === 'user_approved') {
+      url = '/dashboard';
+    } else if (notificationData.type === 'timer_update') {
+      if (notificationData.round_id && notificationData.is_tiebreaker) {
+        url = `/team/tiebreaker/${notificationData.round_id}`;
+      } else {
+        url = '/team/round';
+      }
     }
   }
   
