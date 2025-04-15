@@ -490,7 +490,7 @@
                 tiebreakerHasEnded{{ round.id }} = true;
                 
                 if (tiebreakerTimerElement{{ round.id }}) {
-                    tiebreakerTimerElement{{ round.id }}.textContent = "Round ended";
+                tiebreakerTimerElement{{ round.id }}.textContent = "Round ended";
                 }
                 
                 if (tiebreakerTimerSmallElement{{ round.id }}) {
@@ -530,7 +530,7 @@
         // Clean up interval when the page is unloaded
         document.addEventListener('visibilitychange', function() {
             if (document.hidden && tiebreakerInterval{{ round.id }}) {
-                clearInterval(tiebreakerInterval{{ round.id }});
+            clearInterval(tiebreakerInterval{{ round.id }});
             } else if (!document.hidden && !tiebreakerHasEnded{{ round.id }}) {
                 updateTiebreaker{{ round.id }}();
                 if (!tiebreakerInterval{{ round.id }}) {
