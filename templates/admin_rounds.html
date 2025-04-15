@@ -462,7 +462,7 @@ function updateTimers() {
     const startTime{{ round.id }} = new Date('{{ round.start_time.isoformat() }}Z');  // Add Z to make it UTC
     const duration{{ round.id }} = {{ round.duration }};
     const mobileTimerElement{{ round.id }} = document.getElementById('timer-{{ round.id }}');
-    const desktopTimerElement{{ round.id }} = document.getElementById('desktop-timer-{{ round.id }}');
+    const desktopTimerElement{{ round.id }} = document.getElementById('timer-desktop-{{ round.id }}');
     let hasEnded{{ round.id }} = false;
     
     function update{{ round.id }}() {
@@ -508,6 +508,57 @@ function updateTimers() {
     // Clean up interval when the page is unloaded
     window.addEventListener('beforeunload', () => {
         clearInterval(interval{{ round.id }});
+    });
+    {% endfor %}
+    
+    // Update tiebreaker round timers
+    {% for round in active_tiebreakers %}
+    const tiebreakerStartTime{{ round.id }} = new Date('{{ round.start_time.isoformat() }}Z');  // Add Z to make it UTC
+    const tiebreakerDuration{{ round.id }} = {{ round.duration }};
+    const tiebreakerDesktopTimerElement{{ round.id }} = document.getElementById('timer-desktop-{{ round.id }}');
+    let tiebreakerHasEnded{{ round.id }} = false;
+    
+    function updateTiebreaker{{ round.id }}() {
+        const now = new Date();
+        const elapsed = Math.floor((now - tiebreakerStartTime{{ round.id }}) / 1000);
+        const remaining = Math.max(0, tiebreakerDuration{{ round.id }} - elapsed);
+        
+        if (remaining <= 0 && !tiebreakerHasEnded{{ round.id }}) {
+            tiebreakerHasEnded{{ round.id }} = true;
+            if (tiebreakerDesktopTimerElement{{ round.id }}) tiebreakerDesktopTimerElement{{ round.id }}.textContent = "Round ended";
+            clearInterval(tiebreakerInterval{{ round.id }});
+            
+            // Check round status from server
+            fetch(`/check_round_status/{{ round.id }}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'ended' && !document.hidden) {
+                        showAlert('info', 'Tiebreaker round has ended. Refreshing page...');
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking tiebreaker round status:', error);
+                });
+        } else if (!tiebreakerHasEnded{{ round.id }}) {
+            const minutes = Math.floor(remaining / 60);
+            const seconds = remaining % 60;
+            const timeString = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            if (tiebreakerDesktopTimerElement{{ round.id }}) tiebreakerDesktopTimerElement{{ round.id }}.textContent = timeString;
+        }
+    }
+    
+    // Initial update
+    updateTiebreaker{{ round.id }}();
+    
+    // Set up interval for updates
+    const tiebreakerInterval{{ round.id }} = setInterval(updateTiebreaker{{ round.id }}, 1000);
+    
+    // Clean up interval when the page is unloaded
+    window.addEventListener('beforeunload', () => {
+        clearInterval(tiebreakerInterval{{ round.id }});
     });
     {% endfor %}
 }
