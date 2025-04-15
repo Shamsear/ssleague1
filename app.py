@@ -1452,26 +1452,82 @@ def admin_players():
         search_query=search_query
     )
 
-@app.route('/admin/rounds')
+@app.route('/admin/round/<int:round_id>')
 @login_required
-def admin_rounds():
+def admin_view_round(round_id):
     if not current_user.is_admin:
         return redirect(url_for('dashboard'))
     
-    # Get active rounds
-    active_rounds = Round.query.filter_by(is_active=True).all()
+    round = Round.query.get_or_404(round_id)
+    teams = Team.query.all()
     
-    # Get past (inactive) rounds
-    past_rounds = Round.query.filter_by(is_active=False).all()
+    # Get all bids for this round
+    all_bids = Bid.query.filter_by(round_id=round_id).all()
+    print(f"Found {len(all_bids)} bids for round {round_id}")
     
-    # Get all rounds for completeness
-    rounds = Round.query.all()
+    # Get team bids data
+    team_bids = {}
+    for team in teams:
+        team_bids[team.id] = {
+            'team': team,
+            'bids': []
+        }
     
-    return render_template('admin_rounds.html', 
-                          rounds=rounds, 
-                          active_rounds=active_rounds, 
-                          past_rounds=past_rounds,
-                          config=Config)
+    # Collect winning bids data
+    winning_bids = []
+    
+    # Process all bids
+    for bid in all_bids:
+        # Add to team bids
+        if bid.team_id in team_bids:
+            player = Player.query.get(bid.player_id)
+            if not player:
+                print(f"Warning: Player not found for bid {bid.id} (player_id: {bid.player_id})")
+                continue
+                
+            is_winning = player.team_id == bid.team_id
+            
+            # Format the timestamp for display
+            created_at = bid.timestamp.strftime('%d/%m/%Y %H:%M:%S') if bid.timestamp else 'N/A'
+            
+            # Create bid data structure
+            bid_data = {
+                'player': player,
+                'amount': bid.amount,
+                'is_winning': is_winning,
+                'created_at': created_at
+            }
+            
+            # Add to team bids
+            team_bids[bid.team_id]['bids'].append(bid_data)
+            print(f"Added bid for player {player.name} to team {team_bids[bid.team_id]['team'].name} (amount: {bid.amount}, winning: {is_winning})")
+            
+            # If this is a winning bid, add to winning bids list
+            if is_winning:
+                winning_bids.append({
+                    'bid': bid,
+                    'player': player,
+                    'team': team_bids[bid.team_id]['team']
+                })
+    
+    # Sort team bids by timestamp (newest first)
+    for team_id in team_bids:
+        team_bids[team_id]['bids'].sort(key=lambda x: x['created_at'], reverse=True)
+    
+    # Sort winning bids by bid amount (descending)
+    winning_bids.sort(key=lambda x: x['bid'].amount, reverse=True)
+    
+    # Debug count of bids per team
+    for team_id, team_data in team_bids.items():
+        print(f"Team {team_data['team'].name} has {len(team_data['bids'])} bids")
+    
+    return render_template(
+        'admin_view_round.html',
+        round=round,
+        team_bids=team_bids,
+        winning_bids=winning_bids,
+        teams=teams
+    )
 
 @app.route('/admin/edit_round/<int:round_id>', methods=['POST'])
 @login_required
@@ -1833,229 +1889,6 @@ def get_active_tiebreakers():
     
     return jsonify(result)
 
-@app.route('/admin/round/<int:round_id>')
-@login_required
-def admin_view_round(round_id):
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    round = Round.query.get_or_404(round_id)
-    teams = Team.query.all()
-    
-    # Get all bids for this round
-    all_bids = Bid.query.filter_by(round_id=round_id).all()
-    print(f"Found {len(all_bids)} bids for round {round_id}")
-    
-    # Get team bids data
-    team_bids = {}
-    for team in teams:
-        team_bids[team.id] = {
-            'team': team,
-            'bids': []
-        }
-    
-    # Collect winning bids data
-    winning_bids = []
-    
-    # Process all bids
-    for bid in all_bids:
-        # Add to team bids
-        if bid.team_id in team_bids:
-            player = Player.query.get(bid.player_id)
-            if not player:
-                print(f"Warning: Player not found for bid {bid.id} (player_id: {bid.player_id})")
-                continue
-                
-            is_winning = player.team_id == bid.team_id
-            
-            # Format the timestamp for display
-            created_at = bid.timestamp.strftime('%d/%m/%Y %H:%M:%S') if bid.timestamp else 'N/A'
-            
-            # Create bid data structure
-            bid_data = {
-                'player': player,
-                'amount': bid.amount,
-                'is_winning': is_winning,
-                'created_at': created_at
-            }
-            
-            # Add to team bids
-            team_bids[bid.team_id]['bids'].append(bid_data)
-            print(f"Added bid for player {player.name} to team {team_bids[bid.team_id]['team'].name} (amount: {bid.amount}, winning: {is_winning})")
-            
-            # If this is a winning bid, add to winning bids list
-            if is_winning:
-                winning_bids.append({
-                    'bid': bid,
-                    'player': player,
-                    'team': team_bids[bid.team_id]['team']
-                })
-    
-    # Sort team bids by timestamp (newest first)
-    for team_id in team_bids:
-        team_bids[team_id]['bids'].sort(key=lambda x: x['created_at'], reverse=True)
-    
-    # Sort winning bids by bid amount (descending)
-    winning_bids.sort(key=lambda x: x['bid'].amount, reverse=True)
-    
-    # Debug count of bids per team
-    for team_id, team_data in team_bids.items():
-        print(f"Team {team_data['team'].name} has {len(team_data['bids'])} bids")
-    
-    return render_template(
-        'admin_view_round.html',
-        round=round,
-        team_bids=team_bids,
-        winning_bids=winning_bids,
-        teams=teams
-    )
-
-# Add a route to serve player images
-@app.route('/images/player_photos/<filename>')
-def player_photos(filename):
-    # Use absolute path to images folder
-    return send_from_directory(os.path.join(app.root_path, 'static/images/player_photos'), filename)
-
-@app.route('/api/star_player/<int:player_id>', methods=['POST'])
-@login_required
-def star_player(player_id):
-    if not current_user.team:
-        return jsonify({'error': 'You need to be part of a team to star players'}), 403
-    
-    player = Player.query.get_or_404(player_id)
-    team_id = current_user.team.id
-    
-    # Check if player is already starred
-    existing_star = StarredPlayer.query.filter_by(team_id=team_id, player_id=player_id).first()
-    if existing_star:
-        return jsonify({'message': 'Player already starred'}), 200
-    
-    # Add player to starred list
-    star = StarredPlayer(team_id=team_id, player_id=player_id)
-    db.session.add(star)
-    db.session.commit()
-    
-    return jsonify({'message': 'Player starred successfully'})
-
-@app.route('/api/unstar_player/<int:player_id>', methods=['POST'])
-@login_required
-def unstar_player(player_id):
-    if not current_user.team:
-        return jsonify({'error': 'You need to be part of a team'}), 403
-    
-    team_id = current_user.team.id
-    
-    # Find and remove the star
-    star = StarredPlayer.query.filter_by(team_id=team_id, player_id=player_id).first()
-    if not star:
-        return jsonify({'message': 'Player is not starred'}), 200
-    
-    db.session.delete(star)
-    db.session.commit()
-    
-    return jsonify({'message': 'Player unstarred successfully'})
-
-@app.route('/export_winning_bids')
-@login_required
-def export_winning_bids():
-    if not current_user.is_admin:
-        return redirect(url_for('dashboard'))
-    
-    # Get the round ID from the query parameters
-    round_id = request.args.get('round_id')
-    if not round_id:
-        flash('Round ID is required', 'error')
-        return redirect(url_for('admin_rounds'))
-    
-    round = Round.query.get_or_404(round_id)
-    teams = Team.query.all()
-    
-    # Get all bids for this round
-    all_bids = Bid.query.filter_by(round_id=round_id).all()
-    
-    # Prepare team bids data
-    team_bids = {}
-    for team in teams:
-        team_bids[team.id] = {
-            'team': team,
-            'bids': []
-        }
-    
-    # Collect winning bids data
-    winning_bids = []
-    
-    # Process all bids
-    for bid in all_bids:
-        # Add to team bids
-        if bid.team_id in team_bids:
-            player = Player.query.get(bid.player_id)
-            is_winning = player.team_id == bid.team_id
-            
-            # If this is a winning bid, add to winning bids list
-            if is_winning:
-                winning_bids.append({
-                    'bid': bid,
-                    'player': player,
-                    'team': team_bids[bid.team_id]['team']
-                })
-    
-    # Sort winning bids by bid amount (descending)
-    winning_bids.sort(key=lambda x: x['bid'].amount, reverse=True)
-    
-    # Create a pandas DataFrame for export
-    if winning_bids:
-        data = {
-            'Player': [wb['player'].name for wb in winning_bids],
-            'Team': [wb['team'].name for wb in winning_bids],
-            'Bid Amount': [wb['bid'].amount for wb in winning_bids],
-            'Position': [wb['player'].position for wb in winning_bids],
-            'Rating': [wb['player'].overall_rating for wb in winning_bids]
-        }
-        df = pd.DataFrame(data)
-        
-        # Create Excel file in memory
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            df.to_excel(writer, sheet_name='Winning Bids', index=False)
-            
-            # Get the xlsxwriter workbook and worksheet objects
-            workbook = writer.book
-            worksheet = writer.sheets['Winning Bids']
-            
-            # Set column widths
-            worksheet.set_column('A:A', 25)  # Player name
-            worksheet.set_column('B:B', 25)  # Team name
-            worksheet.set_column('C:C', 15)  # Bid amount
-            worksheet.set_column('D:D', 10)  # Position
-            worksheet.set_column('E:E', 10)  # Rating
-            
-            # Add formatting
-            header_format = workbook.add_format({
-                'bold': True, 
-                'bg_color': '#D3D3D3',
-                'border': 1
-            })
-            
-            # Apply header formatting
-            for col_num, value in enumerate(df.columns.values):
-                worksheet.write(0, col_num, value, header_format)
-        
-        # Set up response
-        output.seek(0)
-        round_position = round.position.replace(' ', '_')
-        now = datetime.now().strftime('%Y%m%d_%H%M%S')
-        filename = f"winning_bids_{round_position}_{now}.xlsx"
-        
-        return send_file(
-            output,
-            as_attachment=True,
-            download_name=filename,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-    else:
-        flash('No winning bids found for this round', 'warning')
-        return redirect(url_for('admin_view_round', round_id=round_id))
-
 @app.route('/admin/export_players')
 @login_required
 def admin_export_players():
@@ -2394,6 +2227,198 @@ def approve_user(user_id):
     
     flash(f'User {user.username} has been approved.', 'success')
     return redirect(url_for('admin_users'))
+
+@app.route('/admin/rounds')
+@login_required
+def admin_rounds():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Get active rounds
+    active_rounds = Round.query.filter_by(is_active=True, is_tiebreaker=False).all()
+    
+    # Get active tiebreakers
+    active_tiebreakers = Round.query.filter_by(is_active=True, is_tiebreaker=True).all()
+    
+    # Get past (inactive) rounds
+    past_rounds = Round.query.filter_by(is_active=False, is_tiebreaker=False).all()
+    
+    # Get past tiebreakers
+    past_tiebreakers = Round.query.filter_by(is_active=False, is_tiebreaker=True).all()
+    
+    # Create a dictionary to organize tiebreakers by parent round ID
+    active_tiebreakers_by_parent = {}
+    for tiebreaker in active_tiebreakers:
+        if tiebreaker.parent_round_id:
+            if tiebreaker.parent_round_id not in active_tiebreakers_by_parent:
+                active_tiebreakers_by_parent[tiebreaker.parent_round_id] = []
+            active_tiebreakers_by_parent[tiebreaker.parent_round_id].append(tiebreaker)
+    
+    past_tiebreakers_by_parent = {}
+    for tiebreaker in past_tiebreakers:
+        if tiebreaker.parent_round_id:
+            if tiebreaker.parent_round_id not in past_tiebreakers_by_parent:
+                past_tiebreakers_by_parent[tiebreaker.parent_round_id] = []
+            past_tiebreakers_by_parent[tiebreaker.parent_round_id].append(tiebreaker)
+    
+    # Get all rounds for completeness
+    rounds = Round.query.all()
+    
+    return render_template('admin_rounds.html', 
+                          rounds=rounds, 
+                          active_rounds=active_rounds,
+                          active_tiebreakers=active_tiebreakers,
+                          past_rounds=past_rounds,
+                          past_tiebreakers=past_tiebreakers,
+                          active_tiebreakers_by_parent=active_tiebreakers_by_parent,
+                          past_tiebreakers_by_parent=past_tiebreakers_by_parent,
+                          config=Config)
+
+# Add a route to serve player images
+@app.route('/images/player_photos/<filename>')
+def player_photos(filename):
+    # Use absolute path to images folder
+    return send_from_directory(os.path.join(app.root_path, 'static/images/player_photos'), filename)
+
+@app.route('/api/star_player/<int:player_id>', methods=['POST'])
+@login_required
+def star_player(player_id):
+    if not current_user.team:
+        return jsonify({'error': 'You need to be part of a team to star players'}), 403
+    
+    player = Player.query.get_or_404(player_id)
+    team_id = current_user.team.id
+    
+    # Check if player is already starred
+    existing_star = StarredPlayer.query.filter_by(team_id=team_id, player_id=player_id).first()
+    if existing_star:
+        return jsonify({'message': 'Player already starred'}), 200
+    
+    # Add player to starred list
+    star = StarredPlayer(team_id=team_id, player_id=player_id)
+    db.session.add(star)
+    db.session.commit()
+    
+    return jsonify({'message': 'Player starred successfully'})
+
+@app.route('/api/unstar_player/<int:player_id>', methods=['POST'])
+@login_required
+def unstar_player(player_id):
+    if not current_user.team:
+        return jsonify({'error': 'You need to be part of a team'}), 403
+    
+    team_id = current_user.team.id
+    
+    # Find and remove the star
+    star = StarredPlayer.query.filter_by(team_id=team_id, player_id=player_id).first()
+    if not star:
+        return jsonify({'message': 'Player is not starred'}), 200
+    
+    db.session.delete(star)
+    db.session.commit()
+    
+    return jsonify({'message': 'Player unstarred successfully'})
+
+@app.route('/export_winning_bids')
+@login_required
+def export_winning_bids():
+    if not current_user.is_admin:
+        return redirect(url_for('dashboard'))
+    
+    # Get the round ID from the query parameters
+    round_id = request.args.get('round_id')
+    if not round_id:
+        flash('Round ID is required', 'error')
+        return redirect(url_for('admin_rounds'))
+    
+    round = Round.query.get_or_404(round_id)
+    teams = Team.query.all()
+    
+    # Get all bids for this round
+    all_bids = Bid.query.filter_by(round_id=round_id).all()
+    
+    # Prepare team bids data
+    team_bids = {}
+    for team in teams:
+        team_bids[team.id] = {
+            'team': team,
+            'bids': []
+        }
+    
+    # Collect winning bids data
+    winning_bids = []
+    
+    # Process all bids
+    for bid in all_bids:
+        # Add to team bids
+        if bid.team_id in team_bids:
+            player = Player.query.get(bid.player_id)
+            is_winning = player.team_id == bid.team_id
+            
+            # If this is a winning bid, add to winning bids list
+            if is_winning:
+                winning_bids.append({
+                    'bid': bid,
+                    'player': player,
+                    'team': team_bids[bid.team_id]['team']
+                })
+    
+    # Sort winning bids by bid amount (descending)
+    winning_bids.sort(key=lambda x: x['bid'].amount, reverse=True)
+    
+    # Create a pandas DataFrame for export
+    if winning_bids:
+        data = {
+            'Player': [wb['player'].name for wb in winning_bids],
+            'Team': [wb['team'].name for wb in winning_bids],
+            'Bid Amount': [wb['bid'].amount for wb in winning_bids],
+            'Position': [wb['player'].position for wb in winning_bids],
+            'Rating': [wb['player'].overall_rating for wb in winning_bids]
+        }
+        df = pd.DataFrame(data)
+        
+        # Create Excel file in memory
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            df.to_excel(writer, sheet_name='Winning Bids', index=False)
+            
+            # Get the xlsxwriter workbook and worksheet objects
+            workbook = writer.book
+            worksheet = writer.sheets['Winning Bids']
+            
+            # Set column widths
+            worksheet.set_column('A:A', 25)  # Player name
+            worksheet.set_column('B:B', 25)  # Team name
+            worksheet.set_column('C:C', 15)  # Bid amount
+            worksheet.set_column('D:D', 10)  # Position
+            worksheet.set_column('E:E', 10)  # Rating
+            
+            # Add formatting
+            header_format = workbook.add_format({
+                'bold': True, 
+                'bg_color': '#D3D3D3',
+                'border': 1
+            })
+            
+            # Apply header formatting
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+        
+        # Set up response
+        output.seek(0)
+        round_position = round.position.replace(' ', '_')
+        now = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"winning_bids_{round_position}_{now}.xlsx"
+        
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    else:
+        flash('No winning bids found for this round', 'warning')
+        return redirect(url_for('admin_view_round', round_id=round_id))
 
 if __name__ == '__main__':
     with app.app_context():
