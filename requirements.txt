@@ -8,7 +8,4 @@ SQLAlchemy==2.0.27
 psycopg2-binary==2.9.9
 alembic==1.13.1
 gunicorn==21.2.0
-pandas
-numpy
-whitenoise==6.5.0
-python-dateutil==2.8.2
+pandas 

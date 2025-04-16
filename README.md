@@ -104,45 +104,4 @@ auction-system/
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Deployment on Render
-
-### Prerequisites
-- A Render account (https://render.com)
-- A GitHub repository with your application code
-
-### Steps to Deploy
-
-1. Push your application code to GitHub, including:
-   - requirements.txt (with gunicorn, whitenoise, pandas, and other dependencies)
-   - Procfile
-   - render.yaml
-   - efootball_real.db (if you want to import players automatically during deployment)
-
-2. In Render dashboard, create a new "Blueprint" deployment:
-   - Connect your GitHub repository
-   - Render will automatically detect the render.yaml configuration
-   - This will create both the web service and PostgreSQL database
-   - The deployment will automatically:
-     - Install dependencies
-     - Set up the database
-     - Initialize migrations
-     - Import players from efootball_real.db (if the file exists)
-     - Create an admin user (username: 'admin', password: 'admin')
-
-3. After deployment completes:
-   - Your application will be available at the URL provided by Render
-   - Log in with the default admin credentials and immediately change the password
-
-### Environment Variables
-
-The render.yaml file configures these environment variables:
-- `SECRET_KEY`: Automatically generated secure key
-- `DATABASE_URL`: Connection string to the PostgreSQL database
-- `FLASK_APP`: Set to app.py
-- `FLASK_ENV`: Set to production
-
-### Static Files
-
-Static files are served efficiently using WhiteNoise, configured in app.py. 
+This project is licensed under the MIT License - see the LICENSE file for details. 

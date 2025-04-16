@@ -9,14 +9,9 @@ import sqlite3
 import pandas as pd
 import io
 from flask_migrate import Migrate
-import os
-from whitenoise import WhiteNoise
 
 app = Flask(__name__)
 app.config.from_object(Config)
-
-# Configure WhiteNoise for serving static files
-app.wsgi_app = WhiteNoise(app.wsgi_app, root='static/', prefix='static/')
 
 db.init_app(app)
 migrate = Migrate(app, db)
@@ -1604,10 +1599,4 @@ def team_round():
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    
-    # Get the port from the environment variable (for Render) or use 5000 as default
-    port = int(os.environ.get('PORT', 5000))
-    
-    # Run the app with appropriate debug setting (disable in production)
-    debug_mode = os.environ.get('FLASK_ENV') == 'development'
-    app.run(host='0.0.0.0', port=port, debug=debug_mode) 
+    app.run(debug=True) 
