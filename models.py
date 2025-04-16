@@ -167,4 +167,104 @@ class PushSubscription(db.Model):
     user = db.relationship('User', backref=db.backref('push_subscriptions', lazy=True))
     
     def __repr__(self):
-        return f'<PushSubscription {self.id} for User {self.user_id}>' 
+        return f'<PushSubscription {self.id} for User {self.user_id}>'
+
+class AuctionSettings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    max_rounds = db.Column(db.Integer, default=25)
+    min_balance_per_round = db.Column(db.Integer, default=30)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @classmethod
+    def get_settings(cls):
+        """Get the current auction settings or create default ones"""
+        settings = cls.query.first()
+        if not settings:
+            settings = cls()
+            db.session.add(settings)
+            db.session.commit()
+        return settings
+
+# Bulk Bid Models
+class BulkBidRound(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    is_active = db.Column(db.Boolean, default=True)
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    duration = db.Column(db.Integer, default=600)  # Default 10 minutes (600 seconds)
+    status = db.Column(db.String(20), default="active")  # active, processing, completed
+    base_price = db.Column(db.Integer, default=10)  # Base price for all players in this round
+    
+    # Relationships
+    bids = db.relationship('BulkBid', backref='round', lazy=True, foreign_keys='BulkBid.round_id')
+    bulk_tiebreakers = db.relationship('BulkBidTiebreaker', backref='bulk_round', lazy=True, foreign_keys='BulkBidTiebreaker.bulk_round_id')
+    
+    def is_timer_expired(self):
+        if not self.start_time:
+            return False
+        elapsed = (datetime.utcnow() - self.start_time).total_seconds()
+        return elapsed >= self.duration
+    
+    @property
+    def remaining_time(self):
+        if not self.start_time or not self.is_active:
+            return 0
+        elapsed = (datetime.utcnow() - self.start_time).total_seconds()
+        remaining = self.duration - elapsed
+        return max(0, remaining)
+
+class BulkBid(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    round_id = db.Column(db.Integer, db.ForeignKey('bulk_bid_round.id'), nullable=False)
+    amount = db.Column(db.Integer, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    is_resolved = db.Column(db.Boolean, default=False)
+    has_tie = db.Column(db.Boolean, default=False)
+    
+    # Relationships
+    team = db.relationship('Team', backref='bulk_bids')
+    player = db.relationship('Player', backref='bulk_bids')
+    
+    @property
+    def is_tied(self):
+        """Check if this bid is part of a tie"""
+        # Count how many bids are for this player in this round
+        matching_bids = BulkBid.query.filter_by(
+            round_id=self.round_id,
+            player_id=self.player_id
+        ).count()
+        
+        # Check if there's a tiebreaker for this player
+        tiebreaker = BulkBidTiebreaker.query.filter_by(
+            bulk_round_id=self.round_id,
+            player_id=self.player_id
+        ).first()
+        
+        return matching_bids > 1 or tiebreaker is not None
+
+class BulkBidTiebreaker(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    bulk_round_id = db.Column(db.Integer, db.ForeignKey('bulk_bid_round.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    current_amount = db.Column(db.Integer, nullable=False)
+    resolved = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    winner_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
+    
+    # Relationships
+    player = db.relationship('Player', backref='bulk_tiebreakers')
+    winner_team = db.relationship('Team', foreign_keys=[winner_team_id], backref='won_tiebreakers')
+    teams = db.relationship('TeamBulkTiebreaker', backref='tiebreaker', lazy=True)
+
+class TeamBulkTiebreaker(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tiebreaker_id = db.Column(db.Integer, db.ForeignKey('bulk_bid_tiebreaker.id'), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    last_bid = db.Column(db.Integer, nullable=True)  # Latest bid amount from this team
+    last_bid_time = db.Column(db.DateTime, nullable=True)
+    is_active = db.Column(db.Boolean, default=True)  # Whether the team is still active in the tiebreaker
+    
+    # Relationships
+    team = db.relationship('Team', backref='bulk_tiebreakers')

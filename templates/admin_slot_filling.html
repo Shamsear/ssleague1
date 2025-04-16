@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Slot Filling Round Management - Auction System{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-2 sm:px-4 py-3 sm:py-6">
+    <div class="glass rounded-3xl p-3 sm:p-6 mb-3 backdrop-blur-md">
+        <div class="flex flex-col gap-3 mb-3">
+            <h2 class="text-xl sm:text-2xl font-bold text-dark gradient-text">Slot Filling Round Management</h2>
+            
+            <!-- Navigation Links -->
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ url_for('dashboard') }}" class="px-4 py-3 sm:py-2.5 text-sm glass rounded-xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center text-dark sm:justify-start w-full sm:w-auto">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    Back to Dashboard
+                </a>
+                <a href="{{ url_for('admin_rounds') }}" class="px-4 py-3 sm:py-2.5 text-sm glass rounded-xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center text-dark sm:justify-start w-full sm:w-auto">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path>
+                    </svg>
+                    Regular Rounds
+                </a>
+            </div>
+        </div>
+        
+        <!-- Create New Slot Filling Round Section -->
+        <div class="glass rounded-2xl p-3 sm:p-6 mb-4 border border-gray-100/20 transform transition-all duration-300 hover:shadow-lg backdrop-blur-sm">
+            <h2 class="text-lg sm:text-xl font-bold mb-3 gradient-text">Start New Slot Filling Round</h2>
+            <form id="startSlotRoundForm" action="{{ url_for('start_slot_filling_round') }}" method="POST" class="space-y-3">
+                <div>
+                    <label for="duration" class="block text-sm font-medium text-gray-700 mb-1.5">Duration (seconds)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </span>
+                        <input type="number" id="duration" name="duration" value="300" min="30" required
+                            class="pl-10 w-full py-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base">
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Minimum 30 seconds</p>
+                </div>
+                
+                <div>
+                    <label for="base_price" class="block text-sm font-medium text-gray-700 mb-1.5">Base Price</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </span>
+                        <input type="number" id="base_price" name="base_price" value="10" min="1" required
+                            class="pl-10 w-full py-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base">
+                    </div>
+                    <p class="mt-1 text-xs text-gray-500">Base price for all players in this round</p>
+                </div>
+                
+                <button type="submit"
+                    class="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-medium hover:from-primary/90 hover:to-secondary/90 transform hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 shadow-md">
+                    Start Slot Filling Round
+                </button>
+            </form>
+        </div>
+
+        <!-- Active Slot Filling Round Section -->
+        <div class="glass rounded-2xl p-3 sm:p-6 mb-4 border border-gray-100/20 backdrop-blur-sm">
+            <h2 class="text-lg sm:text-xl font-bold mb-4 gradient-text flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                Active Slot Filling Round
+            </h2>
+            <div id="activeSlotRound" class="space-y-4">
+                {% if active_round %}
+                <div class="glass rounded-xl p-4 border border-gray-200/30 transform transition-all duration-300 hover:shadow-lg backdrop-blur-sm" data-round-id="{{ active_round.id }}">
+                    <div class="flex flex-col justify-between items-start gap-3 mb-3">
+                        <div class="flex items-center justify-between w-full">
+                            <div class="flex items-center">
+                                <div class="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></div>
+                                <h3 class="text-base sm:text-lg font-semibold">Slot Filling Round</h3>
+                            </div>
+                            <div class="text-sm font-medium px-3 py-1.5 rounded-xl bg-white/80 backdrop-blur-sm shadow-sm" id="timer-{{ active_round.id }}">
+                                <span id="timer-remaining-{{ active_round.id }}" class="font-mono">--:--</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-col sm:flex-row gap-3 w-full mt-2">
+                            <div class="flex items-center gap-2 p-3 sm:p-2 bg-white/50 rounded-xl backdrop-blur-sm flex-1 min-w-[180px]">
+                                <div class="relative flex-1 max-w-[120px] sm:max-w-[100px]">
+                                    <input type="number" id="update-duration-{{ active_round.id }}" min="30" value="{{active_round.duration}}"
+                                        class="w-full py-3 sm:py-2.5 px-3 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-base">
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">sec</span>
+                                </div>
+                                <button type="button" onclick="updateSlotRoundTimer({{ active_round.id }})"
+                                    class="bg-primary/90 text-white px-3 py-3 sm:py-2.5 rounded-xl hover:bg-primary transition-all duration-200 text-sm whitespace-nowrap">
+                                    Update Timer
+                                </button>
+                            </div>
+                            <button type="button" onclick="finalizeSlotRound({{ active_round.id }})"
+                                class="bg-green-500 text-white px-4 py-3 sm:py-2.5 rounded-xl hover:bg-green-600 transition-all duration-200 flex-1 min-w-[180px] font-medium">
+                                <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Finalize Round
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mt-4 glass p-3 rounded-xl bg-blue-50/50 backdrop-blur-sm border border-blue-100/20">
+                        <div class="flex items-start">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <h4 class="text-sm font-medium text-blue-700">Round Information</h4>
+                                <div class="mt-1 text-xs text-blue-600">
+                                    <p><strong>Base Price:</strong> {{ active_round.base_price }}</p>
+                                    <p><strong>Status:</strong> {{ active_round.status }}</p>
+                                    <p><strong>Started:</strong> {{ active_round.start_time.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Current Bids for the Round -->
+                {% if slot_bids %}
+                <div class="glass rounded-xl p-4 border border-gray-200/30 backdrop-blur-sm">
+                    <h3 class="text-base sm:text-lg font-semibold mb-3">Submitted Bids</h3>
+                    <div class="overflow-x-auto -mx-4 sm:mx-0">
+                        <div class="inline-block min-w-full align-middle px-4 sm:px-0">
+                            <table class="min-w-full divide-y divide-gray-200 text-sm">
+                                <thead class="bg-white/50">
+                                    <tr>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="bg-white/30 divide-y divide-gray-200">
+                                    {% for bid in slot_bids %}
+                                    <tr>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ bid.team.name }}</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ bid.player.name }} ({{ bid.player.position }})</td>
+                                        <td class="px-4 py-3 whitespace-nowrap">
+                                            {% if bid.is_tied %}
+                                            <span class="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800">Tied</span>
+                                            {% elif bid.is_processing %}
+                                            <span class="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">In Open Auction</span>
+                                            {% else %}
+                                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">Selected</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="px-4 py-3 whitespace-nowrap">{{ bid.amount }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <!-- Open Auctions Section -->
+                {% if open_auctions %}
+                <div class="glass rounded-xl p-4 border border-gray-200/30 backdrop-blur-sm">
+                    <h3 class="text-base sm:text-lg font-semibold mb-3">Active Open Auctions</h3>
+                    <div class="space-y-4">
+                        {% for auction in open_auctions %}
+                        <div class="glass p-3 rounded-xl border border-gray-200/30">
+                            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                                <div>
+                                    <h4 class="text-base font-medium">{{ auction.player.name }} ({{ auction.player.position }})</h4>
+                                    <div class="text-sm">
+                                        <span class="text-gray-600">Current Bid:</span> 
+                                        <strong>{{ auction.current_amount }}</strong>
+                                        {% if auction.current_team %}
+                                        <span class="text-gray-600 ml-2">by</span> 
+                                        <strong>{{ auction.current_team.name }}</strong>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                
+                                <div class="flex flex-row gap-2 w-full sm:w-auto">
+                                    <button type="button" onclick="viewAuctionBids({{ auction.id }})" class="flex-1 sm:flex-none px-3 py-3 sm:py-2 rounded-lg bg-primary/90 text-white hover:bg-primary text-sm">
+                                        View Bids
+                                    </button>
+                                    
+                                    <button type="button" onclick="completeOpenAuction({{ auction.id }})" class="flex-1 sm:flex-none px-3 py-3 sm:py-2 rounded-lg bg-green-500 text-white hover:bg-green-600 text-sm">
+                                        Complete Auction
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <!-- Bids Container - Initially Hidden -->
+                            <div id="auction-bids-{{ auction.id }}" class="mt-4 hidden">
+                                <h5 class="text-sm font-medium mb-2">Bid History</h5>
+                                <div class="overflow-x-auto -mx-3 sm:mx-0">
+                                    <div class="inline-block min-w-full align-middle px-3 sm:px-0">
+                                        <table class="min-w-full divide-y divide-gray-200 text-xs">
+                                            <thead class="bg-white/50">
+                                                <tr>
+                                                    <th scope="col" class="px-3 py-2 text-left font-medium text-gray-500">Team</th>
+                                                    <th scope="col" class="px-3 py-2 text-left font-medium text-gray-500">Amount</th>
+                                                    <th scope="col" class="px-3 py-2 text-left font-medium text-gray-500">Time</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody class="bg-white/30 divide-y divide-gray-200">
+                                                {% for bid in auction.bids|sort(attribute='timestamp', reverse=True) %}
+                                                <tr>
+                                                    <td class="px-3 py-2">{{ bid.team.name }}</td>
+                                                    <td class="px-3 py-2">{{ bid.amount }}</td>
+                                                    <td class="px-3 py-2">{{ bid.timestamp.strftime('%H:%M:%S') }}</td>
+                                                </tr>
+                                                {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+                
+                {% else %}
+                <div class="text-center py-6 glass rounded-xl bg-white/40 backdrop-blur-sm border border-gray-100/20">
+                    <svg class="w-12 h-12 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <h3 class="mt-2 text-base font-medium text-gray-600">No active slot filling round</h3>
+                    <p class="mt-1 text-sm text-gray-500">Start a new round using the form above</p>
+                    <button type="button" onclick="document.getElementById('startSlotRoundForm').querySelector('button').scrollIntoView({ behavior: 'smooth' })"
+                        class="mt-3 px-4 py-3 sm:py-2 bg-primary/90 text-white rounded-xl hover:bg-primary text-sm transition-all duration-200">
+                        Start Slot Filling Round
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Completed Rounds History -->
+        <div class="glass rounded-2xl p-3 sm:p-6 border border-gray-100/20 backdrop-blur-sm">
+            <h2 class="text-lg sm:text-xl font-bold mb-4 gradient-text flex items-center">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Completed Slot Filling Rounds
+            </h2>
+            
+            {% if completed_rounds %}
+            <div class="space-y-3">
+                {% for round in completed_rounds %}
+                <div class="glass rounded-xl p-3 border border-gray-200/30 transform transition hover:shadow-sm cursor-pointer"
+                     onclick="location.href='{{ url_for('view_completed_slot_round', round_id=round.id) }}'">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <h3 class="text-base font-medium">Slot Round #{{ round.id }}</h3>
+                            <p class="text-xs text-gray-500">{{ round.start_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                        </div>
+                        <span class="px-2.5 py-1 text-xs rounded-full bg-green-100 text-green-800">Completed</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-6 glass rounded-xl bg-white/40 backdrop-blur-sm border border-gray-100/20">
+                <svg class="w-10 h-10 mx-auto text-gray-400 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+                <h3 class="mt-2 text-sm font-medium text-gray-600">No completed rounds yet</h3>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Update timer for active round
+    function updateTimers() {
+        const timerElements = document.querySelectorAll('[id^="timer-remaining-"]');
+        timerElements.forEach(element => {
+            const roundId = element.id.split('-')[2];
+            fetch(`/check_slot_round_status/${roundId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.active) {
+                        window.location.reload();
+                        return;
+                    }
+                    
+                    const minutes = Math.floor(data.remaining / 60);
+                    const seconds = Math.floor(data.remaining % 60);
+                    element.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                })
+                .catch(error => console.error('Error updating timer:', error));
+        });
+    }
+    
+    // Initialize timers
+    updateTimers();
+    setInterval(updateTimers, 5000);
+    
+    // Update round timer
+    function updateSlotRoundTimer(roundId) {
+        const duration = document.getElementById(`update-duration-${roundId}`).value;
+        fetch('/update_slot_round_timer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                round_id: roundId,
+                duration: duration
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                alert('Timer updated successfully');
+            }
+        })
+        .catch(error => {
+            console.error('Error updating timer:', error);
+            alert('Error updating timer. Please try again.');
+        });
+    }
+    
+    // Finalize round
+    function finalizeSlotRound(roundId) {
+        if (confirm('Are you sure you want to finalize this round?')) {
+            fetch('/finalize_slot_round', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    round_id: roundId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error finalizing round:', error);
+                alert('Error finalizing round. Please try again.');
+            });
+        }
+    }
+    
+    // Toggle bid history visibility
+    function viewAuctionBids(auctionId) {
+        const bidsContainer = document.getElementById(`auction-bids-${auctionId}`);
+        if (bidsContainer.classList.contains('hidden')) {
+            bidsContainer.classList.remove('hidden');
+        } else {
+            bidsContainer.classList.add('hidden');
+        }
+    }
+    
+    // Complete open auction
+    function completeOpenAuction(auctionId) {
+        if (confirm('Are you sure you want to complete this auction and award the player to the highest bidder?')) {
+            fetch('/complete_open_auction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    auction_id: auctionId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error completing auction:', error);
+                alert('Error completing auction. Please try again.');
+            });
+        }
+    }
+</script>
+{% endblock %} 

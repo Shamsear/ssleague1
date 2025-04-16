@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest, PushSubscription
+from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest, PushSubscription, AuctionSettings, BulkBidTiebreaker, BulkBidRound, BulkBid, TeamBulkTiebreaker
 from config import Config
 from werkzeug.security import generate_password_hash
 import json
@@ -12,6 +12,7 @@ from flask_migrate import Migrate
 from pywebpush import webpush, WebPushException
 import os
 import base64
+from sqlalchemy import func
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -93,6 +94,11 @@ def dashboard():
         if round.is_timer_expired():
             finalize_round_internal(round.id)
     
+    # Check if user just won a player in a tiebreaker
+    player_won = request.args.get('player_won')
+    if player_won:
+        flash(f'Congratulations! You won the bid for {player_won}!', 'success')
+    
     # Refresh the data after potentially finalizing rounds
     if current_user.is_admin:
         teams = Team.query.all()
@@ -103,10 +109,14 @@ def dashboard():
         # Get pending password reset requests
         pending_resets = PasswordResetRequest.query.filter_by(status='pending').all()
         
+        # Get active bulk bid round if any
+        active_bulk_round = BulkBidRound.query.filter_by(is_active=True).first()
+        
         return render_template('admin_dashboard.html', 
                               teams=teams,
                               pending_users=pending_users,
                               pending_resets=pending_resets,
+                              active_bulk_round=active_bulk_round,
                               config=Config)
     
     # For team users
@@ -117,6 +127,15 @@ def dashboard():
     team_tiebreakers = TeamTiebreaker.query.join(Tiebreaker).filter(
         TeamTiebreaker.team_id == current_user.team.id,
         Tiebreaker.resolved == False
+    ).all()
+    
+    # Get bulk tiebreakers for this team
+    team_bulk_tiebreakers = TeamBulkTiebreaker.query.join(
+        BulkBidTiebreaker, TeamBulkTiebreaker.tiebreaker_id == BulkBidTiebreaker.id
+    ).filter(
+        TeamBulkTiebreaker.team_id == current_user.team.id,
+        TeamBulkTiebreaker.is_active == True,
+        BulkBidTiebreaker.resolved == False
     ).all()
     
     # Get bid counts for each active round
@@ -156,7 +175,9 @@ def dashboard():
                           active_rounds=active_rounds, 
                           rounds=rounds,
                           team_tiebreakers=team_tiebreakers,
+                          team_bulk_tiebreakers=team_bulk_tiebreakers,
                           bid_counts=bid_counts,
+                          active_bulk_round=BulkBidRound.query.filter_by(is_active=True).first(),
                           round_results=round_results)
 
 @app.route('/start_round', methods=['POST'])
@@ -194,6 +215,43 @@ def start_round():
             'error': f'There is already an active round for position {active_round.position}. Please finalize it before starting a new round.'
         }), 400
     
+    # Get auction settings
+    settings = AuctionSettings.get_settings()
+    
+    # Check if we've reached the maximum number of rounds
+    completed_rounds_count = Round.query.filter_by(is_active=False).count()
+    if completed_rounds_count >= settings.max_rounds:
+        return jsonify({
+            'error': f'Maximum number of rounds ({settings.max_rounds}) has been reached. No more rounds can be started.'
+        }), 400
+    
+    # Calculate remaining rounds (including this one)
+    remaining_rounds = settings.max_rounds - completed_rounds_count
+    
+    # Check if teams have sufficient balance for remaining rounds
+    min_required_balance = settings.min_balance_per_round * remaining_rounds
+    
+    # Get all approved teams
+    teams = Team.query.filter(Team.user.has(is_approved=True)).all()
+    
+    # Track teams with insufficient balance
+    insufficient_balance_teams = []
+    for team in teams:
+        if team.balance < min_required_balance:
+            insufficient_balance_teams.append({
+                'name': team.name,
+                'balance': team.balance, 
+                'required': min_required_balance
+            })
+    
+    if insufficient_balance_teams:
+        return jsonify({
+            'error': 'Some teams have insufficient balance for the remaining rounds',
+            'teams': insufficient_balance_teams,
+            'min_required_balance': min_required_balance,
+            'remaining_rounds': remaining_rounds
+        }), 400
+    
     # Create new round with timer
     round = Round(
         position=position, 
@@ -211,29 +269,11 @@ def start_round():
     
     db.session.commit()
     
-    # Send notifications to all team users about the new round
-    team_users = User.query.filter(User.is_admin == False).all()
-    for user in team_users:
-        notification_data = {
-            "title": "New Round Started",
-            "body": f"A new bidding round for {position} has started. You have {duration // 60} minutes to place bids.",
-            "data": {
-                "type": "round_start",
-                "url": "/team/round"
-            },
-            "tag": f"round_{round.id}_start",
-            "renotify": True
-        }
-        
-        send_push_notification(user.id, notification_data)
-    
     return jsonify({
-        'message': 'Round started successfully',
+        'success': True,
         'round_id': round.id,
-        'player_count': len(players),
-        'duration': duration,
-        'max_bids_per_team': max_bids_per_team,
-        'expires_at': (round.start_time.isoformat() if round.start_time else None)
+        'message': f'Round for position {position} started successfully',
+        'remaining_rounds': remaining_rounds - 1  # Subtract 1 to account for current round
     })
 
 @app.route('/update_round_timer/<int:round_id>', methods=['POST'])
@@ -364,6 +404,13 @@ def process_bids_with_tiebreaker_check(round_id, bids):
         if highest_bid.team_id not in allocated_teams and highest_bid.player_id not in allocated_players:
             team = Team.query.get(highest_bid.team_id)
             player = Player.query.get(highest_bid.player_id)
+            
+            # Check if adding this player would exceed team's player limit
+            team_player_count = Player.query.filter_by(team_id=team.id).count()
+            if team_player_count >= Config.MAX_PLAYERS_PER_TEAM:
+                # Skip this bid as team is already at max capacity
+                bids.remove(highest_bid)
+                continue
             
             team.balance -= highest_bid.amount
             player.team_id = team.id
@@ -1013,7 +1060,21 @@ def admin_edit_player(player_id):
     player.name = data.get('name', player.name)
     player.position = data.get('position', player.position)
     player.overall_rating = data.get('overall_rating', player.overall_rating)
-    player.team_id = data.get('team_id', player.team_id)
+    
+    # Get new team_id
+    new_team_id = data.get('team_id', player.team_id)
+    
+    # If team is changing and new team is not None
+    if new_team_id is not None and new_team_id != player.team_id:
+        # Check if adding this player would exceed the team's maximum player limit
+        team = Team.query.get(new_team_id)
+        if team:
+            current_player_count = Player.query.filter_by(team_id=new_team_id).count()
+            if current_player_count >= Config.MAX_PLAYERS_PER_TEAM:
+                return jsonify({'error': f'Team already has maximum number of players ({Config.MAX_PLAYERS_PER_TEAM})'})
+    
+    # Set the team_id
+    player.team_id = new_team_id
     
     db.session.commit()
     
@@ -1687,270 +1748,785 @@ def team_bids():
         Tiebreaker.resolved == False
     ).all()
     
+    # Get bulk tiebreakers for this team
+    team_bulk_tiebreakers = TeamBulkTiebreaker.query.join(
+        BulkBidTiebreaker, TeamBulkTiebreaker.tiebreaker_id == BulkBidTiebreaker.id
+    ).filter(
+        TeamBulkTiebreaker.team_id == current_user.team.id,
+        TeamBulkTiebreaker.is_active == True,
+        BulkBidTiebreaker.resolved == False
+    ).all()
+    
     return render_template('team_bids.html',
                           active_rounds=active_rounds,
-                          team_tiebreakers=team_tiebreakers)
+                          team_tiebreakers=team_tiebreakers,
+                          team_bulk_tiebreakers=team_bulk_tiebreakers)
 
-@app.route('/team_round')
+@app.route('/team_bulk_round')
 @login_required
-def team_round():
-    """
-    Display active bidding rounds and allow users to place bids on players.
-    If there are active tiebreakers for the team, it will direct the user to those instead.
-    """
-    # Check for active tiebreakers first
-    team_tiebreakers = TeamTiebreaker.query.join(Tiebreaker).filter(
-        TeamTiebreaker.team_id == current_user.team.id,
-        Tiebreaker.resolved == False
-    ).all()
-    
-    if team_tiebreakers:
-        # Direct user to the tiebreaker page instead of showing active rounds
-        tiebreaker_id = team_tiebreakers[0].tiebreaker_id
-        tiebreaker = Tiebreaker.query.get(tiebreaker_id)
-        player = Player.query.get(tiebreaker.player_id)
-        
-        return render_template('tiebreaker_team.html',
-                              tiebreaker=tiebreaker,
-                              team_tiebreaker=team_tiebreakers[0],
-                              player=player)
-    
-    # Only show active rounds if no tiebreakers are pending
-    active_rounds = Round.query.filter_by(is_active=True).all()
-    
-    # Get Config for minimum bid amount
-    from config import Config
-    
-    return render_template('team_round.html',
-                          active_rounds=active_rounds,
-                          Config=Config)
-
-# Password reset routes
-@app.route('/reset_password_request', methods=['GET', 'POST'])
-def reset_password_request():
-    if current_user.is_authenticated:
+def team_bulk_round():
+    if not current_user.team:
+        flash('You must have a team to access this page.', 'error')
         return redirect(url_for('dashboard'))
     
-    if request.method == 'POST':
-        username = request.form.get('username')
-        reason = request.form.get('reason')
-        
-        if not username or not reason:
-            flash('Username and reason are required', 'error')
-            return render_template('reset_password_request.html')
-        
-        user = User.query.filter_by(username=username).first()
-        if not user:
-            flash('User not found', 'error')
-            return render_template('reset_password_request.html')
-        
-        # Check if there's already a pending request
-        existing_request = PasswordResetRequest.query.filter_by(
-            user_id=user.id, 
-            status='pending'
-        ).first()
-        
-        if existing_request:
-            flash('You already have a pending password reset request', 'error')
-            return render_template('reset_password_request.html')
-        
-        # Create a new password reset request
-        reset_request = PasswordResetRequest(
-            user_id=user.id,
-            reason=reason
+    # Check for any active bulk bid tiebreakers first
+    team_bulk_tiebreakers = TeamBulkTiebreaker.query.join(
+        BulkBidTiebreaker, TeamBulkTiebreaker.tiebreaker_id == BulkBidTiebreaker.id
+    ).filter(
+        TeamBulkTiebreaker.team_id == current_user.team.id,
+        TeamBulkTiebreaker.is_active == True,
+        BulkBidTiebreaker.resolved == False
+    ).all()
+    
+    if team_bulk_tiebreakers:
+        tiebreaker = BulkBidTiebreaker.query.get(team_bulk_tiebreakers[0].tiebreaker_id)
+        return redirect(url_for('team_bulk_tiebreaker', tiebreaker_id=tiebreaker.id))
+    
+    # Get active bulk bid round
+    active_bulk_round = BulkBidRound.query.filter_by(is_active=True).first()
+    
+    if not active_bulk_round:
+        flash('No active bulk bid round available.', 'info')
+        return redirect(url_for('dashboard'))
+    
+    # Get all available players (not assigned to any team)
+    available_players = Player.query.filter(Player.team_id == None).all()
+    
+    # Get existing bids for this team in this round
+    team_bids = BulkBid.query.filter_by(
+        team_id=current_user.team.id,
+        round_id=active_bulk_round.id
+    ).all()
+    
+    # Calculate available slot count - how many more players the team needs
+    team_player_count = Player.query.filter_by(team_id=current_user.team.id).count()
+    max_players_per_team = db.session.query(func.count(Player.id)).scalar() // db.session.query(func.count(Team.id)).scalar()
+    
+    # Total slots needed = max_players_per_team - current players on team
+    available_slots = max_players_per_team - team_player_count
+    
+    # Calculate slots available for bidding in this round (consider already placed bids)
+    bidding_slots_available = available_slots - len(team_bids)
+    
+    # Group players by position
+    players_by_position = {}
+    for player in available_players:
+        if player.position not in players_by_position:
+            players_by_position[player.position] = []
+        players_by_position[player.position].append(player)
+    
+    # Sort players by overall rating within each position
+    for position in players_by_position:
+        players_by_position[position] = sorted(
+            players_by_position[position], 
+            key=lambda x: x.overall_rating if x.overall_rating else 0, 
+            reverse=True
         )
-        db.session.add(reset_request)
-        db.session.commit()
-        
-        flash('Your password reset request has been submitted. An administrator will review your request.', 'success')
-        return redirect(url_for('login'))
     
-    return render_template('reset_password_request.html')
+    return render_template('team_bulk_round.html',
+                          bulk_round=active_bulk_round,
+                          players_by_position=players_by_position,
+                          team_bids=team_bids,
+                          available_slots=available_slots,
+                          bidding_slots_available=bidding_slots_available)
 
-@app.route('/admin/password_requests')
+@app.route('/place_bulk_bid', methods=['POST'])
 @login_required
-def admin_password_requests():
-    if not current_user.is_admin:
-        flash('Access denied', 'error')
-        return redirect(url_for('dashboard'))
+def place_bulk_bid():
+    if not current_user.team:
+        return jsonify({'error': 'You must have a team to place bids.'}), 400
     
-    reset_requests = PasswordResetRequest.query.order_by(
-        PasswordResetRequest.status == 'pending',
-        PasswordResetRequest.status == 'approved',
-        PasswordResetRequest.created_at.desc()
-    ).all()
+    data = request.json
+    player_id = data.get('player_id')
+    round_id = data.get('round_id')
     
-    return render_template('admin_password_requests.html', reset_requests=reset_requests)
-
-@app.route('/admin/approve_reset_request/<int:request_id>', methods=['POST'])
-@login_required
-def approve_reset_request(request_id):
-    if not current_user.is_admin:
-        flash('Access denied', 'error')
-        return redirect(url_for('dashboard'))
+    if not player_id or not round_id:
+        return jsonify({'error': 'Missing required fields.'}), 400
     
-    reset_request = PasswordResetRequest.query.get_or_404(request_id)
+    # Validate the round is active
+    bulk_round = BulkBidRound.query.get_or_404(round_id)
+    if not bulk_round.is_active:
+        return jsonify({'error': 'This round is no longer active.'}), 400
     
-    if reset_request.status != 'pending':
-        flash('This request has already been processed', 'error')
-        return redirect(url_for('admin_password_requests'))
+    # Validate the player exists and is not already assigned
+    player = Player.query.get_or_404(player_id)
+    if player.team_id:
+        return jsonify({'error': 'This player is already assigned to a team.'}), 400
     
-    # Generate a unique token for this request
-    token = reset_request.generate_token()
+    # Check if the team has enough balance for the base price
+    if current_user.team.balance < bulk_round.base_price:
+        return jsonify({'error': 'Your team does not have enough balance.'}), 400
     
-    # Update the status to approved
-    reset_request.status = 'approved'
+    # Calculate available slot count (remaining slots for the team)
+    team_player_count = Player.query.filter_by(team_id=current_user.team.id).count()
+    max_players_per_team = db.session.query(func.count(Player.id)).scalar() // db.session.query(func.count(Team.id)).scalar()
+    
+    # Count existing bids in this round
+    existing_bids_count = BulkBid.query.filter_by(
+        team_id=current_user.team.id,
+        round_id=bulk_round.id
+    ).count()
+    
+    # Total slots available taking into account current players and bids
+    available_slots = max_players_per_team - team_player_count - existing_bids_count
+    
+    if available_slots <= 0:
+        return jsonify({'error': 'You have reached the maximum number of bids for this round.'}), 400
+    
+    # Check if the team already has a bid for this player in this round
+    existing_bid = BulkBid.query.filter_by(
+        team_id=current_user.team.id,
+        player_id=player_id,
+        round_id=round_id
+    ).first()
+    
+    if existing_bid:
+        return jsonify({'error': 'You have already placed a bid for this player.'}), 400
+    
+    # Create the new bid
+    new_bid = BulkBid(
+        team_id=current_user.team.id,
+        player_id=player_id,
+        round_id=round_id,
+        amount=bulk_round.base_price
+    )
+    
+    db.session.add(new_bid)
     db.session.commit()
     
-    # Get the username for the message
-    user = User.query.get(reset_request.user_id)
-    
-    flash(f'Password reset request for {user.username} has been approved. Please copy and share the reset link with the user from the admin panel.', 'success')
-    return redirect(url_for('admin_password_requests'))
+    return jsonify({'success': True, 'message': 'Bid placed successfully.'})
 
-@app.route('/admin/reject_reset_request/<int:request_id>', methods=['POST'])
+@app.route('/delete_bulk_bid/<int:bid_id>', methods=['DELETE'])
 @login_required
-def reject_reset_request(request_id):
-    if not current_user.is_admin:
-        flash('Access denied', 'error')
-        return redirect(url_for('dashboard'))
+def delete_bulk_bid(bid_id):
+    if not current_user.team:
+        return jsonify({'error': 'You must have a team to delete bids.'}), 400
     
-    reset_request = PasswordResetRequest.query.get_or_404(request_id)
+    bid = BulkBid.query.get_or_404(bid_id)
     
-    if reset_request.status != 'pending':
-        flash('This request has already been processed', 'error')
-        return redirect(url_for('admin_password_requests'))
+    if bid.team_id != current_user.team.id:
+        return jsonify({'error': 'You can only delete your own bids.'}), 403
     
-    # Update the status to rejected
-    reset_request.status = 'rejected'
+    if not bid.bulk_round.is_active:
+        return jsonify({'error': 'This round is no longer active.'}), 400
+    
+    db.session.delete(bid)
     db.session.commit()
     
-    flash('Password reset request rejected', 'success')
-    return redirect(url_for('admin_password_requests'))
+    return jsonify({'success': True, 'message': 'Bid deleted successfully.'})
 
-@app.route('/reset_password/<token>', methods=['GET', 'POST'])
-def reset_password_form(token):
-    # Check if user is already logged in
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-    
-    # Find the reset request with this token
-    reset_request = PasswordResetRequest.get_by_token(token)
-    
-    if not reset_request:
-        flash('Invalid or expired reset token', 'error')
-        return redirect(url_for('login'))
-    
-    if request.method == 'POST':
-        new_password = request.form.get('new_password')
-        confirm_password = request.form.get('confirm_password')
-        
-        if not new_password or not confirm_password:
-            flash('Please fill in all fields', 'error')
-            return render_template('reset_password.html', reset_token=token)
-        
-        if new_password != confirm_password:
-            flash('Passwords do not match', 'error')
-            return render_template('reset_password.html', reset_token=token)
-        
-        # Reset the password
-        user = User.query.get(reset_request.user_id)
-        user.set_password(new_password)
-        
-        # Mark the request as completed
-        reset_request.status = 'completed'
-        reset_request.reset_token = None  # Invalidate the token
-        db.session.commit()
-        
-        flash('Your password has been reset successfully. You can now log in with your new password.', 'success')
-        return redirect(url_for('login'))
-    
-    return render_template('reset_password.html', reset_token=token)
-
-# Web Push Notification APIs
-@app.route('/api/vapid-public-key')
+@app.route('/check_bulk_round_status/<int:round_id>')
 @login_required
-def get_vapid_public_key():
+def check_bulk_round_status(round_id):
+    bulk_round = BulkBidRound.query.get_or_404(round_id)
+    
+    if not bulk_round.is_active:
+        return jsonify({'active': False})
+    
+    # Check if timer has expired
+    expired = bulk_round.is_timer_expired()
+    if expired:
+        # Finalize the round automatically
+        finalize_bulk_round_internal(round_id)
+        return jsonify({'active': False, 'message': 'Round timer expired and has been finalized'})
+    
+    elapsed = (datetime.utcnow() - bulk_round.start_time).total_seconds()
+    remaining = max(bulk_round.duration - elapsed, 0)
+    
     return jsonify({
-        'publicKey': app.config.get('VAPID_PUBLIC_KEY')
+        'active': True,
+        'remaining': remaining
     })
 
-@app.route('/api/subscribe', methods=['POST'])
-@login_required
-def subscribe():
-    try:
-        subscription_json = json.dumps(request.json.get('subscription'))
-        
-        # Check if this subscription already exists for this user
-        existing_sub = PushSubscription.query.filter_by(
-            user_id=current_user.id,
-            subscription_json=subscription_json
-        ).first()
-        
-        if not existing_sub:
-            # Create new subscription
-            subscription = PushSubscription(
-                user_id=current_user.id,
-                subscription_json=subscription_json
+def finalize_bulk_round_internal(round_id):
+    """Internal function to finalize a bulk bid round, can be called programmatically"""
+    bulk_round = BulkBidRound.query.get(round_id)
+    if not bulk_round or not bulk_round.is_active:
+        return False
+    
+    # Set the round as inactive and processing
+    bulk_round.is_active = False
+    bulk_round.status = "processing"
+    db.session.commit()
+    
+    # Get all bids for this round
+    bids = BulkBid.query.filter_by(round_id=round_id).all()
+    
+    # Group bids by player
+    players_with_bids = {}
+    for bid in bids:
+        if bid.player_id not in players_with_bids:
+            players_with_bids[bid.player_id] = []
+        players_with_bids[bid.player_id].append(bid)
+    
+    # Process each player
+    for player_id, player_bids in players_with_bids.items():
+        if len(player_bids) == 1:
+            # Only one team bid for this player, assign directly
+            bid = player_bids[0]
+            player = Player.query.get(player_id)
+            
+            # Deduct team balance
+            team = Team.query.get(bid.team_id)
+            team.balance -= bulk_round.base_price
+            
+            # Assign player to team
+            player.team_id = bid.team_id
+            player.acquisition_value = bulk_round.base_price
+            
+            # Mark bid as resolved
+            bid.is_resolved = True
+            
+            db.session.commit()
+        elif len(player_bids) > 1:
+            # Multiple teams bid for this player, create a tiebreaker
+            player = Player.query.get(player_id)
+            
+            # Create tiebreaker
+            tiebreaker = BulkBidTiebreaker(
+                player_id=player_id,
+                bulk_round_id=round_id,
+                current_amount=bulk_round.base_price
             )
-            db.session.add(subscription)
-            db.session.commit()
+            db.session.add(tiebreaker)
+            db.session.flush()  # To get the tiebreaker ID
             
-        return jsonify({'success': True})
-    except Exception as e:
-        app.logger.error(f"Error subscribing to push notifications: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+            # Create team tiebreakers
+            for bid in player_bids:
+                team_tiebreaker = TeamBulkTiebreaker(
+                    tiebreaker_id=tiebreaker.id,
+                    team_id=bid.team_id
+                )
+                db.session.add(team_tiebreaker)
+                
+                # Mark bid as having a tie
+                bid.has_tie = True
+            
+            db.session.commit()
+    
+    # Set the round as completed
+    bulk_round.status = "completed"
+    db.session.commit()
+    
+    return True
 
-@app.route('/api/unsubscribe', methods=['POST'])
+@app.route('/team_bulk_tiebreaker/<int:tiebreaker_id>')
 @login_required
-def unsubscribe():
+def team_bulk_tiebreaker(tiebreaker_id):
+    if not current_user.team:
+        flash('You must have a team to access this page.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    tiebreaker = BulkBidTiebreaker.query.get_or_404(tiebreaker_id)
+    
+    # Check if the team is part of this tiebreaker
+    team_tiebreaker = TeamBulkTiebreaker.query.filter_by(
+        tiebreaker_id=tiebreaker_id,
+        team_id=current_user.team.id,
+        is_active=True
+    ).first()
+    
+    if not team_tiebreaker:
+        flash('You are not part of this tiebreaker.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get all active teams in this tiebreaker
+    active_teams = TeamBulkTiebreaker.query.filter_by(
+        tiebreaker_id=tiebreaker_id,
+        is_active=True
+    ).all()
+    
+    return render_template('team_bulk_tiebreaker.html',
+                          tiebreaker=tiebreaker,
+                          team_tiebreaker=team_tiebreaker,
+                          active_teams=active_teams,
+                          player=tiebreaker.player)
+
+@app.route('/place_bulk_tiebreaker_bid', methods=['POST'])
+@login_required
+def place_bulk_tiebreaker_bid():
+    if not current_user.team:
+        return jsonify({'error': 'You must have a team to place bids.'}), 400
+    
+    data = request.json
+    tiebreaker_id = data.get('tiebreaker_id')
+    amount = data.get('amount')
+    
+    if not tiebreaker_id or not amount:
+        return jsonify({'error': 'Missing required fields.'}), 400
+    
     try:
-        subscription_json = json.dumps(request.json.get('subscription'))
+        amount = int(amount)
+    except ValueError:
+        return jsonify({'error': 'Bid amount must be a number.'}), 400
+    
+    tiebreaker = BulkBidTiebreaker.query.get_or_404(tiebreaker_id)
+    
+    if tiebreaker.resolved:
+        return jsonify({'error': 'This tiebreaker is already resolved.'}), 400
+    
+    # Validate team is part of the tiebreaker
+    team_tiebreaker = TeamBulkTiebreaker.query.filter_by(
+        tiebreaker_id=tiebreaker_id,
+        team_id=current_user.team.id,
+        is_active=True
+    ).first()
+    
+    if not team_tiebreaker:
+        return jsonify({'error': 'You are not part of this tiebreaker.'}), 400
+    
+    # Check minimum bid amount
+    if amount <= tiebreaker.current_amount:
+        return jsonify({'error': f'Bid amount must be greater than {tiebreaker.current_amount}.'}), 400
+    
+    # Check if team has enough balance
+    if current_user.team.balance < amount:
+        return jsonify({'error': 'Your team does not have enough balance.'}), 400
+    
+    # Update the current amount and last bid info
+    tiebreaker.current_amount = amount
+    team_tiebreaker.last_bid = amount
+    team_tiebreaker.last_bid_time = datetime.utcnow()
+    
+    db.session.commit()
+    
+    return jsonify({
+        'success': True, 
+        'message': 'Bid placed successfully.', 
+        'new_amount': amount
+    })
+
+@app.route('/withdraw_from_bulk_tiebreaker', methods=['POST'])
+@login_required
+def withdraw_from_bulk_tiebreaker():
+    if not current_user.team:
+        return jsonify({'error': 'You must have a team to withdraw.'}), 400
+    
+    data = request.json
+    tiebreaker_id = data.get('tiebreaker_id')
+    
+    if not tiebreaker_id:
+        return jsonify({'error': 'Missing required fields.'}), 400
+    
+    tiebreaker = BulkBidTiebreaker.query.get_or_404(tiebreaker_id)
+    
+    if tiebreaker.resolved:
+        return jsonify({'error': 'This tiebreaker is already resolved.'}), 400
+    
+    # Validate team is part of the tiebreaker
+    team_tiebreaker = TeamBulkTiebreaker.query.filter_by(
+        tiebreaker_id=tiebreaker_id,
+        team_id=current_user.team.id,
+        is_active=True
+    ).first()
+    
+    if not team_tiebreaker:
+        return jsonify({'error': 'You are not part of this tiebreaker.'}), 400
+    
+    # Set the team as inactive in the tiebreaker
+    team_tiebreaker.is_active = False
+    db.session.commit()
+    
+    # Check if there's only one active team left
+    active_teams = TeamBulkTiebreaker.query.filter_by(
+        tiebreaker_id=tiebreaker_id,
+        is_active=True
+    ).all()
+    
+    if len(active_teams) == 1:
+        # Resolve the tiebreaker with the remaining team as the winner
+        tiebreaker.resolved = True
+        tiebreaker.winner_team_id = active_teams[0].team_id
         
-        # Find and delete subscription
-        subscription = PushSubscription.query.filter_by(
-            user_id=current_user.id,
-            subscription_json=subscription_json
+        # Find the original bid and mark it as resolved
+        bulk_bid = BulkBid.query.filter_by(
+            player_id=tiebreaker.player_id,
+            team_id=active_teams[0].team_id,
+            round_id=tiebreaker.bulk_round_id
         ).first()
         
-        if subscription:
-            db.session.delete(subscription)
-            db.session.commit()
+        if bulk_bid:
+            bulk_bid.is_resolved = True
             
-        return jsonify({'success': True})
-    except Exception as e:
-        app.logger.error(f"Error unsubscribing from push notifications: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-# Function to send push notification
-def send_push_notification(user_id, data):
-    try:
-        subscriptions = PushSubscription.query.filter_by(user_id=user_id).all()
+            # Get the player and winning team
+            player = Player.query.get(tiebreaker.player_id)
+            winning_team = Team.query.get(active_teams[0].team_id)
+            
+            # Assign player to winning team
+            player.team_id = winning_team.id
+            
+            # Use the current tiebreaker amount as the acquisition value
+            player.acquisition_value = tiebreaker.current_amount
+            
+            # Deduct amount from team balance
+            winning_team.balance -= tiebreaker.current_amount
         
-        if not subscriptions:
-            return
+        db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Withdrawn from tiebreaker successfully.'})
+
+# Admin routes for Bulk Bid Rounds
+@app.route('/admin/start_bulk_round', methods=['POST'])
+@login_required
+def admin_start_bulk_round():
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    data = request.form
+    duration = data.get('duration', 300)
+    base_price = data.get('base_price', 10)
+    
+    try:
+        duration = int(duration)
+        base_price = int(base_price)
+    except ValueError:
+        flash('Duration and base price must be numbers.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    # Check if there's an active bulk round already
+    active_round = BulkBidRound.query.filter_by(is_active=True).first()
+    
+    if active_round:
+        flash('There is already an active bulk bid round.', 'error')
+        return redirect(url_for('admin_dashboard'))
+    
+    # Create new bulk round
+    new_round = BulkBidRound(
+        duration=duration,
+        base_price=base_price
+    )
+    
+    db.session.add(new_round)
+    db.session.commit()
+    
+    flash('Bulk bid round started successfully.', 'success')
+    return redirect(url_for('admin_bulk_round', round_id=new_round.id))
+
+@app.route('/admin/bulk_round/<int:round_id>')
+@login_required
+def admin_bulk_round(round_id):
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    bulk_round = BulkBidRound.query.get_or_404(round_id)
+    
+    # Get all bids in this round
+    bids = BulkBid.query.filter_by(round_id=round_id).all()
+    
+    # Group bids by player
+    bids_by_player = {}
+    for bid in bids:
+        if bid.player_id not in bids_by_player:
+            bids_by_player[bid.player_id] = {
+                'player': bid.player,
+                'bids': []
+            }
+        bids_by_player[bid.player_id]['bids'].append(bid)
+    
+    # Group bids by team
+    bids_by_team = {}
+    for bid in bids:
+        if bid.team_id not in bids_by_team:
+            bids_by_team[bid.team_id] = {
+                'team': bid.team,
+                'bids': []
+            }
+        bids_by_team[bid.team_id]['bids'].append(bid)
+    
+    # Get all active tiebreakers
+    tiebreakers = BulkBidTiebreaker.query.filter_by(
+        bulk_round_id=round_id,
+        resolved=False
+    ).all()
+    
+    return render_template('admin_bulk_round.html',
+                          bulk_round=bulk_round,
+                          bids_by_player=bids_by_player,
+                          bids_by_team=bids_by_team,
+                          tiebreakers=tiebreakers)
+
+@app.route('/admin/update_bulk_round_timer/<int:round_id>', methods=['POST'])
+@login_required
+def admin_update_bulk_round_timer(round_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 401
+    
+    bulk_round = BulkBidRound.query.get_or_404(round_id)
+    
+    if not bulk_round.is_active:
+        return jsonify({'error': 'This round is not active.'}), 400
+    
+    data = request.json
+    duration = data.get('duration')
+    
+    try:
+        duration = int(duration)
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Duration must be a number.'}), 400
+    
+    bulk_round.duration = bulk_round.duration + duration
+    db.session.commit()
+    
+    return jsonify({'success': True, 'new_duration': bulk_round.duration})
+
+@app.route('/admin/finalize_bulk_round/<int:round_id>', methods=['POST'])
+@login_required
+def admin_finalize_bulk_round(round_id):
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Use the internal function to finalize the round
+    result = finalize_bulk_round_internal(round_id)
+    
+    if result:
+        flash('Bulk bid round finalized successfully.', 'success')
+    else:
+        flash('This round is already finalized.', 'error')
+    
+    return redirect(url_for('admin_bulk_round', round_id=round_id))
+
+@app.route('/admin/bulk_rounds')
+@login_required
+def admin_bulk_rounds():
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get all bulk rounds, ordered by most recent first
+    bulk_rounds = BulkBidRound.query.order_by(BulkBidRound.start_time.desc()).all()
+    
+    # Group by status
+    active_rounds = []
+    completed_rounds = []
+    
+    for round in bulk_rounds:
+        if round.is_active:
+            active_rounds.append(round)
+        else:
+            completed_rounds.append(round)
+    
+    # Get stats for each round
+    round_stats = {}
+    for round in bulk_rounds:
+        # Count total bids
+        total_bids = BulkBid.query.filter_by(round_id=round.id).count()
+        
+        # Count players acquired directly (no tiebreaker)
+        direct_assignments = BulkBid.query.filter_by(
+            round_id=round.id,
+            is_resolved=True,
+            has_tie=False
+        ).count()
+        
+        # Count tiebreakers
+        tiebreakers = BulkBidTiebreaker.query.filter_by(
+            bulk_round_id=round.id
+        ).count()
+        
+        # Count resolved tiebreakers
+        resolved_tiebreakers = BulkBidTiebreaker.query.filter_by(
+            bulk_round_id=round.id,
+            resolved=True
+        ).count()
+        
+        round_stats[round.id] = {
+            'total_bids': total_bids,
+            'direct_assignments': direct_assignments,
+            'tiebreakers': tiebreakers,
+            'resolved_tiebreakers': resolved_tiebreakers,
+            'pending_tiebreakers': tiebreakers - resolved_tiebreakers
+        }
+    
+    return render_template('admin_bulk_rounds.html',
+                          active_rounds=active_rounds,
+                          completed_rounds=completed_rounds,
+                          round_stats=round_stats)
+
+@app.route('/admin/bulk_tiebreakers')
+@login_required
+def admin_bulk_tiebreakers():
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get all active tiebreakers across all rounds
+    active_tiebreakers = BulkBidTiebreaker.query.filter_by(resolved=False).all()
+    
+    # Group by round
+    tiebreakers_by_round = {}
+    for tiebreaker in active_tiebreakers:
+        if tiebreaker.bulk_round_id not in tiebreakers_by_round:
+            tiebreakers_by_round[tiebreaker.bulk_round_id] = {
+                'round': BulkBidRound.query.get(tiebreaker.bulk_round_id),
+                'tiebreakers': []
+            }
+        tiebreakers_by_round[tiebreaker.bulk_round_id]['tiebreakers'].append(tiebreaker)
+    
+    # For each tiebreaker, get participating teams and their bids
+    tiebreaker_details = {}
+    for tiebreaker in active_tiebreakers:
+        team_tiebreakers = TeamBulkTiebreaker.query.filter_by(
+            tiebreaker_id=tiebreaker.id,
+            is_active=True
+        ).all()
+        
+        # Find highest bidder
+        highest_bid = 0
+        highest_bidder = None
+        
+        for tt in team_tiebreakers:
+            if tt.last_bid and tt.last_bid > highest_bid:
+                highest_bid = tt.last_bid
+                highest_bidder = tt.team
+        
+        tiebreaker_details[tiebreaker.id] = {
+            'teams': team_tiebreakers,
+            'highest_bid': highest_bid,
+            'highest_bidder': highest_bidder
+        }
+    
+    return render_template('admin_bulk_tiebreakers.html',
+                          tiebreakers_by_round=tiebreakers_by_round,
+                          tiebreaker_details=tiebreaker_details)
+
+@app.route('/admin/resolve_bulk_tiebreaker/<int:tiebreaker_id>', methods=['POST'])
+@login_required
+def admin_resolve_bulk_tiebreaker(tiebreaker_id):
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    tiebreaker = BulkBidTiebreaker.query.get_or_404(tiebreaker_id)
+    
+    if tiebreaker.resolved:
+        flash('This tiebreaker is already resolved.', 'error')
+        return redirect(url_for('admin_bulk_tiebreakers'))
+    
+    # Get all active teams in this tiebreaker
+    active_teams = TeamBulkTiebreaker.query.filter_by(
+        tiebreaker_id=tiebreaker_id,
+        is_active=True
+    ).all()
+    
+    if not active_teams:
+        flash('No active teams found in this tiebreaker.', 'error')
+        return redirect(url_for('admin_bulk_tiebreakers'))
+    
+    # Find highest bidder
+    highest_bid = 0
+    highest_bidder_id = None
+    
+    for team_tiebreaker in active_teams:
+        if team_tiebreaker.last_bid and team_tiebreaker.last_bid > highest_bid:
+            highest_bid = team_tiebreaker.last_bid
+            highest_bidder_id = team_tiebreaker.team_id
+    
+    if highest_bidder_id:
+        # Set the winner
+        tiebreaker.winner_team_id = highest_bidder_id
+        
+        # Find the original bid and mark it as resolved
+        bulk_bid = BulkBid.query.filter_by(
+            player_id=tiebreaker.player_id,
+            team_id=highest_bidder_id,
+            round_id=tiebreaker.bulk_round_id
+        ).first()
+        
+        if bulk_bid:
+            bulk_bid.is_resolved = True
             
-        for subscription in subscriptions:
-            try:
-                subscription_data = json.loads(subscription.subscription_json)
+            # Get the player and winning team
+            player = Player.query.get(tiebreaker.player_id)
+            winning_team = Team.query.get(highest_bidder_id)
+            
+            # Assign player to winning team
+            player.team_id = winning_team.id
+            
+            # Use the highest bid as the acquisition value
+            player.acquisition_value = highest_bid if highest_bid > 0 else tiebreaker.current_amount
+            
+            # Deduct amount from team balance
+            winning_team.balance -= player.acquisition_value
+            
+            # Mark as resolved
+            tiebreaker.resolved = True
+            
+            db.session.commit()
+            flash(f'Tiebreaker resolved. Player {player.name} assigned to {winning_team.name} for £{player.acquisition_value}.', 'success')
+        else:
+            flash('Could not find the original bid. Tiebreaker not resolved.', 'error')
+    else:
+        # If no highest bidder (all teams joined but none placed a bid), 
+        # assign to a random team to prevent deadlock
+        if active_teams:
+            random_team = active_teams[0]
+            tiebreaker.winner_team_id = random_team.team_id
+            
+            # Find the original bid and mark it as resolved
+            bulk_bid = BulkBid.query.filter_by(
+                player_id=tiebreaker.player_id,
+                team_id=random_team.team_id,
+                round_id=tiebreaker.bulk_round_id
+            ).first()
+            
+            if bulk_bid:
+                bulk_bid.is_resolved = True
                 
-                webpush(
-                    subscription_info=subscription_data,
-                    data=json.dumps(data),
-                    vapid_private_key=app.config.get('VAPID_PRIVATE_KEY'),
-                    vapid_claims=app.config.get('VAPID_CLAIMS')
-                )
-            except WebPushException as e:
-                # If the subscription is expired/invalid, remove it
-                if e.response and e.response.status_code in [404, 410]:
-                    db.session.delete(subscription)
-                    db.session.commit()
-                app.logger.error(f"WebPush error: {str(e)}")
-            except Exception as e:
-                app.logger.error(f"Error sending push notification: {str(e)}")
+                # Get the player and assigned team
+                player = Player.query.get(tiebreaker.player_id)
+                team = Team.query.get(random_team.team_id)
                 
-    except Exception as e:
-        app.logger.error(f"Error processing push subscriptions: {str(e)}")
+                # Assign player to team
+                player.team_id = team.id
+                
+                # Use the base price as the acquisition value
+                player.acquisition_value = tiebreaker.current_amount
+                
+                # Deduct amount from team balance
+                team.balance -= tiebreaker.current_amount
+                
+                # Mark as resolved
+                tiebreaker.resolved = True
+                
+                db.session.commit()
+                flash(f'Tiebreaker resolved with no bids. Player {player.name} randomly assigned to {team.name} for £{tiebreaker.current_amount}.', 'success')
+            else:
+                flash('Could not find the original bid. Tiebreaker not resolved.', 'error')
+        else:
+            flash('No active teams found in this tiebreaker.', 'error')
+    
+    return redirect(url_for('admin_bulk_tiebreakers'))
+
+@app.route('/check_bulk_tiebreaker_status/<int:tiebreaker_id>')
+@login_required
+def check_bulk_tiebreaker_status(tiebreaker_id):
+    tiebreaker = BulkBidTiebreaker.query.get_or_404(tiebreaker_id)
+    
+    # If the tiebreaker is resolved, check if there are other active tiebreakers for this team
+    next_tiebreaker = None
+    if tiebreaker.resolved and current_user.team:
+        # Find next active tiebreaker for this team
+        next_team_tiebreaker = TeamBulkTiebreaker.query.join(
+            BulkBidTiebreaker, TeamBulkTiebreaker.tiebreaker_id == BulkBidTiebreaker.id
+        ).filter(
+            TeamBulkTiebreaker.team_id == current_user.team.id,
+            TeamBulkTiebreaker.is_active == True,
+            BulkBidTiebreaker.resolved == False,
+            BulkBidTiebreaker.id != tiebreaker_id
+        ).first()
+        
+        if next_team_tiebreaker:
+            next_tiebreaker = next_team_tiebreaker.tiebreaker_id
+    
+    # Return tiebreaker status information
+    return jsonify({
+        'resolved': tiebreaker.resolved,
+        'winner_team_id': tiebreaker.winner_team_id if tiebreaker.resolved else None,
+        'next_tiebreaker_id': next_tiebreaker
+    })
 
 if __name__ == '__main__':
     with app.app_context():

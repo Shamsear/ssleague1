@@ -60,17 +60,24 @@
 
         /* Vision OS Glass morphism */
         .glass {
-            background: rgba(255, 255, 255, 0.7);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.5);
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
         }
 
+        .transparent-container {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+
         .nav-glass {
-            background: rgba(255, 255, 255, 0.8);
-            backdrop-filter: blur(30px);
-            -webkit-backdrop-filter: blur(30px);
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
             border-bottom: 1px solid rgba(0, 0, 0, 0.05);
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
         }
@@ -162,18 +169,38 @@
             background-image: url("{{ url_for('static', filename='images/logo.png') }}");
             background-position: center;
             background-repeat: no-repeat;
-            background-size: 30%;
-            opacity: 0.08;
+            background-size: 40%;
+            opacity: 0;
             z-index: -1;
             pointer-events: none;
+            animation: logoFadeIn 1.5s ease-out 0.5s forwards;
+        }
+        
+        @keyframes logoFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Responsive logo sizing */
+        @media (max-width: 768px) {
+            .logo-bg::before {
+                background-size: 60%;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .logo-bg::before {
+                background-size: 70%;
+                background-position: center 40%;
+            }
         }
 
         /* Dynamic background */
         .vision-bg {
-            background: linear-gradient(135deg, #F5F5F7 0%, #FFFFFF 100%);
+            background: linear-gradient(135deg, rgba(245, 245, 247, 0.4) 0%, rgba(255, 255, 255, 0.4) 100%);
             background-image: 
-                radial-gradient(circle at 20% 30%, rgba(0, 102, 255, 0.08), transparent 20%),
-                radial-gradient(circle at 80% 70%, rgba(149, 128, 255, 0.08), transparent 25%);
+                radial-gradient(circle at 20% 30%, rgba(0, 102, 255, 0.05), transparent 20%),
+                radial-gradient(circle at 80% 70%, rgba(149, 128, 255, 0.05), transparent 25%);
         }
 
         /* Button styles */
@@ -216,7 +243,7 @@
     <!-- Top Navigation for larger screens -->
     <nav class="nav-glass sticky top-0 z-50 hidden sm:block">
         <div class="container mx-auto py-4 px-6 flex justify-between items-center">
-            <a href="{% if current_user.is_authenticated %}{% if current_user.is_admin %}{{ url_for('dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
+            <a href="{{ url_for('index') }}" class="flex items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-10 mr-3 hover-float">
                 <span class="text-2xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow header-text">SS League Auction</span>
             </a>
@@ -235,7 +262,7 @@
     <!-- Mobile header -->
     <header class="sm:hidden nav-glass sticky top-0 z-40 p-4">
         <div class="flex justify-center items-center">
-            <a href="{% if current_user.is_authenticated %}{% if current_user.is_admin %}{{ url_for('dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
+            <a href="{{ url_for('index') }}" class="flex items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-8 mr-2 hover-float">
                 <span class="text-xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow">SS League Auction</span>
             </a>
@@ -287,7 +314,7 @@
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                         </svg>
-                        <span class="text-xs mt-1">Dashboard</span>
+                        <span class="text-xs mt-1">Home</span>
                     </a>
                     
                     {% if current_user.is_admin %}
@@ -317,6 +344,14 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                         </svg>
                         <span class="text-xs mt-1">Users</span>
+                    </a>
+                    
+                    <a href="{{ url_for('admin_auction_settings') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_auction_settings' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span class="text-xs mt-1">Settings</span>
                     </a>
                     {% else %}
                     <a href="{{ url_for('team_players') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_players' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
@@ -379,26 +414,5 @@
             </div>
         </div>
     </nav>
-    
-    <!-- Notification Container -->
-    {% if current_user.is_authenticated %}
-    <div id="notification-container" class="fixed bottom-20 right-4 glass p-4 rounded-xl shadow-lg hidden sm:block z-50">
-        <div class="flex flex-col">
-            <div class="flex justify-between items-center mb-2">
-                <h3 class="font-semibold">Notifications</h3>
-                <span id="notification-status" class="text-gray-500 text-sm">Loading...</span>
-            </div>
-            <p id="notification-info" class="text-sm text-gray-500 mb-3">Allow notifications to receive updates</p>
-            <div class="flex gap-2">
-                <button id="enable-notifications" class="px-3 py-1.5 rounded-lg bg-primary text-white text-sm">Enable</button>
-                <button id="disable-notifications" class="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-700 text-sm hidden">Disable</button>
-            </div>
-        </div>
-    </div>
-    
-    {% if current_user.is_authenticated %}
-    <input type="hidden" id="user-id" value="{{ current_user.id }}">
-    {% endif %}
-    {% endif %}
 </body>
 </html> 
