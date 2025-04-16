@@ -2528,6 +2528,43 @@ def check_bulk_tiebreaker_status(tiebreaker_id):
         'next_tiebreaker_id': next_tiebreaker
     })
 
+@app.route('/admin/auction_settings', methods=['GET', 'POST'])
+@login_required
+def admin_auction_settings():
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page', 'error')
+        return redirect(url_for('dashboard'))
+    
+    settings = AuctionSettings.get_settings()
+    
+    if request.method == 'POST':
+        try:
+            max_rounds = int(request.form.get('max_rounds', 25))
+            min_balance_per_round = int(request.form.get('min_balance_per_round', 30))
+            
+            if max_rounds < 1:
+                flash('Maximum rounds must be at least 1', 'error')
+            elif min_balance_per_round < 0:
+                flash('Minimum balance per round cannot be negative', 'error')
+            else:
+                settings.max_rounds = max_rounds
+                settings.min_balance_per_round = min_balance_per_round
+                db.session.commit()
+                flash('Auction settings updated successfully', 'success')
+        except ValueError:
+            flash('Invalid input values', 'error')
+    
+    # Get counts for context
+    total_rounds = Round.query.count()
+    completed_rounds = Round.query.filter_by(is_active=False).count()
+    remaining_rounds = settings.max_rounds - completed_rounds
+    
+    return render_template('admin_auction_settings.html', 
+                          settings=settings,
+                          total_rounds=total_rounds,
+                          completed_rounds=completed_rounds,
+                          remaining_rounds=remaining_rounds)
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
