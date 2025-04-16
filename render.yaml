@@ -22,9 +22,9 @@ services:
       python init_migrations.py
       python init_db.py
 
-  - type: pserv
+  - type: postgres
     name: efootball-db
-    env: postgres
+    ipAllowList: []
     plan: free
     envVars:
       - key: POSTGRES_USER
