@@ -1,0 +1,358 @@
+{% extends "base.html" %}
+
+{% macro stats_bar(label, value) %}
+<div class="bg-white/50 rounded-xl p-3">
+    <div class="flex justify-between items-center mb-2">
+        <span class="text-sm text-gray-700 font-medium">{{ label }}</span>
+        <span class="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">{{ value }}</span>
+    </div>
+    <div class="w-full bg-gray-200 rounded-full h-2 shadow-inner overflow-hidden">
+        <div class="h-2 rounded-full transition-all duration-500 
+            {% if value >= 85 %}bg-green-400 shadow
+            {% elif value >= 75 %}bg-blue-400 shadow
+            {% elif value >= 65 %}bg-yellow-400 shadow
+            {% else %}bg-gray-400 shadow{% endif %}"
+            style="width: {{ value }}%">
+        </div>
+    </div>
+</div>
+{% endmacro %}
+
+{% block title %}{{ player.name }} - Player Details{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="glass rounded-3xl p-6 sm:p-8 max-w-5xl mx-auto hover:shadow-lg transition-all duration-300">
+        <!-- Header with Back Button -->
+        <div class="flex items-center justify-between mb-8">
+            {% if request.referrer and 'team_players_data' in request.referrer %}
+            <a href="{{ url_for('team_players_data') }}" class="flex items-center text-gray-600 hover:text-primary transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span>Back to Players Database</span>
+            </a>
+            {% else %}
+            <a href="{{ url_for('team_players') }}" class="flex items-center text-gray-600 hover:text-primary transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span>Back to My Players</span>
+            </a>
+            {% endif %}
+            
+            <div class="flex items-center">
+                <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Player ID: {{ player.player_id }}</span>
+            </div>
+        </div>
+        
+        <!-- Two-column layout for player info and statistics -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+            <!-- Left Column - Player Info -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Player Card -->
+                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
+                    <!-- Player Image -->
+                    <div class="relative w-40 h-40 mx-auto mb-4 rounded-xl overflow-hidden shadow-md">
+                        {% if player.player_id %}
+                            <img src="{{ url_for('static', filename='images/player_photos/' + player.player_id|string + '.png') }}" 
+                                 alt="{{ player.name }}" 
+                                 class="object-cover w-full h-full"
+                                 onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/player_placeholder.png') }}'; this.classList.add('bg-primary/10');">
+                        {% else %}
+                            <div class="bg-primary/10 w-full h-full flex items-center justify-center">
+                                <span class="text-5xl font-bold text-primary">{{ player.position[0] }}</span>
+                            </div>
+                        {% endif %}
+                        
+                        <div class="absolute bottom-0 right-0 bg-primary text-white text-xs font-bold py-1 px-2 rounded-tl-lg">
+                            {% if player.overall_rating %}{{ player.overall_rating }}{% else %}--{% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Player Basic Info -->
+                    <div class="text-center">
+                        <h1 class="text-2xl font-bold text-dark mb-1">{{ player.name }}</h1>
+                        <div class="flex items-center justify-center mb-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium 
+                                {% if player.position == 'QB' %}bg-red-100 text-red-800
+                                {% elif player.position == 'RB' %}bg-blue-100 text-blue-800
+                                {% elif player.position == 'WR' %}bg-green-100 text-green-800
+                                {% elif player.position == 'TE' %}bg-purple-100 text-purple-800
+                                {% elif player.position == 'K' %}bg-yellow-100 text-yellow-800
+                                {% elif player.position == 'DST' %}bg-gray-100 text-gray-800
+                                {% else %}bg-gray-100 text-gray-800
+                                {% endif %}">
+                                {{ player.position }}
+                            </span>
+                            
+                            {% if player.nfl_team %}
+                            <span class="ml-2 text-xs text-gray-500">{{ player.nfl_team }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Player Details -->
+                    <div class="space-y-3 text-sm border-t border-gray-200 pt-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Nationality:</span>
+                            <span class="font-medium text-gray-700">{{ player.nationality or 'N/A' }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Playing Style:</span>
+                            <span class="font-medium text-gray-700">{{ player.playing_style or 'N/A' }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Preferred Foot:</span>
+                            <span class="font-medium text-gray-700">{{ player.foot or 'N/A' }}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Age:</span>
+                            <span class="font-medium text-gray-700">{{ player.age or 'N/A' }}</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Acquisition Details -->
+                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
+                    <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Acquisition Details
+                    </h3>
+                    <div class="space-y-4">
+                        <div class="bg-gray-50 rounded-xl p-4">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide">Cost</p>
+                            <p class="text-xl font-bold text-dark">
+                                {% if player.acquisition_value %}
+                                    £{{ "{:,}".format(player.acquisition_value) }}
+                                {% else %}
+                                    Free Transfer
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <div class="bg-gray-50 rounded-xl p-4">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide">Acquired On</p>
+                            <p class="text-xl font-bold text-dark">
+                                {% if player.acquired_at %}
+                                    {{ player.acquired_at.strftime('%d %b %Y') }}
+                                {% elif player.round_id %}
+                                    Via Round #{{ player.round_id }} auction
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        {% if player.round_id %}
+                        <div class="bg-gray-50 rounded-xl p-4">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide">Round</p>
+                            <p class="text-xl font-bold text-dark">Round #{{ player.round_id }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column - Stats -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- Overall Rating -->
+                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
+                    <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.783-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                        </svg>
+                        Overall Rating
+                    </h3>
+                    <div class="flex items-center">
+                        <div class="w-24 h-24 bg-gradient-to-br 
+                            {% if player.overall_rating >= 85 %}from-green-400 to-green-500
+                            {% elif player.overall_rating >= 75 %}from-blue-400 to-blue-500
+                            {% elif player.overall_rating >= 65 %}from-yellow-400 to-yellow-500
+                            {% else %}from-gray-400 to-gray-500{% endif %}
+                            rounded-full flex items-center justify-center shadow-lg">
+                            <span class="text-4xl font-bold text-white">{{ player.overall_rating }}</span>
+                        </div>
+                        <div class="ml-6">
+                            <h4 class="text-lg font-semibold text-dark">{{ player.name }}</h4>
+                            <p class="text-gray-500">{{ player.position }} {% if player.nfl_team %} - {{ player.nfl_team }}{% endif %}</p>
+                            
+                            <div class="mt-2">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium 
+                                    {% if player.overall_rating >= 85 %}bg-green-100 text-green-800
+                                    {% elif player.overall_rating >= 75 %}bg-blue-100 text-blue-800
+                                    {% elif player.overall_rating >= 65 %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {% if player.overall_rating >= 85 %}Elite
+                                    {% elif player.overall_rating >= 75 %}Excellent
+                                    {% elif player.overall_rating >= 65 %}Good
+                                    {% else %}Average{% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Key Stats Based on Position -->
+                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
+                    <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Key Attributes
+                    </h3>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="keyStatsContainer">
+                        <!-- Key stats will be automatically filled in based on position -->
+                        {% if player.position == 'GK' %}
+                            <!-- Goalkeeper Stats -->
+                            {{ stats_bar('GK Awareness', player.gk_awareness or 0) }}
+                            {{ stats_bar('GK Catching', player.gk_catching or 0) }}
+                            {{ stats_bar('GK Parrying', player.gk_parrying or 0) }}
+                            {{ stats_bar('GK Reflexes', player.gk_reflexes or 0) }}
+                            {{ stats_bar('GK Reach', player.gk_reach or 0) }}
+                            {{ stats_bar('Defensive Awareness', player.defensive_awareness or 0) }}
+                        {% elif player.position == 'CB' or player.position == 'RB' or player.position == 'LB' %}
+                            <!-- Defender Stats -->
+                            {{ stats_bar('Defensive Awareness', player.defensive_awareness or 0) }}
+                            {{ stats_bar('Tackling', player.tackling or 0) }}
+                            {{ stats_bar('Defensive Engagement', player.defensive_engagement or 0) }}
+                            {{ stats_bar('Physical Contact', player.physical_contact or 0) }}
+                            {{ stats_bar('Ball Control', player.ball_control or 0) }}
+                            {{ stats_bar('Speed', player.speed or 0) }}
+                        {% elif player.position == 'DMF' %}
+                            <!-- Defensive Midfielder Stats -->
+                            {{ stats_bar('Defensive Awareness', player.defensive_awareness or 0) }}
+                            {{ stats_bar('Tackling', player.tackling or 0) }}
+                            {{ stats_bar('Ball Control', player.ball_control or 0) }}
+                            {{ stats_bar('Low Pass', player.low_pass or 0) }}
+                            {{ stats_bar('Stamina', player.stamina or 0) }}
+                            {{ stats_bar('Physical Contact', player.physical_contact or 0) }}
+                        {% elif player.position == 'CMF' %}
+                            <!-- Central Midfielder Stats -->
+                            {{ stats_bar('Ball Control', player.ball_control or 0) }}
+                            {{ stats_bar('Low Pass', player.low_pass or 0) }}
+                            {{ stats_bar('Lofted Pass', player.lofted_pass or 0) }}
+                            {{ stats_bar('Offensive Awareness', player.offensive_awareness or 0) }}
+                            {{ stats_bar('Dribbling', player.dribbling or 0) }}
+                            {{ stats_bar('Stamina', player.stamina or 0) }}
+                        {% elif player.position == 'RMF' or player.position == 'LMF' %}
+                            <!-- Wide Midfielder Stats -->
+                            {{ stats_bar('Speed', player.speed or 0) }}
+                            {{ stats_bar('Acceleration', player.acceleration or 0) }}
+                            {{ stats_bar('Dribbling', player.dribbling or 0) }}
+                            {{ stats_bar('Ball Control', player.ball_control or 0) }}
+                            {{ stats_bar('Lofted Pass', player.lofted_pass or 0) }}
+                            {{ stats_bar('Tight Possession', player.tight_possession or 0) }}
+                        {% elif player.position == 'AMF' %}
+                            <!-- Attacking Midfielder Stats -->
+                            {{ stats_bar('Offensive Awareness', player.offensive_awareness or 0) }}
+                            {{ stats_bar('Ball Control', player.ball_control or 0) }}
+                            {{ stats_bar('Dribbling', player.dribbling or 0) }}
+                            {{ stats_bar('Tight Possession', player.tight_possession or 0) }}
+                            {{ stats_bar('Low Pass', player.low_pass or 0) }}
+                            {{ stats_bar('Finishing', player.finishing or 0) }}
+                        {% elif player.position == 'SS' %}
+                            <!-- Second Striker Stats -->
+                            {{ stats_bar('Offensive Awareness', player.offensive_awareness or 0) }}
+                            {{ stats_bar('Finishing', player.finishing or 0) }}
+                            {{ stats_bar('Ball Control', player.ball_control or 0) }}
+                            {{ stats_bar('Dribbling', player.dribbling or 0) }}
+                            {{ stats_bar('Speed', player.speed or 0) }}
+                            {{ stats_bar('Acceleration', player.acceleration or 0) }}
+                        {% elif player.position == 'CF' %}
+                            <!-- Center Forward Stats -->
+                            {{ stats_bar('Finishing', player.finishing or 0) }}
+                            {{ stats_bar('Offensive Awareness', player.offensive_awareness or 0) }}
+                            {{ stats_bar('Physical Contact', player.physical_contact or 0) }}
+                            {{ stats_bar('Heading', player.heading or 0) }}
+                            {{ stats_bar('Ball Control', player.ball_control or 0) }}
+                            {{ stats_bar('Kicking Power', player.kicking_power or 0) }}
+                        {% else %}
+                            <!-- Default Stats for Other Positions -->
+                            {{ stats_bar('Speed', player.speed or 0) }}
+                            {{ stats_bar('Ball Control', player.ball_control or 0) }}
+                            {{ stats_bar('Dribbling', player.dribbling or 0) }}
+                            {{ stats_bar('Offensive Awareness', player.offensive_awareness or 0) }}
+                            {{ stats_bar('Stamina', player.stamina or 0) }}
+                            {{ stats_bar('Physical Contact', player.physical_contact or 0) }}
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Additional Stats -->
+                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
+                    <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Additional Statistics
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                        {% for stat_name, stat_value in player_stats.items() %}
+                            {% if stat_value and stat_name not in [
+                                'speed', 'acceleration', 'ball_control', 'dribbling', 'tight_possession',
+                                'offensive_awareness', 'defensive_awareness', 'tackling', 'defensive_engagement',
+                                'low_pass', 'lofted_pass', 'finishing', 'heading', 'stamina', 
+                                'physical_contact', 'kicking_power',
+                                'gk_awareness', 'gk_catching', 'gk_parrying', 'gk_reflexes', 'gk_reach'
+                            ] %}
+                                <div class="bg-gray-50 rounded-xl p-3">
+                                    <p class="text-xs text-gray-500 mb-1">{{ stat_name|capitalize|replace('_', ' ') }}</p>
+                                    <p class="text-base font-medium text-dark">{{ stat_value }}</p>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Performance History -->
+                {% if player_performance %}
+                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
+                    <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Performance History
+                    </h3>
+                    
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead>
+                                <tr>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Opponent</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Stats</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-gray-200 bg-white/50">
+                                {% for game in player_performance %}
+                                <tr>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ game.date }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ game.opponent }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm">
+                                        <span class="px-2 py-1 text-xs rounded-full 
+                                            {% if game.result == 'W' %}bg-green-100 text-green-800
+                                            {% elif game.result == 'L' %}bg-red-100 text-red-800
+                                            {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                            {{ game.result }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ game.stats }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

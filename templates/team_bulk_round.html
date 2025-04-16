@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Bidding Round - Football Auction{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+    <!-- Bulk Bid Round Card -->
+    <div class="glass rounded-3xl p-4 sm:p-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
+            <div>
+                <h2 class="text-xl font-bold text-dark">Bulk Bidding Round</h2>
+                <p class="text-sm text-gray-500">Select players to bid at a fixed price of £{{ bulk_round.base_price }}</p>
+            </div>
+            <div class="flex flex-wrap gap-2 sm:space-x-3">
+                <a href="{{ url_for('dashboard') }}" class="px-3 sm:px-4 py-2 rounded-xl bg-white/60 text-primary hover:bg-white/80 transition-all duration-300 text-sm flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Back to Dashboard
+                </a>
+                <a href="{{ url_for('team_bids') }}" class="px-3 sm:px-4 py-2 rounded-xl bg-white/60 text-primary hover:bg-white/80 transition-all duration-300 text-sm flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    Bidding History
+                </a>
+            </div>
+        </div>
+        
+        <!-- Timer Card -->
+        <div class="glass-card mb-6 p-4 sm:p-6 rounded-2xl bg-white/20">
+            <div class="flex flex-col md:flex-row md:justify-between md:items-center">
+                <div class="mb-4 md:mb-0">
+                    <div class="flex items-center">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 mr-2 animate-pulse">
+                            Active
+                        </span>
+                        <h3 class="text-lg font-bold text-dark">Bulk Bidding Round</h3>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">Fixed price: £{{ bulk_round.base_price }} per player</p>
+                </div>
+                <div class="flex flex-col items-center">
+                    <div class="text-sm text-gray-500 mb-1">Time Remaining</div>
+                    <div class="text-xl font-bold text-primary countdown" data-round-id="{{ bulk_round.id }}">
+                        <span id="minutes_{{ bulk_round.id }}">--</span>:<span id="seconds_{{ bulk_round.id }}">--</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bids Status Summary -->
+            <div class="mt-4 glass p-3 rounded-xl bg-blue-50/50 backdrop-blur-sm border border-blue-100/20">
+                <div class="flex items-start">
+                    <div class="flex-shrink-0">
+                        <svg class="h-5 w-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h4 class="text-sm font-medium text-blue-700">Bid Status</h4>
+                        <div class="mt-1 text-xs text-blue-600">
+                            <p>Your balance: <span class="font-medium">£{{ current_user.team.balance }}</span></p>
+                            <p>Total bids placed: <span class="font-medium">{{ team_bids|length }}</span></p>
+                            <p>Slots available: <span class="font-medium">{{ available_slots }}</span></p>
+                            <p>Maximum potential cost: <span class="font-medium">£{{ team_bids|length * bulk_round.base_price }}</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bids Counter -->
+            <div class="mt-4 mb-2">
+                <div class="text-sm flex justify-between mb-1">
+                    <span>Bids Placed</span>
+                    <span>{{ team_bids|length }} / {{ available_slots }}</span>
+                </div>
+                <div class="h-2 bg-gray-200 rounded-full">
+                    <div class="h-2 rounded-full bg-primary" style="width: {{ (team_bids|length / available_slots) * 100 if available_slots > 0 else 0 }}%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Selected Players -->
+        {% if team_bids %}
+        <div class="mb-6">
+            <h4 class="font-medium text-dark mb-3">Your Selected Players</h4>
+            <div class="glass-card p-4 rounded-xl bg-white/30">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bid Amount</th>
+                                <th class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for bid in team_bids %}
+                            <tr class="hover:bg-gray-50">
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">{{ bid.player.name }}</div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="text-sm text-gray-500">{{ bid.player.position }}</div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="text-sm text-gray-500">{{ bid.player.overall_rating }}</div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap">
+                                    <div class="text-sm text-gray-500">£{{ bulk_round.base_price }}</div>
+                                </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-center">
+                                    <button onclick="deleteBulkBid({{ bid.id }})" class="text-red-500 hover:text-red-700 text-sm">
+                                        Cancel Selection
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Available Players By Position -->
+        <h4 class="font-medium text-dark mb-3">Available Players</h4>
+        
+        <!-- Position Tabs -->
+        <div class="mb-4 border-b border-gray-200">
+            <ul class="flex overflow-x-auto hide-scrollbar -mb-px space-x-4" id="positionTabs" role="tablist">
+                {% for position in players_by_position.keys()|sort %}
+                <li class="flex-none" role="presentation">
+                    <button class="position-tab inline-block p-2 {% if loop.first %}border-b-2 border-primary text-primary{% else %}text-gray-600 hover:text-primary border-transparent{% endif %}"
+                            id="tab-{{ position }}" 
+                            data-tabs-target="#tab-content-{{ position }}" 
+                            type="button" 
+                            role="tab" 
+                            aria-controls="tab-content-{{ position }}" 
+                            aria-selected="{{ 'true' if loop.first else 'false' }}">
+                        {{ position }}
+                    </button>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        
+        <!-- Position Tab Content -->
+        <div id="positionTabContent">
+            {% for position, players in players_by_position.items() %}
+            <div class="tab-content {% if not loop.first %}hidden{% endif %}" id="tab-content-{{ position }}" role="tabpanel" aria-labelledby="tab-{{ position }}">
+                <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {% for player in players %}
+                    {% set has_bid = player.id in team_bids|map(attribute='player_id')|list %}
+                    <div class="glass-card p-3 rounded-xl {% if has_bid %}border-2 border-primary{% endif %}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <div class="font-medium text-dark">{{ player.name }}</div>
+                                <div class="text-xs text-gray-500">{{ player.position }} • {{ player.team_name }}</div>
+                                
+                                {% if player.overall_rating %}
+                                <div class="flex items-center mt-1">
+                                    <div class="w-5 h-5 flex items-center justify-center rounded-full {% if player.overall_rating >= 90 %}bg-green-500{% elif player.overall_rating >= 80 %}bg-blue-500{% elif player.overall_rating >= 70 %}bg-yellow-500{% else %}bg-gray-500{% endif %} text-white text-xs font-bold">
+                                        {{ player.overall_rating }}
+                                    </div>
+                                    <span class="text-xs ml-1">{{ player.playing_style or 'Standard' }}</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="flex flex-col items-end">
+                                {% if has_bid %}
+                                    <span class="text-xs font-medium text-primary">Selected</span>
+                                    {% set user_bid = team_bids|selectattr('player_id', 'equalto', player.id)|first %}
+                                    <button onclick="deleteBulkBid({{ user_bid.id }})" class="mt-1 text-xs text-red-500 hover:text-red-700">
+                                        Remove
+                                    </button>
+                                {% else %}
+                                    <button 
+                                        onclick="placeBulkBid({{ player.id }}, {{ bulk_round.id }})" 
+                                        class="px-2 py-1 text-xs bg-primary text-white rounded hover:bg-primary/90 {% if team_bids|length >= available_slots %}opacity-50 cursor-not-allowed{% endif %}"
+                                        {% if team_bids|length >= available_slots %}disabled{% endif %}
+                                    >
+                                        Select (£{{ bulk_round.base_price }})
+                                    </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Tab Navigation and Bidding -->
+<script>
+    // Tab navigation
+    document.querySelectorAll('.position-tab').forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            // Hide all tab content
+            document.querySelectorAll('.tab-content').forEach(function(content) {
+                content.classList.add('hidden');
+            });
+            
+            // Remove active state from all tabs
+            document.querySelectorAll('.position-tab').forEach(function(t) {
+                t.classList.remove('border-b-2', 'border-primary', 'text-primary');
+                t.classList.add('border-transparent', 'text-gray-600');
+                t.setAttribute('aria-selected', 'false');
+            });
+            
+            // Show the selected tab content
+            const targetId = this.getAttribute('data-tabs-target');
+            document.querySelector(targetId).classList.remove('hidden');
+            
+            // Set active state for current tab
+            this.classList.add('border-b-2', 'border-primary', 'text-primary');
+            this.classList.remove('border-transparent', 'text-gray-600');
+            this.setAttribute('aria-selected', 'true');
+        });
+    });
+    
+    // Update countdown timer
+    function updateBulkTimer() {
+        document.querySelectorAll('.countdown').forEach(function(element) {
+            const roundId = element.dataset.roundId;
+            fetch(`/check_bulk_round_status/${roundId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.active) {
+                        window.location.reload();
+                        return;
+                    }
+                    
+                    const minutes = Math.floor(data.remaining / 60);
+                    const seconds = Math.floor(data.remaining % 60);
+                    
+                    document.getElementById(`minutes_${roundId}`).textContent = minutes.toString().padStart(2, '0');
+                    document.getElementById(`seconds_${roundId}`).textContent = seconds.toString().padStart(2, '0');
+                })
+                .catch(error => console.error('Error updating timer:', error));
+        });
+    }
+    
+    // Initialize timer
+    updateBulkTimer();
+    setInterval(updateBulkTimer, 5000);
+    
+    // Place bulk bid
+    function placeBulkBid(playerId, roundId) {
+        fetch('/place_bulk_bid', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                player_id: playerId,
+                round_id: roundId
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                alert(data.error);
+            } else {
+                window.location.reload();
+            }
+        })
+        .catch(error => {
+            console.error('Error placing bid:', error);
+            alert('An error occurred while placing your bid. Please try again.');
+        });
+    }
+    
+    // Delete bulk bid
+    function deleteBulkBid(bidId) {
+        if (confirm('Are you sure you want to remove this player?')) {
+            fetch(`/delete_bulk_bid/${bidId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting bid:', error);
+                alert('An error occurred while removing this player. Please try again.');
+            });
+        }
+    }
+</script>
+
+<style>
+    .hide-scrollbar::-webkit-scrollbar {
+        display: none;
+    }
+    .hide-scrollbar {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+    }
+</style>
+{% endblock %} 

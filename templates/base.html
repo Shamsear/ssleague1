@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SS League Auction{% endblock %}</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="image/png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0066FF',
+                        secondary: '#9580FF',
+                        accent: '#FF2D55',
+                        golden: '#D4AF37',
+                        dark: '#1C1C1E',
+                        light: '#F5F5F7',
+                        'gray-100': '#E5E5E7',
+                        'gray-200': '#D1D1D6',
+                        'gray-300': '#C7C7CC',
+                        'gray-400': '#AEAEB2'
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'shimmer': 'shimmer 3s linear infinite',
+                    },
+                    backdropBlur: {
+                        'xs': '2px',
+                    },
+                    borderRadius: {
+                        'xl': '0.875rem',
+                        '2xl': '1rem',
+                        '3xl': '1.5rem',
+                        '4xl': '2rem',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.05);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(0, 0, 0, 0.15);
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 0, 0, 0.25);
+        }
+
+        /* Vision OS Glass morphism */
+        .glass {
+            background: rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.05);
+        }
+
+        .transparent-container {
+            background-color: rgba(255, 255, 255, 0.2);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(5px);
+            -webkit-backdrop-filter: blur(5px);
+        }
+
+        .nav-glass {
+            background: rgba(255, 255, 255, 0.5);
+            backdrop-filter: blur(15px);
+            -webkit-backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+        }
+
+        /* Animations */
+        .hover-float {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+        .hover-float:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Page transitions */
+        .page-transition {
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Enhanced Gradient text */
+        .gradient-text {
+            background: linear-gradient(90deg, #0066FF, #9580FF);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        /* Golden gradient for admin headers */
+        .admin-gradient-text {
+            background: linear-gradient(90deg, #D4AF37, #FCD34D, #D4AF37);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+            animation: shimmer 2s linear infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        
+        /* Vision OS style text shadow */
+        .vision-text-shadow {
+            text-shadow: 0 0 15px rgba(0, 102, 255, 0.2);
+            letter-spacing: -0.02em;
+        }
+        
+        /* Header text animation */
+        .header-text {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .header-text:after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(0, 102, 255, 0), rgba(0, 102, 255, 0.8), rgba(0, 102, 255, 0));
+            transform: scaleX(0);
+            transform-origin: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .header-text:hover:after {
+            transform: scaleX(1);
+        }
+
+        /* Logo background */
+        .logo-bg {
+            position: relative;
+        }
+        
+        .logo-bg::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("{{ url_for('static', filename='images/logo.png') }}");
+            background-position: center;
+            background-repeat: no-repeat;
+            background-size: 40%;
+            opacity: 0;
+            z-index: -1;
+            pointer-events: none;
+            animation: logoFadeIn 1.5s ease-out 0.5s forwards;
+        }
+        
+        @keyframes logoFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Responsive logo sizing */
+        @media (max-width: 768px) {
+            .logo-bg::before {
+                background-size: 60%;
+            }
+        }
+        
+        @media (max-width: 640px) {
+            .logo-bg::before {
+                background-size: 70%;
+                background-position: center 40%;
+            }
+        }
+
+        /* Dynamic background */
+        .vision-bg {
+            background: linear-gradient(135deg, rgba(245, 245, 247, 0.4) 0%, rgba(255, 255, 255, 0.4) 100%);
+            background-image: 
+                radial-gradient(circle at 20% 30%, rgba(0, 102, 255, 0.05), transparent 20%),
+                radial-gradient(circle at 80% 70%, rgba(149, 128, 255, 0.05), transparent 25%);
+        }
+
+        /* Button styles */
+        .vision-button {
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+        }
+        .vision-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+        .vision-button:active {
+            transform: translateY(0);
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        }
+
+        /* Mobile adaptations */
+        @media (max-width: 640px) {
+            .mobile-nav {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                padding: 12px;
+                z-index: 50;
+            }
+            
+            .mobile-nav-content {
+                border-radius: 28px;
+                padding: 10px;
+            }
+            
+            .mobile-spacer {
+                height: 80px;
+            }
+        }
+    </style>
+</head>
+<body class="vision-bg text-dark min-h-screen flex flex-col logo-bg">
+    <!-- Top Navigation for larger screens -->
+    <nav class="nav-glass sticky top-0 z-50 hidden sm:block">
+        <div class="container mx-auto py-4 px-6 flex justify-between items-center">
+            <a href="{{ url_for('index') }}" class="flex items-center">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-10 mr-3 hover-float">
+                <span class="text-2xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow header-text">SS League Auction</span>
+            </a>
+            <div class="space-x-3">
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('dashboard') }}" class="px-5 py-2.5 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button">Dashboard</a>
+                    <a href="{{ url_for('logout') }}" class="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button">Logout</a>
+                {% else %}
+                    <a href="{{ url_for('login') }}" class="px-5 py-2.5 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button">Login</a>
+                    <a href="{{ url_for('register') }}" class="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button">Register</a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Mobile header -->
+    <header class="sm:hidden nav-glass sticky top-0 z-40 p-4">
+        <div class="flex justify-center items-center">
+            <a href="{{ url_for('index') }}" class="flex items-center">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-8 mr-2 hover-float">
+                <span class="text-xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow">SS League Auction</span>
+            </a>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-6 flex-grow page-transition">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="glass mb-6 px-5 py-4 rounded-3xl animate__animated animate__fadeIn" role="alert">
+                        <div class="flex items-center">
+                            <svg class="w-6 h-6 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                            <span class="block">{{ message }}</span>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+        
+        <!-- Spacer for mobile bottom nav -->
+        <div class="mobile-spacer sm:hidden"></div>
+    </main>
+
+    <!-- Footer for larger screens -->
+    <footer class="glass border-t border-gray-200/50 p-6 mt-8 hidden sm:block">
+        <div class="container mx-auto">
+            <div class="flex flex-col md:flex-row justify-between items-center">
+                <div class="flex items-center mb-4 md:mb-0">
+                    <span class="gradient-text font-bold vision-text-shadow">SS League Auction</span>
+                </div>
+                <div class="text-center md:text-right">
+                    <p class="text-gray-400">&copy; 2024 SS League Auction. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-nav sm:hidden">
+        <div class="glass mobile-nav-content">
+            <div class="flex justify-around items-center">
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('dashboard') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'dashboard' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        <span class="text-xs mt-1">Home</span>
+                    </a>
+                    
+                    {% if current_user.is_admin %}
+                    <a href="{{ url_for('admin_players') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_players' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                        <span class="text-xs mt-1">Players</span>
+                    </a>
+                    
+                    <a href="{{ url_for('admin_teams') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_teams' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                        </svg>
+                        <span class="text-xs mt-1">Teams</span>
+                    </a>
+                    
+                    <a href="{{ url_for('admin_rounds') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_rounds' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <span class="text-xs mt-1">Rounds</span>
+                    </a>
+                    
+                    <a href="{{ url_for('admin_users') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_users' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                        <span class="text-xs mt-1">Users</span>
+                    </a>
+                    
+                    <a href="{{ url_for('admin_auction_settings') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_auction_settings' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span class="text-xs mt-1">Settings</span>
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('team_players') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_players' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span class="text-xs mt-1">Players</span>
+                    </a>
+                    
+                    <a href="{{ url_for('team_bids') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_bids' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span class="text-xs mt-1">Bids</span>
+                    </a>
+                    
+                    {% if active_rounds %}
+                    <a href="{{ url_for('team_round') }}" class="flex flex-col items-center p-2 text-green-600 hover:text-green-700">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span class="text-xs mt-1">Active</span>
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('team_players_data') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_players_data' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        <span class="text-xs mt-1">Stats</span>
+                    </a>
+                    {% endif %}
+                    {% endif %}
+                    
+                    <a href="{{ url_for('logout') }}" class="flex flex-col items-center p-2 text-gray-400 hover:text-accent">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span class="text-xs mt-1">Logout</span>
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('index') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'index' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                        </svg>
+                        <span class="text-xs mt-1">Home</span>
+                    </a>
+                    <a href="{{ url_for('login') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'login' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
+                        </svg>
+                        <span class="text-xs mt-1">Login</span>
+                    </a>
+                    <a href="{{ url_for('register') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'register' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                        </svg>
+                        <span class="text-xs mt-1">Register</span>
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+</body>
+</html> 
