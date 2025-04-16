@@ -9,26 +9,12 @@ import sqlite3
 import pandas as pd
 import io
 from flask_migrate import Migrate
-import os
-import logging
-from sqlalchemy.exc import SQLAlchemyError
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
-
-# Create and configure the app
 app = Flask(__name__)
 app.config.from_object(Config)
 
-# Initialize database
 db.init_app(app)
 migrate = Migrate(app, db)
-
-# Initialize login manager
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
@@ -36,16 +22,6 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
-
-# Error handlers
-@app.errorhandler(404)
-def page_not_found(e):
-    return render_template('404.html'), 404
-
-@app.errorhandler(500)
-def server_error(e):
-    logger.error(f"Server error: {str(e)}")
-    return render_template('500.html'), 500
 
 @app.route('/')
 def index():
@@ -1620,27 +1596,7 @@ def team_round():
     """
     return redirect(url_for('dashboard'))
 
-# Health check endpoint for deployment platforms
-@app.route('/health')
-def health_check():
-    try:
-        # Check database connection
-        db.session.execute('SELECT 1')
-        return jsonify({'status': 'healthy', 'database': 'connected'}), 200
-    except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return jsonify({'status': 'unhealthy', 'error': str(e)}), 500
-
-# Initialize database and run app
 if __name__ == '__main__':
     with app.app_context():
-        try:
-            db.create_all()
-            logger.info("Database tables created successfully")
-        except SQLAlchemyError as e:
-            logger.error(f"Database initialization error: {str(e)}")
-    
-    # Get port from environment variable or use default 5000
-    port = int(os.environ.get('PORT', 5000))
-    
-    app.run(host='0.0.0.0', port=port, debug=os.environ.get('FLASK_ENV') == 'development') 
+        db.create_all()
+    app.run(debug=True) 

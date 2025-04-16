@@ -2,15 +2,26 @@ services:
   - type: web
     name: efootball-auction-app
     env: python
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn app:app
     plan: free
-    healthCheckPath: /health
+    buildCommand: pip install -r requirements.txt && flask db upgrade
+    startCommand: gunicorn app:app
+    healthCheckPath: /
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        value: postgresql://efootball_auction_user:pXdd6FfpI9oRUoDoak5HKI8UJdtxcRMP@dpg-cvvltaadbo4c738a9hg0-a/efootball_auction
-      - key: PYTHON_VERSION
-        value: 3.11.0
-    initialDeployHook: python init_db.py 
+        fromDatabase:
+          name: efootball-auction-db
+          property: connectionString
+      - key: WEB_CONCURRENCY
+        value: 1
+      - key: FLASK_APP
+        value: app.py
+
+databases:
+  - name: efootball-auction-db
+    plan: free
+    databaseName: auction_db
+    ipAllowList: [] 
