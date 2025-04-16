@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: efootball-auction-app
+    name: ssleague
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt && python init_db.py && flask db upgrade
@@ -13,7 +13,7 @@ services:
         generateValue: true
       - key: DATABASE_URL
         fromDatabase:
-          name: efootball-auction-db
+          name: ssleague_auction
           property: connectionString
       - key: WEB_CONCURRENCY
         value: 1
