@@ -100,6 +100,25 @@ class Bid(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     team = db.relationship('Team', backref='bids')
     player = db.relationship('Player', backref='bids')
+    
+    @property
+    def is_tied(self):
+        """Check if this bid is part of a tie in a tiebreaker"""
+        if self.round.is_active:
+            return False
+        # Check if there's a tiebreaker for this player in this round
+        tiebreaker = Tiebreaker.query.filter_by(
+            round_id=self.round_id,
+            player_id=self.player_id
+        ).first()
+        if tiebreaker:
+            # Check if this team is part of the tiebreaker
+            team_tiebreaker = TeamTiebreaker.query.filter_by(
+                tiebreaker_id=tiebreaker.id,
+                team_id=self.team_id
+            ).first()
+            return team_tiebreaker is not None
+        return False
 
 class Tiebreaker(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -137,4 +156,15 @@ class PasswordResetRequest(db.Model):
     
     @classmethod
     def get_by_token(cls, token):
-        return cls.query.filter_by(reset_token=token, status='approved').first() 
+        return cls.query.filter_by(reset_token=token, status='approved').first()
+
+class PushSubscription(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    subscription_json = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    user = db.relationship('User', backref=db.backref('push_subscriptions', lazy=True))
+    
+    def __repr__(self):
+        return f'<PushSubscription {self.id} for User {self.user_id}>' 

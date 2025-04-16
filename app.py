@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest
+from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest, PushSubscription
 from config import Config
 from werkzeug.security import generate_password_hash
 import json
@@ -9,9 +9,22 @@ import sqlite3
 import pandas as pd
 import io
 from flask_migrate import Migrate
+from pywebpush import webpush, WebPushException
+import os
+import base64
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# VAPID keys configuration
+# In production, these should be stored securely and generated only once
+if not hasattr(Config, 'VAPID_PRIVATE_KEY') or not Config.VAPID_PRIVATE_KEY:
+    # This is a placeholder for demo. In production, generate and store these securely
+    app.config['VAPID_PRIVATE_KEY'] = os.environ.get('VAPID_PRIVATE_KEY', 'your_vapid_private_key_here')
+    app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY', 'your_vapid_public_key_here')
+    app.config['VAPID_CLAIMS'] = {
+        "sub": "mailto:admin@example.com"  # Replace with actual email
+    }
 
 db.init_app(app)
 migrate = Migrate(app, db)
@@ -198,6 +211,22 @@ def start_round():
     
     db.session.commit()
     
+    # Send notifications to all team users about the new round
+    team_users = User.query.filter(User.is_admin == False).all()
+    for user in team_users:
+        notification_data = {
+            "title": "New Round Started",
+            "body": f"A new bidding round for {position} has started. You have {duration // 60} minutes to place bids.",
+            "data": {
+                "type": "round_start",
+                "url": "/team/round"
+            },
+            "tag": f"round_{round.id}_start",
+            "renotify": True
+        }
+        
+        send_push_notification(user.id, notification_data)
+    
     return jsonify({
         'message': 'Round started successfully',
         'round_id': round.id,
@@ -354,6 +383,60 @@ def process_bids_with_tiebreaker_check(round_id, bids):
     round.is_active = False
     round.status = "completed"
     db.session.commit()
+    
+    # Send notifications to all teams that won players in this round
+    teams_with_won_players = {}
+    for player_id in allocated_players:
+        player = Player.query.get(player_id)
+        if player and player.team_id:
+            if player.team_id not in teams_with_won_players:
+                teams_with_won_players[player.team_id] = []
+            teams_with_won_players[player.team_id].append(player)
+    
+    for team_id, players in teams_with_won_players.items():
+        team = Team.query.get(team_id)
+        if not team or not team.user:
+            continue
+            
+        player_names = ", ".join([p.name for p in players])
+        notification_data = {
+            "title": "Player Acquisition",
+            "body": f"You won the following player(s): {player_names}",
+            "data": {
+                "type": "player_won",
+                "url": "/team/players"
+            },
+            "tag": f"round_{round_id}_win",
+            "renotify": True
+        }
+        
+        send_push_notification(team.user.id, notification_data)
+    
+    # Send notification to all participating teams that round has ended
+    participating_teams = set()
+    all_bids = Bid.query.filter_by(round_id=round_id).all()
+    for bid in all_bids:
+        participating_teams.add(bid.team_id)
+    
+    for team_id in participating_teams:
+        team = Team.query.get(team_id)
+        if not team or not team.user:
+            continue
+            
+        if team_id not in teams_with_won_players:
+            notification_data = {
+                "title": "Round Completed",
+                "body": f"The {round.position} round has ended. Check results in the dashboard.",
+                "data": {
+                    "type": "round_end",
+                    "url": "/dashboard"
+                },
+                "tag": f"round_{round_id}_end",
+                "renotify": True
+            }
+            
+            send_push_notification(team.user.id, notification_data)
+            
     return {"status": "success"}
 
 @app.route('/finalize_round/<int:round_id>', methods=['POST'])
@@ -1598,17 +1681,49 @@ def team_bids():
     # Get active rounds for the "Place New Bid" button
     active_rounds = Round.query.filter_by(is_active=True).all()
     
+    # Get tiebreakers for this team
+    team_tiebreakers = TeamTiebreaker.query.join(Tiebreaker).filter(
+        TeamTiebreaker.team_id == current_user.team.id,
+        Tiebreaker.resolved == False
+    ).all()
+    
     return render_template('team_bids.html',
-                          active_rounds=active_rounds)
+                          active_rounds=active_rounds,
+                          team_tiebreakers=team_tiebreakers)
 
 @app.route('/team_round')
 @login_required
 def team_round():
     """
-    Redirects to the dashboard page where users can place bids in active rounds.
-    This is a convenience route for the team_bids page.
+    Display active bidding rounds and allow users to place bids on players.
+    If there are active tiebreakers for the team, it will direct the user to those instead.
     """
-    return redirect(url_for('dashboard'))
+    # Check for active tiebreakers first
+    team_tiebreakers = TeamTiebreaker.query.join(Tiebreaker).filter(
+        TeamTiebreaker.team_id == current_user.team.id,
+        Tiebreaker.resolved == False
+    ).all()
+    
+    if team_tiebreakers:
+        # Direct user to the tiebreaker page instead of showing active rounds
+        tiebreaker_id = team_tiebreakers[0].tiebreaker_id
+        tiebreaker = Tiebreaker.query.get(tiebreaker_id)
+        player = Player.query.get(tiebreaker.player_id)
+        
+        return render_template('tiebreaker_team.html',
+                              tiebreaker=tiebreaker,
+                              team_tiebreaker=team_tiebreakers[0],
+                              player=player)
+    
+    # Only show active rounds if no tiebreakers are pending
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    
+    # Get Config for minimum bid amount
+    from config import Config
+    
+    return render_template('team_round.html',
+                          active_rounds=active_rounds,
+                          Config=Config)
 
 # Password reset routes
 @app.route('/reset_password_request', methods=['GET', 'POST'])
@@ -1751,6 +1866,91 @@ def reset_password_form(token):
         return redirect(url_for('login'))
     
     return render_template('reset_password.html', reset_token=token)
+
+# Web Push Notification APIs
+@app.route('/api/vapid-public-key')
+@login_required
+def get_vapid_public_key():
+    return jsonify({
+        'publicKey': app.config.get('VAPID_PUBLIC_KEY')
+    })
+
+@app.route('/api/subscribe', methods=['POST'])
+@login_required
+def subscribe():
+    try:
+        subscription_json = json.dumps(request.json.get('subscription'))
+        
+        # Check if this subscription already exists for this user
+        existing_sub = PushSubscription.query.filter_by(
+            user_id=current_user.id,
+            subscription_json=subscription_json
+        ).first()
+        
+        if not existing_sub:
+            # Create new subscription
+            subscription = PushSubscription(
+                user_id=current_user.id,
+                subscription_json=subscription_json
+            )
+            db.session.add(subscription)
+            db.session.commit()
+            
+        return jsonify({'success': True})
+    except Exception as e:
+        app.logger.error(f"Error subscribing to push notifications: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/unsubscribe', methods=['POST'])
+@login_required
+def unsubscribe():
+    try:
+        subscription_json = json.dumps(request.json.get('subscription'))
+        
+        # Find and delete subscription
+        subscription = PushSubscription.query.filter_by(
+            user_id=current_user.id,
+            subscription_json=subscription_json
+        ).first()
+        
+        if subscription:
+            db.session.delete(subscription)
+            db.session.commit()
+            
+        return jsonify({'success': True})
+    except Exception as e:
+        app.logger.error(f"Error unsubscribing from push notifications: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+# Function to send push notification
+def send_push_notification(user_id, data):
+    try:
+        subscriptions = PushSubscription.query.filter_by(user_id=user_id).all()
+        
+        if not subscriptions:
+            return
+            
+        for subscription in subscriptions:
+            try:
+                subscription_data = json.loads(subscription.subscription_json)
+                
+                webpush(
+                    subscription_info=subscription_data,
+                    data=json.dumps(data),
+                    vapid_private_key=app.config.get('VAPID_PRIVATE_KEY'),
+                    vapid_claims=app.config.get('VAPID_CLAIMS')
+                )
+            except WebPushException as e:
+                # If the subscription is expired/invalid, remove it
+                if e.response and e.response.status_code in [404, 410]:
+                    db.session.delete(subscription)
+                    db.session.commit()
+                app.logger.error(f"WebPush error: {str(e)}")
+            except Exception as e:
+                app.logger.error(f"Error sending push notification: {str(e)}")
+                
+    except Exception as e:
+        app.logger.error(f"Error processing push subscriptions: {str(e)}")
 
 if __name__ == '__main__':
     with app.app_context():

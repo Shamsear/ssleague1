@@ -96,77 +96,79 @@
         <!-- Mobile Card View -->
         <div class="block md:hidden">
             <div class="space-y-3">
-                {% for bid in current_user.team.bids|sort(attribute='timestamp', reverse=True) %}
-                {% set winning_bid = namespace(amount=0, team_name='') %}
-                {% if not bid.round.is_active %}
-                    {% for b in bid.player.bids %}
-                        {% if b.team_id == bid.player.team_id %}
-                            {% set winning_bid.amount = b.amount %}
-                            {% set winning_bid.team_name = b.team.name %}
-                        {% endif %}
-                    {% endfor %}
-                {% endif %}
-                
-                <div class="glass-card p-3 rounded-xl hover:shadow-md transition-all duration-300">
-                    <div class="flex justify-between mb-1">
-                        <span class="font-medium text-dark">{{ bid.player.name }}</span>
-                        {% if bid.round.is_active %}
-                            <span class="px-2 py-0.5 text-xs leading-5 font-medium rounded-full bg-yellow-100 text-yellow-800">
-                                Active
-                            </span>
-                        {% elif bid.player.team_id == current_user.team.id %}
-                            <span class="px-2 py-0.5 text-xs leading-5 font-medium rounded-full bg-green-100 text-green-800">
-                                Won
-                            </span>
-                        {% elif bid.is_tied %}
-                            <span class="px-2 py-0.5 text-xs leading-5 font-medium rounded-full bg-orange-100 text-orange-800">
-                                Tied
-                            </span>
-                        {% else %}
-                            <span class="px-2 py-0.5 text-xs leading-5 font-medium rounded-full bg-red-100 text-red-800">
-                                Lost
-                            </span>
-                        {% endif %}
-                    </div>
-                    <div class="text-xs text-gray-500 mb-3 flex items-center justify-between">
-                        <div>{{ bid.player.position }} · {{ bid.round.position }}</div>
-                        <div>{{ bid.timestamp.strftime('%d/%m/%Y %H:%M') }}</div>
-                    </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div class="bg-white/20 p-2 rounded-lg">
-                            <p class="text-xs text-gray-600">Your Bid</p>
-                            <p class="text-sm font-medium text-gray-800">£{{ "{:,}".format(bid.amount) }}</p>
+                {% if current_user.team.bids %}
+                    {% for bid in current_user.team.bids|sort(attribute='timestamp', reverse=True) %}
+                    {% set winning_bid = namespace(amount=0, team_name='') %}
+                    {% if not bid.round.is_active %}
+                        {% for b in bid.player.bids %}
+                            {% if b.team_id == bid.player.team_id %}
+                                {% set winning_bid.amount = b.amount %}
+                                {% set winning_bid.team_name = b.team.name %}
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <div class="glass-card p-3 rounded-xl hover:shadow-md transition-all duration-300">
+                        <div class="flex justify-between mb-1">
+                            <span class="font-medium text-dark">{{ bid.player.name }}</span>
+                            {% if bid.round.is_active %}
+                                <span class="px-2 py-0.5 text-xs leading-5 font-medium rounded-full bg-yellow-100 text-yellow-800">
+                                    Active
+                                </span>
+                            {% elif bid.player.team_id == current_user.team.id %}
+                                <span class="px-2 py-0.5 text-xs leading-5 font-medium rounded-full bg-green-100 text-green-800">
+                                    Won
+                                </span>
+                            {% elif bid.is_tied %}
+                                <span class="px-2 py-0.5 text-xs leading-5 font-medium rounded-full bg-orange-100 text-orange-800">
+                                    Tied
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-0.5 text-xs leading-5 font-medium rounded-full bg-red-100 text-red-800">
+                                    Lost
+                                </span>
+                            {% endif %}
                         </div>
-                        <div class="bg-white/20 p-2 rounded-lg">
-                            <p class="text-xs text-gray-600">Winning Bid</p>
-                            <p class="text-sm font-medium text-gray-800">
-                                {% if bid.round.is_active %}
-                                    <span class="text-gray-500">Pending</span>
-                                {% else %}
-                                    {% if winning_bid.amount > 0 %}
-                                        £{{ "{:,}".format(winning_bid.amount) }}
-                                        {% if winning_bid.team_name == current_user.team.name %}
-                                            <span class="text-xs text-green-600">(You)</span>
-                                        {% else %}
-                                            <span class="text-xs text-gray-500">({{ winning_bid.team_name }})</span>
-                                        {% endif %}
+                        <div class="text-xs text-gray-500 mb-3 flex items-center justify-between">
+                            <div>{{ bid.player.position }} · {{ bid.round.position }}</div>
+                            <div>{{ bid.timestamp.strftime('%d/%m/%Y %H:%M') }}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-white/20 p-2 rounded-lg">
+                                <p class="text-xs text-gray-600">Your Bid</p>
+                                <p class="text-sm font-medium text-gray-800">£{{ "{:,}".format(bid.amount) }}</p>
+                            </div>
+                            <div class="bg-white/20 p-2 rounded-lg">
+                                <p class="text-xs text-gray-600">Winning Bid</p>
+                                <p class="text-sm font-medium text-gray-800">
+                                    {% if bid.round.is_active %}
+                                        <span class="text-gray-500">Pending</span>
                                     {% else %}
-                                        <span class="text-gray-500">No winner</span>
+                                        {% if winning_bid.amount > 0 %}
+                                            £{{ "{:,}".format(winning_bid.amount) }}
+                                            {% if winning_bid.team_name == current_user.team.name %}
+                                                <span class="text-xs text-green-600">(You)</span>
+                                            {% else %}
+                                                <span class="text-xs text-gray-500">({{ winning_bid.team_name }})</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-gray-500">No winner</span>
+                                        {% endif %}
                                     {% endif %}
-                                {% endif %}
-                            </p>
+                                </p>
+                            </div>
                         </div>
                     </div>
-                </div>
+                    {% endfor %}
                 {% else %}
-                <div class="glass-card p-6 rounded-xl text-center">
-                    <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p class="text-gray-500 text-base font-medium mb-1">No bids placed yet</p>
-                    <p class="text-gray-400 text-sm">Participate in active rounds to place bids on players</p>
-                </div>
-                {% endfor %}
+                    <div class="glass-card p-6 rounded-xl text-center">
+                        <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <p class="text-gray-500 text-base font-medium mb-1">No bids placed yet</p>
+                        <p class="text-gray-400 text-sm">Participate in active rounds to place bids on players</p>
+                    </div>
+                {% endif %}
             </div>
         </div>
         
@@ -185,84 +187,86 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200 bg-white/30">
-                    {% for bid in current_user.team.bids|sort(attribute='timestamp', reverse=True) %}
-                    {% set winning_bid = namespace(amount=0, team_name='') %}
-                    {% if not bid.round.is_active %}
-                        {% for b in bid.player.bids %}
-                            {% if b.team_id == bid.player.team_id %}
-                                {% set winning_bid.amount = b.amount %}
-                                {% set winning_bid.team_name = b.team.name %}
-                            {% endif %}
-                        {% endfor %}
-                    {% endif %}
-                    
-                    <tr class="hover:bg-white/50 transition-colors">
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="flex items-center">
-                                <div>
-                                    <div class="text-sm font-medium text-gray-700">{{ bid.player.name }}</div>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-700">{{ bid.player.position }}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap">
-                            <div class="text-sm text-gray-700">{{ bid.round.position }}</div>
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                            £{{ "{:,}".format(bid.amount) }}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                            {% if bid.round.is_active %}
-                                <span class="text-gray-500">Pending</span>
-                            {% else %}
-                                {% if winning_bid.amount > 0 %}
-                                    £{{ "{:,}".format(winning_bid.amount) }}
-                                    {% if winning_bid.team_name == current_user.team.name %}
-                                        <span class="ml-1 text-xs text-green-600">(You)</span>
-                                    {% else %}
-                                        <span class="ml-1 text-xs text-gray-500">({{ winning_bid.team_name }})</span>
-                                    {% endif %}
-                                {% else %}
-                                    <span class="text-gray-500">No winner</span>
+                    {% if current_user.team.bids %}
+                        {% for bid in current_user.team.bids|sort(attribute='timestamp', reverse=True) %}
+                        {% set winning_bid = namespace(amount=0, team_name='') %}
+                        {% if not bid.round.is_active %}
+                            {% for b in bid.player.bids %}
+                                {% if b.team_id == bid.player.team_id %}
+                                    {% set winning_bid.amount = b.amount %}
+                                    {% set winning_bid.team_name = b.team.name %}
                                 {% endif %}
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            {% if bid.round.is_active %}
-                                <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full bg-yellow-100 text-yellow-800">
-                                    Active
-                                </span>
-                            {% elif bid.player.team_id == current_user.team.id %}
-                                <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full bg-green-100 text-green-800">
-                                    Won
-                                </span>
-                            {% elif bid.is_tied %}
-                                <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full bg-orange-100 text-orange-800">
-                                    Tied
-                                </span>
-                            {% else %}
-                                <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full bg-red-100 text-red-800">
-                                    Lost
-                                </span>
-                            {% endif %}
-                        </td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {{ bid.timestamp.strftime('%d/%m/%Y %H:%M') }}
-                        </td>
-                    </tr>
+                            {% endfor %}
+                        {% endif %}
+                        
+                        <tr class="hover:bg-white/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div>
+                                        <div class="text-sm font-medium text-gray-700">{{ bid.player.name }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-700">{{ bid.player.position }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm text-gray-700">{{ bid.round.position }}</div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
+                                £{{ "{:,}".format(bid.amount) }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                                {% if bid.round.is_active %}
+                                    <span class="text-gray-500">Pending</span>
+                                {% else %}
+                                    {% if winning_bid.amount > 0 %}
+                                        £{{ "{:,}".format(winning_bid.amount) }}
+                                        {% if winning_bid.team_name == current_user.team.name %}
+                                            <span class="ml-1 text-xs text-green-600">(You)</span>
+                                        {% else %}
+                                            <span class="ml-1 text-xs text-gray-500">({{ winning_bid.team_name }})</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-gray-500">No winner</span>
+                                    {% endif %}
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if bid.round.is_active %}
+                                    <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full bg-yellow-100 text-yellow-800">
+                                        Active
+                                    </span>
+                                {% elif bid.player.team_id == current_user.team.id %}
+                                    <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full bg-green-100 text-green-800">
+                                        Won
+                                    </span>
+                                {% elif bid.is_tied %}
+                                    <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full bg-orange-100 text-orange-800">
+                                        Tied
+                                    </span>
+                                {% else %}
+                                    <span class="px-2 py-1 text-xs leading-5 font-medium rounded-full bg-red-100 text-red-800">
+                                        Lost
+                                    </span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                {{ bid.timestamp.strftime('%d/%m/%Y %H:%M') }}
+                            </td>
+                        </tr>
+                        {% endfor %}
                     {% else %}
-                    <tr>
-                        <td colspan="7" class="px-6 py-8 whitespace-nowrap text-sm text-gray-500 text-center">
-                            <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            <p class="text-gray-500 text-base font-medium mb-1">No bids placed yet</p>
-                            <p class="text-gray-400 text-sm">Participate in active rounds to place bids on players</p>
-                        </td>
-                    </tr>
-                    {% endfor %}
+                        <tr>
+                            <td colspan="7" class="px-6 py-8 whitespace-nowrap text-sm text-gray-500 text-center">
+                                <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p class="text-gray-500 text-base font-medium mb-1">No bids placed yet</p>
+                                <p class="text-gray-400 text-sm">Participate in active rounds to place bids on players</p>
+                            </td>
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
         </div>

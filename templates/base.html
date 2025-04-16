@@ -7,6 +7,7 @@
     <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -311,12 +312,12 @@
                         <span class="text-xs mt-1">Bids</span>
                     </a>
                     
-                    {% if active_rounds %}
+                    {% if active_rounds or team_tiebreakers %}
                     <a href="{{ url_for('team_round') }}" class="flex flex-col items-center p-2 text-green-600 hover:text-green-700">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
-                        <span class="text-xs mt-1">Active</span>
+                        <span class="text-xs mt-1">{% if team_tiebreakers %}Tiebreaker{% else %}Active{% endif %}</span>
                     </a>
                     {% else %}
                     <a href="{{ url_for('team_players_data') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_players_data' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
@@ -357,5 +358,26 @@
             </div>
         </div>
     </nav>
+    
+    <!-- Notification Container -->
+    {% if current_user.is_authenticated %}
+    <div id="notification-container" class="fixed bottom-20 right-4 glass p-4 rounded-xl shadow-lg hidden sm:block z-50">
+        <div class="flex flex-col">
+            <div class="flex justify-between items-center mb-2">
+                <h3 class="font-semibold">Notifications</h3>
+                <span id="notification-status" class="text-gray-500 text-sm">Loading...</span>
+            </div>
+            <p id="notification-info" class="text-sm text-gray-500 mb-3">Allow notifications to receive updates</p>
+            <div class="flex gap-2">
+                <button id="enable-notifications" class="px-3 py-1.5 rounded-lg bg-primary text-white text-sm">Enable</button>
+                <button id="disable-notifications" class="px-3 py-1.5 rounded-lg bg-gray-200 text-gray-700 text-sm hidden">Disable</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% if current_user.is_authenticated %}
+    <input type="hidden" id="user-id" value="{{ current_user.id }}">
+    {% endif %}
 </body>
 </html> 
