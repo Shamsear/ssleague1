@@ -76,7 +76,7 @@ def reset_db(import_players_data=False):
         db.create_all()
         print("Tables created successfully")
         
-        # Create admin user
+        # Create admin user (without email field)
         admin = User(
             username='admin',
             password_hash=generate_password_hash('admin'),

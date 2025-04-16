@@ -16,3 +16,5 @@ services:
     initialDeploy:
       - python init_migrations.py
       - python init_db.py --drop-all --import-players
+    postDeploy:
+      - python remove_email_migration.py
