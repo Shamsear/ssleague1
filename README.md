@@ -49,19 +49,9 @@ SECRET_KEY=your-secret-key-here
 
 6. Initialize the database:
 ```bash
-# Initialize database migrations
 flask db init
 flask db migrate
 flask db upgrade
-
-# Initialize the database with tables and admin user
-python init_db.py
-
-# OR, to reset the database (drops all tables and recreates them):
-python init_db.py --drop-all
-
-# To also import players from efootball_real.db:
-python init_db.py --drop-all --import-players
 ```
 
 ## Running the Application
@@ -120,52 +110,39 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 ### Prerequisites
 - A Render account (https://render.com)
-- A PostgreSQL database on Render or another provider
+- A GitHub repository with your application code
 
 ### Steps to Deploy
 
-1. Create a new PostgreSQL database in Render or use an existing one
-   - Note the connection string for later use
+1. Push your application code to GitHub, including:
+   - requirements.txt (with gunicorn, whitenoise, pandas, and other dependencies)
+   - Procfile
+   - render.yaml
+   - efootball_real.db (if you want to import players automatically during deployment)
 
-2. Create a new Web Service in Render:
+2. In Render dashboard, create a new "Blueprint" deployment:
    - Connect your GitHub repository
-   - Choose "Python" as the environment
-   - Use the following settings:
-     - Build Command: `pip install -r requirements.txt`
-     - Start Command: `gunicorn app:app`
+   - Render will automatically detect the render.yaml configuration
+   - This will create both the web service and PostgreSQL database
+   - The deployment will automatically:
+     - Install dependencies
+     - Set up the database
+     - Initialize migrations
+     - Import players from efootball_real.db (if the file exists)
+     - Create an admin user (username: 'admin', password: 'admin')
 
-3. Add the following environment variables in Render dashboard:
-   - `SECRET_KEY`: Generate a secure random string
-   - `DATABASE_URL`: Your PostgreSQL connection string from step 1
-   - `FLASK_APP`: app.py
+3. After deployment completes:
+   - Your application will be available at the URL provided by Render
+   - Log in with the default admin credentials and immediately change the password
 
-4. Deploy the application
-   - Render will automatically build and deploy your application
-   - The deployment will automatically initialize the database and create migrations
-   - The deployment will drop all existing tables and recreate them using the `--drop-all` flag
-   - An admin user will be created with username 'admin' and password 'admin' (change this after first login)
-   - Your app will be available at the URL provided by Render
+### Environment Variables
 
-### Using the render.yaml file (Alternative)
+The render.yaml file configures these environment variables:
+- `SECRET_KEY`: Automatically generated secure key
+- `DATABASE_URL`: Connection string to the PostgreSQL database
+- `FLASK_APP`: Set to app.py
+- `FLASK_ENV`: Set to production
 
-If you prefer to use Infrastructure as Code, you can use the provided `render.yaml` file:
+### Static Files
 
-1. Update the `DATABASE_URL` in the `render.yaml` file with your actual database connection string
-2. Push the changes to your repository
-3. In Render, choose "Blueprint" when creating a new service and select your repository
-4. Render will automatically configure and deploy your application based on the settings in `render.yaml`
-
-### After Deployment
-
-If you need to reset the database after deployment:
-
-1. Connect to your Render instance using the Shell option in the dashboard
-2. Run the reset script:
-```bash
-# Reset the database (no players)
-python reset_db.py
-
-# Reset the database and import players
-python reset_db.py --import-players
-```
-This will drop all tables and recreate them with a fresh admin user. 
+Static files are served efficiently using WhiteNoise, configured in app.py. 

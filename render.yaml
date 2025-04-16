@@ -10,11 +10,26 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        value: postgresql://auction_db_ysy3_user:8mx3LXDq6jQhtNMtcHYXkcNpR1c2yMWI@dpg-cvtviafgi27c73abre50-a/auction_db_ysy3
+        fromDatabase:
+          name: efootball-db
+          property: connectionString
       - key: FLASK_APP
         value: app.py
+      - key: FLASK_ENV
+        value: production
     initialDeploy:
+      - cp efootball_real.db /opt/render/project/src/ || echo "Database file not found, will create new database"
       - python init_migrations.py
-      - python init_db.py --drop-all --import-players
-    postDeploy:
-      - python remove_email_migration.py
+      - python init_db.py
+
+  - type: pserv
+    name: efootball-db
+    env: postgres
+    plan: free
+    envVars:
+      - key: POSTGRES_USER
+        value: postgres
+      - key: POSTGRES_PASSWORD
+        generateValue: true
+      - key: POSTGRES_DB
+        value: efootball 
