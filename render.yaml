@@ -3,7 +3,7 @@ services:
     name: efootball-auction-app
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt && flask db upgrade
+    buildCommand: pip install -r requirements.txt && python init_db.py && flask db upgrade
     startCommand: gunicorn app:app
     healthCheckPath: /
     envVars:
