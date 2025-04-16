@@ -25,7 +25,6 @@ services:
   - type: pserv
     name: efootball-db
     runtime: postgres
-    ipAllowList: []
     plan: free
     envVars:
       - key: POSTGRES_USER
