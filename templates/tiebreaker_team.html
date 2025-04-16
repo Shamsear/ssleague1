@@ -39,9 +39,16 @@
                     </svg>
                 </div>
                 <div class="ml-3">
-                    <p class="text-sm text-yellow-700 leading-relaxed">
+                    <h3 class="text-sm text-yellow-800 font-bold">URGENT: Action Required</h3>
+                    <p class="text-sm text-yellow-700 leading-relaxed mt-1">
                         Your bid of <strong class="text-yellow-800">£{{ "{:,}".format(tiebreaker.original_amount) }}</strong> for <strong class="text-yellow-800">{{ player.name }}</strong> is tied with {{ tiebreaker.teams|length - 1 }} other team{% if tiebreaker.teams|length > 2 %}s{% endif %}. 
-                        Please submit a new higher bid to win this player.
+                        <span class="font-medium">Please submit a new higher bid immediately to win this player.</span>
+                    </p>
+                    <p class="text-sm text-yellow-700 leading-relaxed mt-2">
+                        <svg class="w-4 h-4 inline-block mr-1 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <strong>Tiebreakers must be completed as soon as possible</strong> to allow the auction to proceed. Failure to resolve a tiebreaker may result in losing the player.
                     </p>
                 </div>
             </div>

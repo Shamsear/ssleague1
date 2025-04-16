@@ -195,13 +195,13 @@
     <!-- Top Navigation for larger screens -->
     <nav class="nav-glass sticky top-0 z-50 hidden sm:block">
         <div class="container mx-auto py-4 px-6 flex justify-between items-center">
-            <a href="{{ url_for('index') }}" class="flex items-center">
+            <a href="{% if current_user.is_authenticated %}{% if current_user.is_admin %}{{ url_for('admin_dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-10 mr-3 hover-float">
                 <span class="text-2xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow header-text">SS League Auction</span>
             </a>
             <div class="space-x-3">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('dashboard') }}" class="px-5 py-2.5 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button">Dashboard</a>
+                    <a href="{% if current_user.is_admin %}{{ url_for('admin_dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}" class="px-5 py-2.5 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button">Dashboard</a>
                     <a href="{{ url_for('logout') }}" class="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button">Logout</a>
                 {% else %}
                     <a href="{{ url_for('login') }}" class="px-5 py-2.5 glass rounded-2xl hover:bg-white/90 transition-all duration-300 vision-button">Login</a>
@@ -214,7 +214,7 @@
     <!-- Mobile header -->
     <header class="sm:hidden nav-glass sticky top-0 z-40 p-4">
         <div class="flex justify-center items-center">
-            <a href="{{ url_for('index') }}" class="flex items-center">
+            <a href="{% if current_user.is_authenticated %}{% if current_user.is_admin %}{{ url_for('admin_dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-8 mr-2 hover-float">
                 <span class="text-xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow">SS League Auction</span>
             </a>
@@ -262,11 +262,11 @@
         <div class="glass mobile-nav-content">
             <div class="flex justify-around items-center">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('dashboard') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'dashboard' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                    <a href="{% if current_user.is_admin %}{{ url_for('admin_dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}" class="flex flex-col items-center p-2 {% if request.endpoint == 'dashboard' or request.endpoint == 'admin_dashboard' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
                         <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
                         </svg>
-                        <span class="text-xs mt-1">Home</span>
+                        <span class="text-xs mt-1">Dashboard</span>
                     </a>
                     
                     {% if current_user.is_admin %}
