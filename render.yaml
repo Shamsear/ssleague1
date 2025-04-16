@@ -17,10 +17,10 @@ services:
         value: app.py
       - key: FLASK_ENV
         value: production
-    initialDeploy:
-      - cp efootball_real.db /opt/render/project/src/ || echo "Database file not found, will create new database"
-      - python init_migrations.py
-      - python init_db.py
+    preDeployCommand: |
+      cp efootball_real.db /opt/render/project/src/ || echo "Database file not found, will create new database"
+      python init_migrations.py
+      python init_db.py
 
   - type: pserv
     name: efootball-db
