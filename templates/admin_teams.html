@@ -8,12 +8,20 @@
     <div class="glass rounded-3xl p-4 sm:p-6 mb-8 shadow-lg">
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
             <h2 class="text-xl font-bold text-dark">Teams Overview</h2>
-            <button onclick="showAddTeamModal()" class="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button flex items-center shadow-md w-full sm:w-auto justify-center sm:justify-start">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                </svg>
-                Add Team
-            </button>
+            <div class="flex space-x-2 w-full sm:w-auto">
+                <a href="{{ url_for('dashboard') }}" class="px-4 py-2.5 text-sm glass rounded-xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center text-dark sm:justify-start w-full sm:w-auto">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    Back to Dashboard
+                </a>
+                <button onclick="showAddTeamModal()" class="px-4 sm:px-5 py-2.5 sm:py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button flex items-center shadow-md w-full sm:w-auto justify-center sm:justify-start">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Add Team
+                </button>
+            </div>
         </div>
         <!-- Desktop Table (hidden on mobile) -->
         <div class="hidden md:block overflow-x-auto rounded-xl shadow-sm">

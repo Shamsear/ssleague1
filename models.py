@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
+import secrets
 
 db = SQLAlchemy()
 
@@ -13,6 +14,7 @@ class User(UserMixin, db.Model):
     is_admin = db.Column(db.Boolean, default=False)
     is_approved = db.Column(db.Boolean, default=False)
     team = db.relationship('Team', backref='user', uselist=False)
+    password_reset_requests = db.relationship('PasswordResetRequest', backref='user', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -118,4 +120,21 @@ class TeamTiebreaker(db.Model):
     new_amount = db.Column(db.Integer, nullable=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     
-    team = db.relationship('Team', backref='tiebreakers') 
+    team = db.relationship('Team', backref='tiebreakers')
+
+class PasswordResetRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    reset_token = db.Column(db.String(100), unique=True, nullable=True)
+    reason = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, approved, rejected, completed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def generate_token(self):
+        self.reset_token = secrets.token_urlsafe(32)
+        return self.reset_token
+    
+    @classmethod
+    def get_by_token(cls, token):
+        return cls.query.filter_by(reset_token=token, status='approved').first() 

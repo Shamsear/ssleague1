@@ -100,7 +100,7 @@ def main():
         # Create admin
         admin = create_admin()
         
-        # Create teams
+        # Create teams - note that admin won't have a team
         teams = create_teams()
         
         # Create players

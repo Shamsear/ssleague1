@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Auction System{% endblock %}</title>
+    <title>{% block title %}SS League Auction{% endblock %}</title>
     <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
@@ -15,6 +15,7 @@
                         primary: '#0066FF',
                         secondary: '#9580FF',
                         accent: '#FF2D55',
+                        golden: '#D4AF37',
                         dark: '#1C1C1E',
                         light: '#F5F5F7',
                         'gray-100': '#E5E5E7',
@@ -24,6 +25,7 @@
                     },
                     animation: {
                         'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'shimmer': 'shimmer 3s linear infinite',
                     },
                     backdropBlur: {
                         'xs': '2px',
@@ -91,12 +93,57 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Gradient text */
+        /* Enhanced Gradient text */
         .gradient-text {
             background: linear-gradient(90deg, #0066FF, #9580FF);
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+        }
+
+        /* Golden gradient for admin headers */
+        .admin-gradient-text {
+            background: linear-gradient(90deg, #D4AF37, #FCD34D, #D4AF37);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 15px rgba(212, 175, 55, 0.3);
+            animation: shimmer 2s linear infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+        
+        /* Vision OS style text shadow */
+        .vision-text-shadow {
+            text-shadow: 0 0 15px rgba(0, 102, 255, 0.2);
+            letter-spacing: -0.02em;
+        }
+        
+        /* Header text animation */
+        .header-text {
+            position: relative;
+            transition: all 0.3s ease;
+        }
+        
+        .header-text:after {
+            content: '';
+            position: absolute;
+            bottom: -4px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, rgba(0, 102, 255, 0), rgba(0, 102, 255, 0.8), rgba(0, 102, 255, 0));
+            transform: scaleX(0);
+            transform-origin: center;
+            transition: transform 0.3s ease;
+        }
+        
+        .header-text:hover:after {
+            transform: scaleX(1);
         }
 
         /* Dynamic background */
@@ -147,8 +194,9 @@
     <!-- Top Navigation for larger screens -->
     <nav class="nav-glass sticky top-0 z-50 hidden sm:block">
         <div class="container mx-auto py-4 px-6 flex justify-between items-center">
-            <a href="{{ url_for('index') }}" class="text-2xl font-bold gradient-text flex items-center">
-                Auction System
+            <a href="{{ url_for('index') }}" class="flex items-center">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-10 mr-3 hover-float">
+                <span class="text-2xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow header-text">SS League Auction</span>
             </a>
             <div class="space-x-3">
                 {% if current_user.is_authenticated %}
@@ -165,8 +213,9 @@
     <!-- Mobile header -->
     <header class="sm:hidden nav-glass sticky top-0 z-40 p-4">
         <div class="flex justify-center items-center">
-            <a href="{{ url_for('index') }}" class="text-xl font-bold gradient-text flex items-center">
-                Auction System
+            <a href="{{ url_for('index') }}" class="flex items-center">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-8 mr-2 hover-float">
+                <span class="text-xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow">SS League Auction</span>
             </a>
         </div>
     </header>
@@ -198,10 +247,10 @@
         <div class="container mx-auto">
             <div class="flex flex-col md:flex-row justify-between items-center">
                 <div class="flex items-center mb-4 md:mb-0">
-                    <span class="gradient-text font-bold">Auction System</span>
+                    <span class="gradient-text font-bold vision-text-shadow">SS League Auction</span>
                 </div>
                 <div class="text-center md:text-right">
-                    <p class="text-gray-400">&copy; 2024 Auction System. All rights reserved.</p>
+                    <p class="text-gray-400">&copy; 2024 SS League Auction. All rights reserved.</p>
                 </div>
             </div>
         </div>

@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
-from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker
+from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest
 from config import Config
 from werkzeug.security import generate_password_hash
 import json
@@ -55,12 +55,17 @@ def register():
             flash('Username already exists')
             return redirect(url_for('register'))
         
-        user = User(username=username)
+        # Check if this is an admin account
+        is_admin = username.lower() == 'admin'
+        
+        user = User(username=username, is_admin=is_admin)
         user.set_password(password)
         db.session.add(user)
         
-        team = Team(name=team_name, user=user)
-        db.session.add(team)
+        # Only create a team if the user is not an admin
+        if not is_admin:
+            team = Team(name=team_name, user=user)
+            db.session.add(team)
         
         db.session.commit()
         return redirect(url_for('login'))
@@ -78,8 +83,17 @@ def dashboard():
     # Refresh the data after potentially finalizing rounds
     if current_user.is_admin:
         teams = Team.query.all()
+        
+        # Get pending users (users that are not approved and not admins)
+        pending_users = User.query.filter(User.is_approved == False, User.is_admin == False).all()
+        
+        # Get pending password reset requests
+        pending_resets = PasswordResetRequest.query.filter_by(status='pending').all()
+        
         return render_template('admin_dashboard.html', 
                               teams=teams,
+                              pending_users=pending_users,
+                              pending_resets=pending_resets,
                               config=Config)
     
     # For team users
@@ -1595,6 +1609,148 @@ def team_round():
     This is a convenience route for the team_bids page.
     """
     return redirect(url_for('dashboard'))
+
+# Password reset routes
+@app.route('/reset_password_request', methods=['GET', 'POST'])
+def reset_password_request():
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    if request.method == 'POST':
+        username = request.form.get('username')
+        reason = request.form.get('reason')
+        
+        if not username or not reason:
+            flash('Username and reason are required', 'error')
+            return render_template('reset_password_request.html')
+        
+        user = User.query.filter_by(username=username).first()
+        if not user:
+            flash('User not found', 'error')
+            return render_template('reset_password_request.html')
+        
+        # Check if there's already a pending request
+        existing_request = PasswordResetRequest.query.filter_by(
+            user_id=user.id, 
+            status='pending'
+        ).first()
+        
+        if existing_request:
+            flash('You already have a pending password reset request', 'error')
+            return render_template('reset_password_request.html')
+        
+        # Create a new password reset request
+        reset_request = PasswordResetRequest(
+            user_id=user.id,
+            reason=reason
+        )
+        db.session.add(reset_request)
+        db.session.commit()
+        
+        flash('Your password reset request has been submitted. An administrator will review your request.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password_request.html')
+
+@app.route('/admin/password_requests')
+@login_required
+def admin_password_requests():
+    if not current_user.is_admin:
+        flash('Access denied', 'error')
+        return redirect(url_for('dashboard'))
+    
+    reset_requests = PasswordResetRequest.query.order_by(
+        PasswordResetRequest.status == 'pending',
+        PasswordResetRequest.status == 'approved',
+        PasswordResetRequest.created_at.desc()
+    ).all()
+    
+    return render_template('admin_password_requests.html', reset_requests=reset_requests)
+
+@app.route('/admin/approve_reset_request/<int:request_id>', methods=['POST'])
+@login_required
+def approve_reset_request(request_id):
+    if not current_user.is_admin:
+        flash('Access denied', 'error')
+        return redirect(url_for('dashboard'))
+    
+    reset_request = PasswordResetRequest.query.get_or_404(request_id)
+    
+    if reset_request.status != 'pending':
+        flash('This request has already been processed', 'error')
+        return redirect(url_for('admin_password_requests'))
+    
+    # Generate a unique token for this request
+    token = reset_request.generate_token()
+    
+    # Update the status to approved
+    reset_request.status = 'approved'
+    db.session.commit()
+    
+    # Get the username for the message
+    user = User.query.get(reset_request.user_id)
+    
+    flash(f'Password reset request for {user.username} has been approved. Please copy and share the reset link with the user from the admin panel.', 'success')
+    return redirect(url_for('admin_password_requests'))
+
+@app.route('/admin/reject_reset_request/<int:request_id>', methods=['POST'])
+@login_required
+def reject_reset_request(request_id):
+    if not current_user.is_admin:
+        flash('Access denied', 'error')
+        return redirect(url_for('dashboard'))
+    
+    reset_request = PasswordResetRequest.query.get_or_404(request_id)
+    
+    if reset_request.status != 'pending':
+        flash('This request has already been processed', 'error')
+        return redirect(url_for('admin_password_requests'))
+    
+    # Update the status to rejected
+    reset_request.status = 'rejected'
+    db.session.commit()
+    
+    flash('Password reset request rejected', 'success')
+    return redirect(url_for('admin_password_requests'))
+
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password_form(token):
+    # Check if user is already logged in
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    # Find the reset request with this token
+    reset_request = PasswordResetRequest.get_by_token(token)
+    
+    if not reset_request:
+        flash('Invalid or expired reset token', 'error')
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        if not new_password or not confirm_password:
+            flash('Please fill in all fields', 'error')
+            return render_template('reset_password.html', reset_token=token)
+        
+        if new_password != confirm_password:
+            flash('Passwords do not match', 'error')
+            return render_template('reset_password.html', reset_token=token)
+        
+        # Reset the password
+        user = User.query.get(reset_request.user_id)
+        user.set_password(new_password)
+        
+        # Mark the request as completed
+        reset_request.status = 'completed'
+        reset_request.reset_token = None  # Invalidate the token
+        db.session.commit()
+        
+        flash('Your password has been reset successfully. You can now log in with your new password.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('reset_password.html', reset_token=token)
 
 if __name__ == '__main__':
     with app.app_context():

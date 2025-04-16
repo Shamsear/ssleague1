@@ -24,14 +24,9 @@ def init_database():
             admin.set_password('admin123')  # Change this in production!
             db.session.add(admin)
             
-            # Create an admin team
-            admin_team = Team(
-                name='Admin Team',
-                user=admin
-            )
-            db.session.add(admin_team)
+            # Remove admin team creation
             
-            # Commit admin user and team
+            # Commit admin user only
             db.session.commit()
             print("Admin user created")
         
