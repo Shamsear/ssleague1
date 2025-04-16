@@ -22,8 +22,9 @@ services:
       python init_migrations.py
       python init_db.py
 
-  - type: postgres
+  - type: pserv
     name: efootball-db
+    runtime: postgres
     ipAllowList: []
     plan: free
     envVars:
