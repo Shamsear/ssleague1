@@ -1074,8 +1074,11 @@ function submitBid() {
         return;
     }
     
-    // Additional validation for available balance
-    const balance = {{ current_user.team.balance }};
+    // Get the balance safely without using template variables in JS
+    const balanceElement = document.getElementById('balance-available');
+    const balanceText = balanceElement.textContent.replace(/[^0-9]/g, '');
+    const balance = parseInt(balanceText);
+    
     if (parseInt(bidAmount) > balance) {
         errorElement.textContent = 'Bid amount exceeds your available balance';
         errorElement.classList.remove('hidden');
@@ -1093,17 +1096,21 @@ function submitBid() {
     submitButton.innerHTML = '<svg class="animate-spin h-4 w-4 text-white mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Processing...';
     submitButton.disabled = true;
     
+    // Get active round ID safely
+    const roundIdElement = document.querySelector('[data-round-id]');
+    const roundId = roundIdElement ? roundIdElement.dataset.roundId : 0;
+    
     // Submit the bid to the server
     fetch('/place_bid', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                player_id: playerId,
-            round_id: {{ active_rounds[0].id if active_rounds else 0 }},
-                amount: parseInt(bidAmount)
-            }),
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            player_id: parseInt(playerId),
+            round_id: parseInt(roundId),
+            amount: parseInt(bidAmount)
+        }),
     })
     .then(response => response.json())
     .then(data => {
@@ -1184,9 +1191,13 @@ function showToast(message, type = 'info') {
 
 // Initialize timers for all active rounds
 function initializeTimers() {
-    {% for round in active_rounds %}
-    initTimer({{ round.id }});
-    {% endfor %}
+    const activeRounds = document.querySelectorAll('[data-round-id]');
+    activeRounds.forEach(round => {
+        const roundId = round.dataset.roundId;
+        if (roundId) {
+            initTimer(parseInt(roundId));
+        }
+    });
 }
 
 async function initTimer(roundId) {
@@ -1379,16 +1390,24 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Show edit bid modal function
-    function showEditBidModal(bidId, playerId, playerName, position, currentAmount) {
-        const modal = document.getElementById('bidModal');
-        document.getElementById('modalTitle').textContent = `Edit Bid: ${playerName}`;
-        document.getElementById('bidPlayerId').value = playerId;
-        document.getElementById('bidBidId').value = bidId; 
-        document.getElementById('bidAmount').value = currentAmount;
-        document.getElementById('bidPlayerInfo').textContent = `${playerName} - ${position}`;
-        document.getElementById('modalSubmitBtn').textContent = 'Update Bid';
+    function showEditBidModal(bidId, playerId, playerName, playerPosition, amount) {
+        document.getElementById('player-id-modal').value = playerId;
+        document.getElementById('player-name-modal').textContent = playerName;
+        document.getElementById('player-position-modal').textContent = playerPosition;
+        document.getElementById('bid-amount-modal').value = amount;
         
+        // Clear any previous errors
+        document.getElementById('bid-error').classList.add('hidden');
+        
+        // Set focus to the input field
+        setTimeout(() => {
+            document.getElementById('bid-amount-modal').focus();
+        }, 100);
+        
+        // Show the modal with fade-in animation
+        const modal = document.getElementById('place-bid-modal');
         modal.classList.remove('hidden');
+        modal.classList.add('flex');
     }
 });
 </script>
