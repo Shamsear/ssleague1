@@ -3,7 +3,11 @@ services:
     name: ssleague
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt && python init_db.py
+    buildCommand: |
+      pip install -r requirements.txt
+      echo "Checking for efootball_real.db file..."
+      ls -la
+      python init_db.py
     startCommand: gunicorn app:app
     healthCheckPath: /
     envVars:

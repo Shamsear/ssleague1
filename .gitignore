@@ -28,6 +28,8 @@ instance/
 # SQLite databases
 *.db
 *.sqlite
+# But keep the following database file
+!efootball_real.db
 
 # Environment variables
 .env
