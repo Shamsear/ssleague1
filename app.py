@@ -1087,7 +1087,8 @@ def api_player_detail(player_id):
         'overall_rating': player.overall_rating,
         'playing_style': player.playing_style,
         'player_id': player.player_id,
-        'team_id': player.team_id
+        'team_id': player.team_id,
+        'acquisition_value': player.acquisition_value
     }
     return jsonify(result)
 
@@ -1297,6 +1298,16 @@ def admin_edit_player(player_id):
             current_player_count = Player.query.filter_by(team_id=new_team_id).count()
             if current_player_count >= Config.MAX_PLAYERS_PER_TEAM:
                 return jsonify({'error': f'Team already has maximum number of players ({Config.MAX_PLAYERS_PER_TEAM})'})
+    
+    # Handle acquisition value when assigned to a team
+    if new_team_id:
+        acquisition_value = data.get('acquisition_value')
+        if acquisition_value is None:
+            return jsonify({'error': 'Acquisition cost is required when assigning a player to a team'}), 400
+        player.acquisition_value = float(acquisition_value)
+    else:
+        # If player is a free agent, reset acquisition value
+        player.acquisition_value = None
     
     # Set the team_id
     player.team_id = new_team_id
