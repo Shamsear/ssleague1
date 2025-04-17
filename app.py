@@ -2619,8 +2619,7 @@ def admin_bulk_rounds():
         # Count players acquired directly (no tiebreaker)
         direct_assignments = BulkBid.query.filter_by(
             round_id=round.id,
-            is_resolved=True,
-            has_tie=False
+            is_resolved=True
         ).count()
         
         # Count tiebreakers
