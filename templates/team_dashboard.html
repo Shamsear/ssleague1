@@ -296,11 +296,16 @@
                         <p class="text-lg font-medium text-dark">
                             {% set total_spent = namespace(value=0) %}
                             {% for player in current_user.team.players %}
-                                {% for bid in player.bids %}
-                                    {% if bid.team_id == current_user.team.id and not bid.round.is_active %}
-                                        {% set total_spent.value = total_spent.value + bid.amount %}
-                                    {% endif %}
-                                {% endfor %}
+                                {% if player.acquisition_value %}
+                                    {% set total_spent.value = total_spent.value + player.acquisition_value %}
+                                {% else %}
+                                    {# Fall back to bid amounts for backward compatibility #}
+                                    {% for bid in player.bids %}
+                                        {% if bid.team_id == current_user.team.id and not bid.round.is_active %}
+                                            {% set total_spent.value = total_spent.value + bid.amount %}
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
                             {% endfor %}
                             <span class="{% if total_spent.value > 0 %}text-accent{% endif %}">
                                 £{{ "{:,}".format(total_spent.value) }}
@@ -676,11 +681,15 @@
                         <div class="mt-2">
                             <p class="text-sm text-gray-600">Acquisition Cost:</p>
                             <p class="font-bold text-accent">
-                                {% for bid in player.bids %}
-                                    {% if bid.team_id == current_user.team.id %}
-                                        £{{ "{:,}".format(bid.amount) }}
-                                    {% endif %}
-                                {% endfor %}
+                                {% if player.acquisition_value %}
+                                    £{{ "{:,}".format(player.acquisition_value) }}
+                                {% else %}
+                                    {% for bid in player.bids %}
+                                        {% if bid.team_id == current_user.team.id %}
+                                            £{{ "{:,}".format(bid.amount) }}
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endif %}
                             </p>
                         </div>
                     </div>
@@ -729,11 +738,15 @@
                             </div>
                         </td>
                         <td class="px-6 py-4 whitespace-nowrap font-medium text-accent">
-                            {% for bid in player.bids %}
-                                {% if bid.team_id == current_user.team.id %}
-                                    £{{ "{:,}".format(bid.amount) }}
-                                {% endif %}
-                            {% endfor %}
+                            {% if player.acquisition_value %}
+                                £{{ "{:,}".format(player.acquisition_value) }}
+                            {% else %}
+                                {% for bid in player.bids %}
+                                    {% if bid.team_id == current_user.team.id %}
+                                        £{{ "{:,}".format(bid.amount) }}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endif %}
                         </td>
                     </tr>
                     {% endfor %}

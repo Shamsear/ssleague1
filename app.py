@@ -2339,20 +2339,21 @@ def place_bulk_tiebreaker_bid():
 @login_required
 def withdraw_from_bulk_tiebreaker():
     if not current_user.team:
-        return jsonify({'error': 'You must have a team to withdraw.'}), 400
+        return jsonify({'error': 'You must have a team to perform this action.'}), 400
     
     data = request.json
     tiebreaker_id = data.get('tiebreaker_id')
     
     if not tiebreaker_id:
-        return jsonify({'error': 'Missing required fields.'}), 400
+        return jsonify({'error': 'Missing tiebreaker ID.'}), 400
     
     tiebreaker = BulkBidTiebreaker.query.get_or_404(tiebreaker_id)
     
+    # Check if tiebreaker is already resolved
     if tiebreaker.resolved:
         return jsonify({'error': 'This tiebreaker is already resolved.'}), 400
     
-    # Validate team is part of the tiebreaker
+    # Validate user is part of the tiebreaker
     team_tiebreaker = TeamBulkTiebreaker.query.filter_by(
         tiebreaker_id=tiebreaker_id,
         team_id=current_user.team.id,
@@ -2360,13 +2361,13 @@ def withdraw_from_bulk_tiebreaker():
     ).first()
     
     if not team_tiebreaker:
-        return jsonify({'error': 'You are not part of this tiebreaker.'}), 400
+        return jsonify({'error': 'You are not part of this tiebreaker or have already withdrawn.'}), 400
     
-    # Set the team as inactive in the tiebreaker
+    # Mark the team as inactive in the tiebreaker
     team_tiebreaker.is_active = False
     db.session.commit()
     
-    # Check if there's only one active team left
+    # Check if there's only one team left active
     active_teams = TeamBulkTiebreaker.query.filter_by(
         tiebreaker_id=tiebreaker_id,
         is_active=True
@@ -2394,11 +2395,13 @@ def withdraw_from_bulk_tiebreaker():
             # Assign player to winning team
             player.team_id = winning_team.id
             
-            # Use the current tiebreaker amount as the acquisition value
-            player.acquisition_value = tiebreaker.current_amount
+            # Use the highest bid amount as the acquisition value
+            # First check if the winner has placed any bids
+            final_value = active_teams[0].last_bid if active_teams[0].last_bid else tiebreaker.current_amount
+            player.acquisition_value = final_value
             
             # Deduct amount from team balance
-            winning_team.balance -= tiebreaker.current_amount
+            winning_team.balance -= final_value
         
         db.session.commit()
     
@@ -2747,10 +2750,11 @@ def admin_resolve_bulk_tiebreaker(tiebreaker_id):
             player.team_id = winning_team.id
             
             # Use the highest bid as the acquisition value
-            player.acquisition_value = highest_bid if highest_bid > 0 else tiebreaker.current_amount
+            final_value = highest_bid if highest_bid > 0 else tiebreaker.current_amount
+            player.acquisition_value = final_value
             
             # Deduct amount from team balance
-            winning_team.balance -= player.acquisition_value
+            winning_team.balance -= final_value
             
             # Mark as resolved
             tiebreaker.resolved = True

@@ -212,6 +212,7 @@ class BulkBid(db.Model):
     player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
     round_id = db.Column(db.Integer, db.ForeignKey('bulk_bid_round.id'), nullable=False)
     is_resolved = db.Column(db.Boolean, default=False)
+    has_tie = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
