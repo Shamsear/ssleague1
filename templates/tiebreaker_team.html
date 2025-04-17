@@ -48,7 +48,7 @@
                         <svg class="w-4 h-4 inline-block mr-1 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
-                        <strong>You have 5 minutes to resolve this tiebreaker.</strong> After this time expires, the player may be awarded to another team that has submitted a higher bid. Please act quickly.
+                        <strong>Tiebreakers must be completed as soon as possible</strong> to allow the auction to proceed. Failure to resolve a tiebreaker may result in losing the player.
                     </p>
                 </div>
             </div>
@@ -349,84 +349,47 @@
             fetch('/check_tiebreaker_status/{{ tiebreaker.id }}')
                 .then(response => response.json())
                 .then(data => {
-                    // Handle active tiebreaker that's still waiting for bids
-                    if (data.status === 'waiting' && data.active) {
-                        if (data.remaining !== undefined) {
+                    if (data.status === 'active') {
+                        if (data.remaining) {
                             // Format remaining time
                             const minutes = Math.floor(data.remaining / 60);
                             const seconds = Math.floor(data.remaining % 60);
                             timerText.textContent = `${minutes}:${seconds.toString().padStart(2, '0')} remaining`;
                             
                             // Color based on time left
-                            if (data.remaining <= 0) {
-                                // Timer has expired but still waiting for resolution
-                                timerContainer.classList.add('bg-red-100');
-                                timerContainer.classList.add('animate-pulse');
-                                timerContainer.classList.remove('bg-gray-100');
-                                timerContainer.classList.remove('bg-yellow-100');
-                                timerText.textContent = "Time expired!";
-                            } else if (data.remaining < 30) {
-                                timerContainer.classList.add('bg-red-100');
-                                timerContainer.classList.add('animate-pulse');
-                                timerContainer.classList.remove('bg-gray-100');
-                                timerContainer.classList.remove('bg-yellow-100');
+                            if (data.remaining < 30) {
+                                timerContainer.classList.add('bg-red-100', 'animate-pulse');
+                                timerContainer.classList.remove('bg-gray-100', 'bg-yellow-100');
                             } else if (data.remaining < 60) {
                                 timerContainer.classList.add('bg-yellow-100');
-                                timerContainer.classList.remove('bg-gray-100');
-                                timerContainer.classList.remove('bg-red-100');
-                                timerContainer.classList.remove('animate-pulse');
+                                timerContainer.classList.remove('bg-gray-100', 'bg-red-100', 'animate-pulse');
                             } else {
                                 timerContainer.classList.add('bg-gray-100');
-                                timerContainer.classList.remove('bg-yellow-100');
-                                timerContainer.classList.remove('bg-red-100');
-                                timerContainer.classList.remove('animate-pulse');
+                                timerContainer.classList.remove('bg-yellow-100', 'bg-red-100', 'animate-pulse');
                             }
                         } else {
-                            timerText.textContent = data.message || 'Waiting for bids';
+                            timerText.textContent = 'Active';
                         }
                         
                         // Schedule next update
                         setTimeout(updateTimer, 1000);
-                    }
-                    // Handle resolved tiebreaker
-                    else if (data.status === 'processing' || data.status === 'completed') {
+                    } else if (data.status === 'resolved') {
                         // Tiebreaker is resolved, redirect to dashboard
                         timerText.textContent = 'Resolved!';
                         timerContainer.classList.add('bg-green-100');
-                        timerContainer.classList.remove('bg-gray-100');
-                        timerContainer.classList.remove('bg-yellow-100');
-                        timerContainer.classList.remove('bg-red-100');
-                        timerContainer.classList.remove('animate-pulse');
                         
                         // Show a message before redirecting
-                        const waitingText = document.getElementById('waiting-text');
-                        const waitingSpinner = document.getElementById('waiting-spinner');
+                        document.getElementById('waiting-text').textContent = 'Tiebreaker resolved! Redirecting...';
+                        document.getElementById('waiting-spinner').innerHTML = `
+                            <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span class="text-xs text-green-600">Complete</span>
+                        `;
                         
-                        if (waitingText && waitingSpinner) {
-                            waitingText.textContent = 'Tiebreaker resolved! Redirecting...';
-                            waitingSpinner.innerHTML = `
-                                <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                                <span class="text-xs text-green-600">Complete</span>
-                            `;
-                        }
-                        
-                        // If there's a redirect URL provided, use it
-                        if (data.redirect_to) {
-                            setTimeout(() => {
-                                window.location.href = data.redirect_to;
-                            }, 2000);
-                        } else {
-                            setTimeout(() => {
-                                window.location.href = '{{ url_for("dashboard") }}';
-                            }, 2000);
-                        }
-                    }
-                    // Handle any other status
-                    else {
-                        timerText.textContent = data.message || 'Status unknown';
-                        setTimeout(updateTimer, 2000);
+                        setTimeout(() => {
+                            window.location.href = '{{ url_for("dashboard") }}';
+                        }, 2000);
                     }
                 })
                 .catch(error => {

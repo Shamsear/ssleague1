@@ -3,228 +3,96 @@
 {% block title %}Auction Settings - Admin{% endblock %}
 
 {% block content %}
-<div class="container mx-auto px-4 sm:px-6 py-4 sm:py-8 max-w-7xl">
-    <!-- Page Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-4">
-        <div>
-            <h1 class="text-2xl sm:text-3xl font-bold text-dark bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
-                Auction Settings
-            </h1>
-            <p class="text-gray-600 mt-1 text-sm sm:text-base">Configure and manage your auction parameters</p>
+<div class="container mx-auto px-3 sm:px-4 py-3 sm:py-6">
+    <div class="glass rounded-3xl p-3 sm:p-6 mb-3 backdrop-blur-md">
+        <div class="flex flex-col gap-3 mb-3">
+            <h2 class="text-xl sm:text-2xl font-bold text-dark gradient-text">Auction Settings</h2>
+            
+            <!-- Navigation Links -->
+            <div class="flex flex-wrap gap-2">
+                <a href="{{ url_for('dashboard') }}" class="px-4 py-2.5 text-sm glass rounded-xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center text-dark sm:justify-start w-full sm:w-auto">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                    </svg>
+                    Back to Dashboard
+                </a>
+                <a href="{{ url_for('admin_rounds') }}" class="px-4 py-2.5 text-sm glass rounded-xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center text-dark sm:justify-start w-full sm:w-auto">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Manage Rounds
+                </a>
+            </div>
         </div>
         
-        <!-- Navigation Links -->
-        <div class="flex flex-wrap gap-3">
-            <a href="{{ url_for('dashboard') }}" class="px-4 py-2.5 text-sm glass rounded-xl bg-white/80 hover:bg-white/90 transition-all duration-300 flex items-center justify-center text-dark sm:justify-start shadow-sm hover:shadow-md border border-white/20">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
-                </svg>
-                Back to Dashboard
-            </a>
-            <a href="{{ url_for('admin_rounds') }}" class="px-4 py-2.5 text-sm glass rounded-xl bg-white/80 hover:bg-white/90 transition-all duration-300 flex items-center justify-center text-dark sm:justify-start shadow-sm hover:shadow-md border border-white/20">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Manage Rounds
-            </a>
-        </div>
-    </div>
-    
-    <div class="glass rounded-3xl overflow-hidden shadow-xl shadow-primary/5 backdrop-blur-md border border-white/20">
-        <!-- Stats Cards -->
-        <div class="p-6 bg-gradient-to-r from-primary/10 to-secondary/10 border-b border-white/20">
-            <h2 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Auction Overview
-            </h2>
+        <!-- Auction Settings Overview -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="glass p-4 rounded-xl bg-white/40 backdrop-blur-sm border border-gray-100/20">
+                <h3 class="text-gray-700 text-lg font-medium mb-2">Total Rounds</h3>
+                <div class="flex items-end">
+                    <span class="text-3xl font-bold text-primary">{{ total_rounds }}</span>
+                    <span class="text-gray-500 ml-2 text-sm">/ {{ settings.max_rounds }}</span>
+                </div>
+                <p class="text-sm text-gray-600 mt-1">Rounds created in this auction</p>
+            </div>
             
-            <!-- Responsive Grid for Stats -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                <!-- Total Rounds Card -->
-                <div class="glass p-5 rounded-2xl bg-white/60 backdrop-blur-sm border border-gray-100/20 hover:shadow-md transition-all duration-300 transform hover:scale-[1.01]">
-                    <div class="flex items-start">
-                        <div class="p-3 rounded-xl bg-primary/10 mr-4">
-                            <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-gray-700 text-sm font-medium uppercase tracking-wide mb-1">Total Rounds</h3>
-                            <div class="flex items-end mb-2">
-                                <span class="text-3xl font-bold text-primary">{{ total_rounds }}</span>
-                                <span class="text-gray-500 ml-2 text-sm">/ {{ settings.max_rounds }}</span>
-                            </div>
-                            <p class="text-xs text-gray-600">Rounds created in this auction</p>
-                            
-                            <!-- Progress Bar -->
-                            <div class="w-full bg-gray-200 rounded-full h-1.5 mt-3 overflow-hidden">
-                                <div class="bg-primary h-1.5 rounded-full progress-bar" 
-                                     data-width="{{ (total_rounds / settings.max_rounds * 100)|round|int }}"></div>
-                            </div>
-                        </div>
-                    </div>
+            <div class="glass p-4 rounded-xl bg-white/40 backdrop-blur-sm border border-gray-100/20">
+                <h3 class="text-gray-700 text-lg font-medium mb-2">Completed Rounds</h3>
+                <div class="flex items-end">
+                    <span class="text-3xl font-bold text-green-600">{{ completed_rounds }}</span>
+                    <span class="text-gray-500 ml-2 text-sm">/ {{ settings.max_rounds }}</span>
                 </div>
-                
-                <!-- Completed Rounds Card -->
-                <div class="glass p-5 rounded-2xl bg-white/60 backdrop-blur-sm border border-gray-100/20 hover:shadow-md transition-all duration-300 transform hover:scale-[1.01]">
-                    <div class="flex items-start">
-                        <div class="p-3 rounded-xl bg-green-50 mr-4">
-                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-gray-700 text-sm font-medium uppercase tracking-wide mb-1">Completed Rounds</h3>
-                            <div class="flex items-end mb-2">
-                                <span class="text-3xl font-bold text-green-600">{{ completed_rounds }}</span>
-                                <span class="text-gray-500 ml-2 text-sm">/ {{ settings.max_rounds }}</span>
-                            </div>
-                            <p class="text-xs text-gray-600">Rounds that have been finalized</p>
-                            
-                            <!-- Progress Bar -->
-                            <div class="w-full bg-gray-200 rounded-full h-1.5 mt-3 overflow-hidden">
-                                <div class="bg-green-500 h-1.5 rounded-full progress-bar" 
-                                     data-width="{{ (completed_rounds / settings.max_rounds * 100)|round|int }}"></div>
-                            </div>
-                        </div>
-                    </div>
+                <p class="text-sm text-gray-600 mt-1">Rounds that have been finalized</p>
+            </div>
+            
+            <div class="glass p-4 rounded-xl bg-white/40 backdrop-blur-sm border border-gray-100/20">
+                <h3 class="text-gray-700 text-lg font-medium mb-2">Remaining Rounds</h3>
+                <div class="flex items-end">
+                    <span class="text-3xl font-bold text-blue-600">{{ remaining_rounds }}</span>
+                    <span class="text-gray-500 ml-2 text-sm">/ {{ settings.max_rounds }}</span>
                 </div>
-                
-                <!-- Remaining Rounds Card -->
-                <div class="glass p-5 rounded-2xl bg-white/60 backdrop-blur-sm border border-gray-100/20 hover:shadow-md transition-all duration-300 transform hover:scale-[1.01]">
-                    <div class="flex items-start">
-                        <div class="p-3 rounded-xl bg-blue-50 mr-4">
-                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h3 class="text-gray-700 text-sm font-medium uppercase tracking-wide mb-1">Remaining Rounds</h3>
-                            <div class="flex items-end mb-2">
-                                <span class="text-3xl font-bold text-blue-600">{{ remaining_rounds }}</span>
-                                <span class="text-gray-500 ml-2 text-sm">/ {{ settings.max_rounds }}</span>
-                            </div>
-                            <p class="text-xs text-gray-600">Rounds that can still be created</p>
-                            
-                            <!-- Progress Bar -->
-                            <div class="w-full bg-gray-200 rounded-full h-1.5 mt-3 overflow-hidden">
-                                <div class="bg-blue-500 h-1.5 rounded-full progress-bar" 
-                                     data-width="{{ (remaining_rounds / settings.max_rounds * 100)|round|int }}"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <p class="text-sm text-gray-600 mt-1">Rounds that can still be created</p>
             </div>
         </div>
         
         <!-- Settings Form -->
-        <div class="p-6 sm:p-8">
-            <h2 class="text-lg font-semibold text-gray-800 mb-6 flex items-center">
-                <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-                Configure Auction Settings
-            </h2>
+        <div class="glass p-5 sm:p-6 rounded-2xl bg-white/40 backdrop-blur-sm border border-gray-100/20">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Configure Auction Settings</h3>
             
-            <form method="POST" action="{{ url_for('admin_auction_settings') }}" id="settings-form">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- Maximum Rounds -->
-                    <div class="glass p-6 rounded-2xl bg-white/50 backdrop-blur-sm border border-gray-100/30 hover:shadow-md transition-all duration-300">
-                        <div class="flex items-start mb-4">
-                            <div class="p-2 rounded-xl bg-primary/10 mr-3">
-                                <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <form method="POST" action="{{ url_for('admin_auction_settings') }}">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="max_rounds" class="block text-sm font-medium text-gray-700 mb-1.5">Maximum Rounds</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                 </svg>
-                            </div>
-                            <div>
-                                <label for="max_rounds" class="block text-sm font-medium text-gray-700">Maximum Rounds</label>
-                                <p class="text-xs text-gray-500 mt-1">Total number of rounds allowed in this auction</p>
-                            </div>
-                        </div>
-                        
-                        <div class="relative mt-2">
-                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-                                <span class="text-lg font-normal">#</span>
-                            </div>
+                            </span>
                             <input type="number" id="max_rounds" name="max_rounds" value="{{ settings.max_rounds }}" min="1" required
-                                class="pl-9 w-full py-3.5 bg-white/70 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base">
-                            
-                            <!-- Slider for Mobile Usability -->
-                            <input type="range" min="1" max="50" value="{{ settings.max_rounds }}" 
-                                class="w-full h-2 mt-4 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-                                oninput="document.getElementById('max_rounds').value = this.value">
-                            
-                            <div class="flex justify-between text-xs text-gray-500 mt-1 px-1">
-                                <span>1</span>
-                                <span>25</span>
-                                <span>50</span>
-                            </div>
+                                class="pl-10 w-full py-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base">
                         </div>
-                        
-                        <div class="mt-4 text-xs text-gray-600">
-                            <div class="flex items-start">
-                                <svg class="w-4 h-4 text-blue-500 mt-0.5 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span>Default value is 25. Consider the number of players and your auction timeframe when setting this value.</span>
-                            </div>
-                        </div>
+                        <p class="mt-1 text-xs text-gray-500">Maximum number of rounds in this auction (default: 25)</p>
                     </div>
                     
-                    <!-- Minimum Balance Per Round -->
-                    <div class="glass p-6 rounded-2xl bg-white/50 backdrop-blur-sm border border-gray-100/30 hover:shadow-md transition-all duration-300">
-                        <div class="flex items-start mb-4">
-                            <div class="p-2 rounded-xl bg-primary/10 mr-3">
-                                <svg class="w-5 h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div>
+                        <label for="min_balance_per_round" class="block text-sm font-medium text-gray-700 mb-1.5">Minimum Balance Per Round</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                            </div>
-                            <div>
-                                <label for="min_balance_per_round" class="block text-sm font-medium text-gray-700">Minimum Balance Per Round</label>
-                                <p class="text-xs text-gray-500 mt-1">Minimum funds required for each remaining round</p>
-                            </div>
-                        </div>
-                        
-                        <div class="relative mt-2">
-                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
-                                <span class="text-lg font-normal">$</span>
-                            </div>
+                            </span>
                             <input type="number" id="min_balance_per_round" name="min_balance_per_round" value="{{ settings.min_balance_per_round }}" min="0" required
-                                class="pl-9 w-full py-3.5 bg-white/70 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base">
-                            
-                            <!-- Slider for Mobile Usability -->
-                            <input type="range" min="0" max="100" value="{{ settings.min_balance_per_round }}" 
-                                class="w-full h-2 mt-4 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-                                oninput="document.getElementById('min_balance_per_round').value = this.value">
-                            
-                            <div class="flex justify-between text-xs text-gray-500 mt-1 px-1">
-                                <span>0</span>
-                                <span>50</span>
-                                <span>100</span>
-                            </div>
+                                class="pl-10 w-full py-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base">
                         </div>
-                        
-                        <div class="mt-4 text-xs text-gray-600">
-                            <div class="flex items-start">
-                                <svg class="w-4 h-4 text-blue-500 mt-0.5 mr-1.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span>Default value is 30. Higher values ensure teams maintain adequate funds throughout the auction.</span>
-                            </div>
-                        </div>
+                        <p class="mt-1 text-xs text-gray-500">Minimum balance required per remaining round (default: 30)</p>
                     </div>
                 </div>
                 
-                <!-- Submit Button -->
-                <div class="mt-8">
+                <div class="mt-6">
                     <button type="submit"
-                        class="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-medium hover:from-primary/90 hover:to-secondary/90 transform hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 shadow-md flex items-center justify-center">
-                        <svg class="w-5 h-5 mr-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                        </svg>
+                        class="w-full py-3 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-medium hover:from-primary/90 hover:to-secondary/90 transform hover:scale-[1.01] active:scale-[0.99] transition-all duration-200 shadow-md">
                         Save Settings
                     </button>
                 </div>
@@ -232,121 +100,23 @@
         </div>
         
         <!-- Explanation Section -->
-        <div class="p-6 sm:p-8 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 border-t border-blue-100/30">
-            <div class="max-w-3xl">
-                <h3 class="text-lg font-semibold text-blue-800 mb-4 flex items-center">
-                    <svg class="h-6 w-6 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div class="mt-6 glass p-5 rounded-2xl bg-blue-50/60 backdrop-blur-sm border border-blue-100/30">
+            <div class="flex items-start">
+                <div class="flex-shrink-0">
+                    <svg class="h-6 w-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
-                    About Minimum Balance Requirements
-                </h3>
-                
-                <div class="glass p-5 rounded-xl bg-white/60 backdrop-blur-sm border border-blue-100/30 hover:shadow-lg transition-all duration-300">
-                    <div class="prose prose-sm text-blue-700 max-w-none">
+                </div>
+                <div class="ml-3">
+                    <h3 class="text-base font-medium text-blue-800">About Minimum Balance Requirements</h3>
+                    <div class="mt-2 text-sm text-blue-700">
                         <p>The minimum balance requirement ensures teams can participate in all remaining rounds of the auction.</p>
-                        
-                        <div class="mt-4 p-4 bg-blue-50/80 rounded-lg border border-blue-100">
-                            <h4 class="font-medium text-blue-800 mb-2">Example Calculation:</h4>
-                            <ul class="list-disc list-inside space-y-1 text-blue-700">
-                                <li>15 rounds completed, 10 rounds remain</li>
-                                <li>Minimum balance requirement: 30 per round</li>
-                                <li>Required team balance: 30 × 10 = 300</li>
-                            </ul>
-                        </div>
-                        
-                        <p class="mt-4">This helps ensure fair competition throughout the entire auction process and prevents teams from being unable to participate in later rounds.</p>
-                    </div>
-                </div>
-                
-                <div class="mt-6 flex items-center justify-center sm:justify-start">
-                    <a href="#" onclick="toggleCalculator(); return false;" class="text-blue-600 text-sm font-medium flex items-center hover:text-blue-800 transition-colors">
-                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                        </svg>
-                        <span>Show Balance Calculator</span>
-                    </a>
-                </div>
-                
-                <!-- Hidden Calculator -->
-                <div id="balance-calculator" class="hidden mt-4 glass p-5 rounded-xl bg-white/70 backdrop-blur-sm border border-blue-100/30">
-                    <h4 class="font-medium text-blue-800 mb-3">Balance Requirement Calculator</h4>
-                    
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Remaining Rounds</label>
-                            <input type="number" id="calc-remaining" value="{{ remaining_rounds }}" min="1" max="50"
-                                class="w-full py-2 px-3 bg-white border border-gray-200 rounded-lg">
-                        </div>
-                        
-                        <div>
-                            <label class="block text-xs font-medium text-gray-700 mb-1">Min Balance Per Round</label>
-                            <input type="number" id="calc-min-balance" value="{{ settings.min_balance_per_round }}" min="0" max="100"
-                                class="w-full py-2 px-3 bg-white border border-gray-200 rounded-lg">
-                        </div>
-                    </div>
-                    
-                    <div class="mt-4 p-3 bg-blue-50 rounded-lg flex items-center justify-between">
-                        <span class="text-sm font-medium text-blue-800">Required Balance:</span>
-                        <span class="text-xl font-bold text-blue-800" id="calc-result">0</span>
+                        <p class="mt-2">For example, if 15 rounds are completed and 10 remain, with a minimum balance requirement of 30 per round, each team must have at least 300 in their balance to start the next round.</p>
+                        <p class="mt-2">This helps ensure fair competition throughout the entire auction process.</p>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<script>
-    // Wait for DOM to be fully loaded
-    document.addEventListener('DOMContentLoaded', function() {
-        // Animate the progress bars
-        setTimeout(() => {
-            const progressBars = document.querySelectorAll('.progress-bar');
-            progressBars.forEach(bar => {
-                const width = bar.getAttribute('data-width') + '%';
-                bar.style.width = width;
-                bar.classList.add('transition-all', 'duration-1000', 'ease-out');
-            });
-        }, 100);
-        
-        // Initialize balance calculator
-        const calcRemaining = document.getElementById('calc-remaining');
-        const calcMinBalance = document.getElementById('calc-min-balance');
-        const calcResult = document.getElementById('calc-result');
-        
-        function updateCalculation() {
-            const remaining = parseInt(calcRemaining.value) || 0;
-            const minBalance = parseInt(calcMinBalance.value) || 0;
-            const result = remaining * minBalance;
-            calcResult.textContent = result.toLocaleString();
-        }
-        
-        if (calcRemaining && calcMinBalance) {
-            calcRemaining.addEventListener('input', updateCalculation);
-            calcMinBalance.addEventListener('input', updateCalculation);
-            updateCalculation(); // Initialize
-        }
-        
-        // Sync range inputs with number inputs
-        const sliders = document.querySelectorAll('input[type="range"]');
-        sliders.forEach(slider => {
-            const targetInput = document.getElementById(slider.getAttribute('oninput').split("'")[0].split('(')[1]);
-            if (targetInput) {
-                targetInput.addEventListener('input', function() {
-                    slider.value = this.value;
-                });
-            }
-        });
-    });
-    
-    // Toggle calculator visibility
-    function toggleCalculator() {
-        const calculator = document.getElementById('balance-calculator');
-        if (calculator) {
-            calculator.classList.toggle('hidden');
-            if (!calculator.classList.contains('hidden')) {
-                calculator.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-            }
-        }
-    }
-</script>
-{% endblock %}
+{% endblock %} 

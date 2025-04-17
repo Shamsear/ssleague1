@@ -421,26 +421,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 100);
         });
     }
-    
-    // Add event listener for team selection change to toggle acquisition value field
-    const editPlayerTeamSelect = document.getElementById('editPlayerTeam');
-    if (editPlayerTeamSelect) {
-        editPlayerTeamSelect.addEventListener('change', function() {
-            const acquisitionValueContainer = document.getElementById('acquisitionValueContainer');
-            const acquisitionValueInput = document.getElementById('editPlayerAcquisitionValue');
-            
-            if (this.value) {
-                // If a team is selected, show the acquisition value field and make it required
-                acquisitionValueContainer.classList.remove('hidden');
-                acquisitionValueInput.required = true;
-            } else {
-                // If no team is selected (Free Agent), hide the field and remove required attribute
-                acquisitionValueContainer.classList.add('hidden');
-                acquisitionValueInput.required = false;
-                acquisitionValueInput.value = '';
-            }
-        });
-    }
 });
 
 // Modal functions
@@ -549,17 +529,6 @@ function showEditPlayerModal(id) {
                         </select>
                     </div>
                 </div>
-                <div id="acquisitionValueContainer" class="hidden">
-                    <label for="editPlayerAcquisitionValue" class="block text-sm font-medium text-gray-700 mb-1.5">Acquisition Cost</label>
-                    <div class="relative">
-                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
-                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                        </span>
-                        <input type="number" id="editPlayerAcquisitionValue" name="acquisition_value" min="0" step="0.01" class="pl-10 w-full py-2.5 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
-                    </div>
-                </div>
                 <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-medium hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button shadow-md">
                     Update Player
                 </button>
@@ -571,33 +540,6 @@ function showEditPlayerModal(id) {
             document.getElementById('editPlayerPosition').value = player.position;
             document.getElementById('editPlayerOverall').value = player.overall_rating;
             document.getElementById('editPlayerTeam').value = player.team_id || '';
-            
-            // Set acquisition value if available and show field if team is selected
-            if (player.team_id) {
-                const acquisitionValueContainer = document.getElementById('acquisitionValueContainer');
-                const acquisitionValueInput = document.getElementById('editPlayerAcquisitionValue');
-                
-                acquisitionValueContainer.classList.remove('hidden');
-                acquisitionValueInput.required = true;
-                acquisitionValueInput.value = player.acquisition_value || '';
-            }
-            
-            // Add event listener for team dropdown change
-            document.getElementById('editPlayerTeam').addEventListener('change', function() {
-                const acquisitionValueContainer = document.getElementById('acquisitionValueContainer');
-                const acquisitionValueInput = document.getElementById('editPlayerAcquisitionValue');
-                
-                if (this.value) {
-                    // If a team is selected, show the acquisition value field and make it required
-                    acquisitionValueContainer.classList.remove('hidden');
-                    acquisitionValueInput.required = true;
-                } else {
-                    // If no team is selected (Free Agent), hide the field and remove required attribute
-                    acquisitionValueContainer.classList.add('hidden');
-                    acquisitionValueInput.required = false;
-                    acquisitionValueInput.value = '';
-                }
-            });
             
             // Set up the form submission
             document.getElementById('editPlayerForm').addEventListener('submit', function(e) {
@@ -642,34 +584,18 @@ function submitEditPlayerForm() {
     const position = document.getElementById('editPlayerPosition').value;
     const overall = document.getElementById('editPlayerOverall').value;
     const teamId = document.getElementById('editPlayerTeam').value;
-    let acquisitionValue = null;
-    
-    if (teamId) {
-        acquisitionValue = document.getElementById('editPlayerAcquisitionValue').value;
-        if (!acquisitionValue) {
-            alert('Acquisition cost is required when assigning a player to a team.');
-            return;
-        }
-    }
-    
-    // Create the request data object
-    const requestData = {
-        name: name,
-        position: position,
-        overall_rating: parseInt(overall),
-        team_id: teamId ? parseInt(teamId) : null,
-        acquisition_value: acquisitionValue ? parseFloat(acquisitionValue) : null
-    };
-    
-    // Debug: Log what we're sending to the server
-    console.log("Sending player update data:", requestData);
     
     fetch(`/admin/edit_player/${id}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify({
+            name: name,
+            position: position,
+            overall_rating: parseInt(overall),
+            team_id: teamId ? parseInt(teamId) : null
+        })
     })
     .then(response => {
         if (!response.ok) {
@@ -678,9 +604,6 @@ function submitEditPlayerForm() {
         return response.json();
     })
     .then(data => {
-        // Debug: Log the server response
-        console.log("Server response:", data);
-        
         if (data.error) {
             alert(data.error);
         } else {

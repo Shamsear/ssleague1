@@ -127,7 +127,6 @@ class Tiebreaker(db.Model):
     original_amount = db.Column(db.Integer, nullable=False)
     resolved = db.Column(db.Boolean, default=False)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    notes = db.Column(db.Text, nullable=True)  # Additional information about resolution
     
     round = db.relationship('Round', backref='tiebreakers')
     player = db.relationship('Player', backref='tiebreakers')
