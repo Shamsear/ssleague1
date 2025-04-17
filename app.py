@@ -318,8 +318,38 @@ def check_round_status(round_id):
     expired = round.is_timer_expired()
     if expired:
         # Finalize the round if expired
-        finalize_round_internal(round_id)
-        return jsonify({'active': False, 'message': 'Round timer expired and has been finalized'})
+        result = finalize_round_internal(round_id)
+        
+        # Different response based on result
+        if isinstance(result, dict):
+            status = result.get("status")
+            if status == "tiebreaker_needed":
+                # Redirect to tiebreaker
+                tiebreaker_id = result.get("tiebreaker_id")
+                return jsonify({
+                    'active': False, 
+                    'message': 'Round timer expired. Tiebreaker needed!',
+                    'redirect_to': f'/tiebreaker/{tiebreaker_id}',
+                    'tiebreaker_id': tiebreaker_id
+                })
+            elif status == "tiebreaker_pending":
+                # Include tiebreaker IDs in the response
+                tiebreaker_ids = result.get("tiebreakers", [])
+                return jsonify({
+                    'active': False, 
+                    'message': 'Round timer expired. Tiebreakers pending resolution.',
+                    'tiebreaker_ids': tiebreaker_ids,
+                    'tiebreaker_id': tiebreaker_ids[0] if tiebreaker_ids else None
+                })
+            else:
+                # Round finalized successfully
+                return jsonify({
+                    'active': False, 
+                    'message': 'Round timer expired and has been finalized'
+                })
+        else:
+            # For backwards compatibility
+            return jsonify({'active': False, 'message': 'Round timer expired and has been finalized'})
     
     # Calculate remaining time
     elapsed = (datetime.utcnow() - round.start_time).total_seconds() if round.start_time else 0
@@ -341,10 +371,36 @@ def finalize_round_internal(round_id):
     # Check for existing tiebreakers that need resolution
     existing_tiebreakers = Tiebreaker.query.filter_by(round_id=round_id, resolved=False).all()
     if existing_tiebreakers:
-        # Cannot finalize until tiebreakers are resolved
-        return {"status": "tiebreaker_pending", "tiebreakers": [t.id for t in existing_tiebreakers]}
+        # Check if any of these tiebreakers have expired timers
+        current_time = datetime.utcnow()
+        if round.start_time and (current_time - round.start_time).total_seconds() >= round.duration:
+            # Time has expired, cancel all unresolved tiebreakers
+            for tiebreaker in existing_tiebreakers:
+                # Get related bids and remove them from consideration
+                player_id = tiebreaker.player_id
+                tied_bids = Bid.query.filter_by(
+                    round_id=round_id,
+                    player_id=player_id
+                ).all()
+                
+                # Mark these bids as cancelled due to unresolved tiebreaker
+                for bid in tied_bids:
+                    bid.is_hidden = True
+                
+                # Mark the tiebreaker as resolved (cancelled)
+                tiebreaker.resolved = True
+                tiebreaker.notes = "Auto-cancelled due to timeout"
+            
+            db.session.commit()
+            
+            # Now process the remaining bids
+            remaining_bids = Bid.query.filter_by(round_id=round_id, is_hidden=False).all()
+            return process_bids_with_tiebreaker_check(round_id, remaining_bids)
+        else:
+            # Cannot finalize until tiebreakers are resolved
+            return {"status": "tiebreaker_pending", "tiebreakers": [t.id for t in existing_tiebreakers]}
     
-    bids = Bid.query.filter_by(round_id=round_id).all()
+    bids = Bid.query.filter_by(round_id=round_id, is_hidden=False).all()
     
     # Start processing bids
     return process_bids_with_tiebreaker_check(round_id, bids)
@@ -389,6 +445,10 @@ def process_bids_with_tiebreaker_check(round_id, bids):
                     new_amount=None  # Will be set during tiebreaker resolution
                 )
                 db.session.add(team_tiebreaker)
+            
+            # Reset the parent round's timer to ensure teams have time for the tiebreaker
+            round.start_time = datetime.utcnow()
+            round.duration = 300  # 5 minutes (in seconds) for tiebreaker resolution
             
             db.session.commit()
             
@@ -701,14 +761,33 @@ def submit_tiebreaker_bid():
         
         db.session.commit()
         
-        # Try to finalize the round again
-        result = finalize_round_internal(round_id)
+        # Check if all tiebreakers for this round are resolved
+        unresolved_tiebreakers = Tiebreaker.query.filter_by(
+            round_id=round_id, 
+            resolved=False
+        ).count()
         
-        if isinstance(result, dict) and result.get("status") == "success":
-            return jsonify({'message': 'Tiebreaker resolved and round finalized'})
-        
-        # If we get here, round finalization might require more tiebreakers
-        return jsonify({'message': 'Tiebreaker resolved, additional processing needed'})
+        if unresolved_tiebreakers == 0:
+            # All tiebreakers are resolved, finalize the round
+            result = finalize_round_internal(round_id)
+            
+            if isinstance(result, dict) and result.get("status") == "success":
+                return jsonify({
+                    'message': 'Tiebreaker resolved and round finalized',
+                    'redirect_to': url_for('dashboard')
+                })
+            else:
+                # Finalization had an issue, return appropriate message
+                return jsonify({
+                    'message': 'Tiebreaker resolved but round finalization had an issue',
+                    'redirect_to': url_for('dashboard')
+                })
+        else:
+            # Some tiebreakers are still unresolved
+            return jsonify({
+                'message': 'Tiebreaker resolved, waiting for other tiebreakers to be resolved',
+                'unresolved_tiebreakers': unresolved_tiebreakers
+            })
     
     return jsonify({'message': 'Bid submitted successfully, waiting for other teams'})
 
@@ -717,20 +796,153 @@ def submit_tiebreaker_bid():
 def check_tiebreaker_status(tiebreaker_id):
     tiebreaker = Tiebreaker.query.get_or_404(tiebreaker_id)
     
+    # Get the associated round for time information
+    round = Round.query.get(tiebreaker.round_id)
+    remaining = 0
+    
     # Check if this tiebreaker is resolved
     if tiebreaker.resolved:
         # Check if the round is still active
-        round = Round.query.get(tiebreaker.round_id)
-        if round.is_active:
-            return jsonify({
-                'status': 'processing',
-                'message': 'Tiebreaker resolved, round still processing'
-            })
+        if round and round.is_active:
+            # Check if all tiebreakers for this round are resolved
+            unresolved_tiebreakers = Tiebreaker.query.filter_by(
+                round_id=round.id, 
+                resolved=False
+            ).count()
+            
+            if unresolved_tiebreakers == 0:
+                # All tiebreakers resolved, finalize the round automatically
+                result = finalize_round_internal(round.id)
+                return jsonify({
+                    'status': 'completed',
+                    'active': False,
+                    'remaining': 0,
+                    'message': 'All tiebreakers resolved, round finalized',
+                    'tiebreaker_id': tiebreaker_id,
+                    'redirect_to': url_for('dashboard')
+                })
+            else:
+                return jsonify({
+                    'status': 'processing',
+                    'active': False,
+                    'remaining': 0,
+                    'message': 'Tiebreaker resolved, waiting for other tiebreakers',
+                    'tiebreaker_id': tiebreaker_id,
+                    'unresolved_tiebreakers': unresolved_tiebreakers
+                })
         else:
             return jsonify({
                 'status': 'completed',
-                'message': 'Round finalized'
+                'active': False,
+                'remaining': 0,
+                'message': 'Round finalized',
+                'tiebreaker_id': tiebreaker_id,
+                'redirect_to': url_for('dashboard')
             })
+    
+    # If round timer is expired but tiebreaker isn't resolved, automatically resolve it
+    if round and round.is_active and round.start_time:
+        # Calculate remaining time
+        elapsed = (datetime.utcnow() - round.start_time).total_seconds()
+        remaining = max(0, round.duration - elapsed)
+        
+        # If timer expired, auto-resolve tiebreaker
+        if remaining <= 0:
+            # Process the tiebreaker resolution here
+            # Find the team with the highest bid
+            team_tiebreakers = TeamTiebreaker.query.filter_by(tiebreaker_id=tiebreaker_id).all()
+            
+            # Find highest bid - teams that didn't submit a new bid are excluded
+            highest_bid = None
+            highest_team = None
+            
+            for tt in team_tiebreakers:
+                if tt.new_amount is not None and (highest_bid is None or tt.new_amount > highest_bid):
+                    highest_bid = tt.new_amount
+                    highest_team = tt.team
+            
+            # If there's a highest bid, allocate the player
+            if highest_team and highest_bid:
+                player = Player.query.get(tiebreaker.player_id)
+                if player:
+                    player.team_id = highest_team.id
+                    highest_team.balance -= highest_bid
+                    player.acquisition_value = highest_bid
+                
+                # Mark tiebreaker as resolved
+                tiebreaker.resolved = True
+                db.session.commit()
+                
+                # Check if all tiebreakers for this round are resolved
+                unresolved_tiebreakers = Tiebreaker.query.filter_by(
+                    round_id=round.id, 
+                    resolved=False
+                ).count()
+                
+                if unresolved_tiebreakers == 0:
+                    # All tiebreakers resolved, finalize the round automatically
+                    result = finalize_round_internal(round.id)
+                    return jsonify({
+                        'status': 'completed',
+                        'active': False,
+                        'remaining': 0,
+                        'message': 'Tiebreaker auto-resolved and round finalized',
+                        'tiebreaker_id': tiebreaker_id,
+                        'redirect_to': url_for('dashboard')
+                    })
+                else:
+                    # Return status indicating tiebreaker was auto-resolved
+                    return jsonify({
+                        'status': 'completed',
+                        'active': False,
+                        'remaining': 0,
+                        'message': 'Tiebreaker auto-resolved - time expired',
+                        'tiebreaker_id': tiebreaker_id,
+                        'unresolved_tiebreakers': unresolved_tiebreakers
+                    })
+            else:
+                # No valid bids, mark as cancelled due to timeout and mark related bids as hidden
+                tied_bids = Bid.query.filter_by(
+                    round_id=round.id,
+                    player_id=tiebreaker.player_id
+                ).all()
+                
+                # Mark all tied bids as hidden (cancelled)
+                for bid in tied_bids:
+                    bid.is_hidden = True
+                
+                # Mark tiebreaker as resolved (cancelled)
+                tiebreaker.resolved = True
+                tiebreaker.notes = "Auto-cancelled due to timeout - no new bids submitted"
+                db.session.commit()
+                
+                # Check if all tiebreakers are now resolved
+                unresolved_tiebreakers = Tiebreaker.query.filter_by(
+                    round_id=round.id, 
+                    resolved=False
+                ).count()
+                
+                if unresolved_tiebreakers == 0:
+                    # All tiebreakers resolved, finalize the round
+                    result = finalize_round_internal(round.id)
+                    return jsonify({
+                        'status': 'completed',
+                        'active': False,
+                        'remaining': 0,
+                        'message': 'Tiebreaker cancelled due to timeout, round finalized',
+                        'tiebreaker_id': tiebreaker_id,
+                        'redirect_to': url_for('dashboard')
+                    })
+                else:
+                    return jsonify({
+                        'status': 'completed',
+                        'active': False,
+                        'remaining': 0,
+                        'message': 'Tiebreaker cancelled due to timeout',
+                        'tiebreaker_id': tiebreaker_id,
+                        'unresolved_tiebreakers': unresolved_tiebreakers,
+                        'redirect_to': url_for('team_round')
+                    })
     
     # Count how many teams have submitted bids
     team_tiebreakers = TeamTiebreaker.query.filter_by(tiebreaker_id=tiebreaker_id).all()
@@ -739,7 +951,10 @@ def check_tiebreaker_status(tiebreaker_id):
     
     return jsonify({
         'status': 'waiting',
-        'message': f'{submitted} of {total} teams have submitted tiebreaker bids'
+        'active': True,
+        'remaining': remaining,
+        'message': f'{submitted} of {total} teams have submitted tiebreaker bids',
+        'tiebreaker_id': tiebreaker_id
     })
 
 @app.route('/players')
@@ -778,10 +993,20 @@ def player_detail(player_id):
     referrer = request.referrer or ""
     from_players_database = "team_players_data" in referrer
     
-    # If not from the database page, make sure the player belongs to the current user's team
-    if not from_players_database and player not in current_user.team.players:
-        flash('You do not have access to this player', 'danger')
-        return redirect(url_for('team_players'))
+    # Check if user is admin (admins can view all players)
+    is_admin = hasattr(current_user, 'is_admin') and current_user.is_admin
+    
+    # Check if the player belongs to the current user's team
+    # First verify that the user has a team
+    if not from_players_database and not is_admin:
+        if not hasattr(current_user, 'team') or current_user.team is None:
+            flash('You need to be assigned to a team to view players', 'danger')
+            return redirect(url_for('dashboard'))
+            
+        # Now check if the player belongs to the user's team
+        if player not in current_user.team.players:
+            flash('You do not have access to this player', 'danger')
+            return redirect(url_for('team_players'))
     
     # Get all player attributes as a dictionary
     player_stats = {}
@@ -1601,6 +1826,126 @@ def admin_edit_team(team_id):
     
     return jsonify({'message': 'Team updated successfully'})
 
+@app.route('/admin/team/<int:team_id>')
+@login_required
+def admin_team_details(team_id):
+    if not current_user.is_admin:
+        flash('You do not have permission to access this page')
+        return redirect(url_for('dashboard'))
+    
+    # Get the team
+    team = Team.query.get_or_404(team_id)
+    
+    # Get team players
+    players = Player.query.filter_by(team_id=team_id).all()
+    
+    # Calculate position counts
+    position_counts = {position: 0 for position in Config.POSITIONS}
+    position_total_ratings = {position: 0 for position in Config.POSITIONS}
+    
+    for player in players:
+        if player.position in position_counts:
+            position_counts[player.position] += 1
+            position_total_ratings[player.position] += player.overall_rating
+    
+    # Calculate position average ratings
+    position_avg_ratings = {}
+    for position, count in position_counts.items():
+        if count > 0:
+            position_avg_ratings[position] = round(position_total_ratings[position] / count, 1)
+        else:
+            position_avg_ratings[position] = 0
+    
+    # Calculate total team value
+    total_value = sum(player.acquisition_value for player in players if player.acquisition_value)
+    
+    # Calculate average player value
+    avg_player_value = 0
+    if players:
+        avg_player_value = total_value // len(players) if total_value > 0 else 0
+    
+    # Calculate average player rating
+    total_rating = sum(player.overall_rating for player in players)
+    avg_rating = round(total_rating / len(players), 1) if players else 0
+    
+    # Get highest value player
+    highest_value = 0
+    if players:
+        highest_value = max((player.acquisition_value for player in players if player.acquisition_value), default=0)
+    
+    # Get top players (by rating)
+    top_players = sorted(players, key=lambda p: p.overall_rating, reverse=True)[:5]
+    
+    # Get active bids
+    active_bids = Bid.query.join(Player).filter(
+        Bid.team_id == team_id,
+        Player.round_id != None,
+        Player.team_id != team_id
+    ).count()
+    
+    # Get total completed bids and calculate success rate
+    total_bids = Bid.query.filter_by(team_id=team_id).count()
+    successful_bids = 0
+    for player in players:
+        if player.acquisition_value and player.acquisition_value > 0:
+            successful_bids += 1
+    
+    bid_success_rate = round((successful_bids / total_bids) * 100, 1) if total_bids > 0 else 0
+    
+    # Compile all stats in a dictionary
+    team_stats = {
+        'total_players': len(players),
+        'total_value': total_value,
+        'avg_player_value': avg_player_value,
+        'avg_rating': avg_rating,
+        'highest_value': highest_value,
+        'position_counts': position_counts,
+        'position_avg_ratings': position_avg_ratings,
+        'top_players': top_players,
+        'active_bids': active_bids,
+        'total_bids': total_bids,
+        'successful_bids': successful_bids,
+        'bid_success_rate': bid_success_rate
+    }
+    
+    # Add players to the team object for template access
+    team.players = players
+    
+    # Set default status
+    team.status = "active"  # Default status
+    
+    return render_template('admin_team_details.html', team=team, team_stats=team_stats)
+
+@app.route('/admin/update_team/<int:team_id>', methods=['POST'])
+@login_required
+def update_team(team_id):
+    if not current_user.is_admin:
+        return jsonify({'success': False, 'message': 'Unauthorized'}), 403
+    
+    team = Team.query.get_or_404(team_id)
+    
+    # Get form data
+    name = request.form.get('name')
+    status = request.form.get('status')
+    
+    if not name:
+        return jsonify({'success': False, 'message': 'Team name is required'}), 400
+    
+    # Check if another team with this name already exists
+    existing_team = Team.query.filter_by(name=name).first()
+    if existing_team and existing_team.id != team_id:
+        return jsonify({'success': False, 'message': 'Another team with this name already exists'}), 400
+    
+    # Update team details
+    team.name = name
+    
+    # If you have status in your Team model, update it
+    # team.status = status
+    
+    db.session.commit()
+    
+    return jsonify({'success': True, 'message': 'Team updated successfully'})
+
 @app.route('/admin/delete_team/<int:team_id>', methods=['POST'])
 @login_required
 def admin_delete_team(team_id):
@@ -1648,6 +1993,11 @@ def admin_delete_team(team_id):
 @app.route('/team_players')
 @login_required
 def team_players():
+    # Check if user has a team
+    if not hasattr(current_user, 'team') or current_user.team is None:
+        flash('You need to be assigned to a team to view players', 'danger')
+        return redirect(url_for('dashboard'))
+    
     # Get filter and sort parameters
     position_filter = request.args.get('position', 'all')
     sort_by = request.args.get('sort', 'name')
@@ -1739,6 +2089,11 @@ def team_bids():
     Display a team's bidding history and statistics.
     This page shows current and past bids for the current user's team.
     """
+    # Check if user has a team
+    if not hasattr(current_user, 'team') or current_user.team is None:
+        flash('You need to be assigned to a team to view bids', 'danger')
+        return redirect(url_for('dashboard'))
+    
     # Get active rounds for the "Place New Bid" button
     active_rounds = Round.query.filter_by(is_active=True).all()
     
@@ -2239,14 +2594,33 @@ def check_bulk_round_status(round_id):
     bulk_round = BulkBidRound.query.get_or_404(round_id)
     
     if not bulk_round.is_active:
-        return jsonify({'active': False})
+        return jsonify({
+            'active': False,
+            'status': 'completed',
+            'message': 'Round is already finalized'
+        })
     
-    elapsed = (datetime.utcnow() - bulk_round.start_time).total_seconds()
-    remaining = max(bulk_round.duration - elapsed, 0)
+    # Calculate remaining time
+    elapsed = (datetime.utcnow() - bulk_round.start_time).total_seconds() if bulk_round.start_time else 0
+    remaining = max(0, bulk_round.duration - elapsed)
+    
+    # Check if timer expired but round not yet finalized
+    if remaining <= 0 and bulk_round.is_active:
+        return jsonify({
+            'active': True,
+            'status': 'expiring',
+            'remaining': 0,
+            'message': 'Round timer expired, waiting for finalization'
+        })
     
     return jsonify({
         'active': True,
-        'remaining': remaining
+        'status': 'active',
+        'remaining': remaining,
+        'duration': bulk_round.duration,
+        'base_price': bulk_round.base_price,
+        'start_time': bulk_round.start_time.isoformat() if bulk_round.start_time else None,
+        'message': 'Round active'
     })
 
 @app.route('/team_bulk_tiebreaker/<int:tiebreaker_id>')
@@ -2578,8 +2952,7 @@ def admin_finalize_bulk_round(round_id):
                 )
                 db.session.add(team_tiebreaker)
                 
-                # Mark bid as having a tie
-                bid.has_tie = True
+                # No need to mark bid as having a tie since it doesn't have this column
             
             db.session.commit()
     
@@ -2619,8 +2992,7 @@ def admin_bulk_rounds():
         # Count players acquired directly (no tiebreaker)
         direct_assignments = BulkBid.query.filter_by(
             round_id=round.id,
-            is_resolved=True,
-            has_tie=False
+            is_resolved=True
         ).count()
         
         # Count tiebreakers
@@ -2807,6 +3179,15 @@ def admin_resolve_bulk_tiebreaker(tiebreaker_id):
 def check_bulk_tiebreaker_status(tiebreaker_id):
     tiebreaker = BulkBidTiebreaker.query.get_or_404(tiebreaker_id)
     
+    # Get associated round for timing information
+    round = BulkBidRound.query.get(tiebreaker.round_id)
+    remaining = 0
+    
+    if round and round.is_active and round.start_time:
+        # Calculate remaining time
+        elapsed = (datetime.utcnow() - round.start_time).total_seconds()
+        remaining = max(0, round.duration - elapsed)
+    
     # If the tiebreaker is resolved, check if there are other active tiebreakers for this team
     next_tiebreaker = None
     if tiebreaker.resolved and current_user.team:
@@ -2823,12 +3204,105 @@ def check_bulk_tiebreaker_status(tiebreaker_id):
         if next_team_tiebreaker:
             next_tiebreaker = next_team_tiebreaker.tiebreaker_id
     
+    # Count how many teams have submitted bids
+    team_tiebreakers = TeamBulkTiebreaker.query.filter_by(tiebreaker_id=tiebreaker_id).all()
+    submitted = sum(1 for tt in team_tiebreakers if tt.new_amount is not None)
+    total = len(team_tiebreakers)
+    
+    status = 'completed' if tiebreaker.resolved else 'waiting'
+    
     # Return tiebreaker status information
     return jsonify({
+        'status': status, 
+        'active': not tiebreaker.resolved,
         'resolved': tiebreaker.resolved,
+        'remaining': remaining,
+        'message': f'{submitted} of {total} teams have submitted tiebreaker bids',
         'winner_team_id': tiebreaker.winner_team_id if tiebreaker.resolved else None,
         'next_tiebreaker_id': next_tiebreaker
     })
+
+@app.route('/admin/delete_bulk_round/<int:round_id>', methods=['POST'])
+@login_required
+def admin_delete_bulk_round(round_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    bulk_round = BulkBidRound.query.get_or_404(round_id)
+    
+    if bulk_round.is_active:
+        return jsonify({'error': 'Cannot delete an active bulk round. Please finalize it first.'}), 400
+    
+    try:
+        # Get all bids for this round
+        bids = BulkBid.query.filter_by(round_id=round_id).all()
+        allocated_players = []
+        
+        # Find players that were allocated to teams in this round
+        for bid in bids:
+            if bid.is_resolved:
+                player = Player.query.get(bid.player_id)
+                if player and player.team_id == bid.team_id:
+                    allocated_players.append(player)
+        
+        refunded_amount = 0
+        freed_players = 0
+        
+        # Release allocated players from their teams (set as free agents)
+        for player in allocated_players:
+            # Get the team to refund the acquisition value
+            team = Team.query.get(player.team_id)
+            if team and player.acquisition_value:
+                team.balance += player.acquisition_value
+                refunded_amount += player.acquisition_value
+            
+            # Reset player's team and acquisition value to make them free agents
+            player.team_id = None
+            player.acquisition_value = None
+            freed_players += 1
+        
+        # Also check for any players that might have been assigned in tiebreakers
+        tiebreakers = BulkBidTiebreaker.query.filter_by(bulk_round_id=round_id, resolved=True).all()
+        for tiebreaker in tiebreakers:
+            if tiebreaker.winner_team_id:
+                player = Player.query.get(tiebreaker.player_id)
+                if player and player.team_id == tiebreaker.winner_team_id:
+                    # Avoid counting players twice if they're already in allocated_players
+                    if player not in allocated_players:
+                        # Get the team to refund the acquisition value
+                        team = Team.query.get(player.team_id)
+                        if team and player.acquisition_value:
+                            team.balance += player.acquisition_value
+                            refunded_amount += player.acquisition_value
+                        
+                        # Reset player's team and acquisition value to make them free agents
+                        player.team_id = None
+                        player.acquisition_value = None
+                        freed_players += 1
+        
+        # Delete all team tiebreakers for this round
+        for tiebreaker in tiebreakers:
+            TeamBulkTiebreaker.query.filter_by(tiebreaker_id=tiebreaker.id).delete()
+        
+        # Delete all tiebreakers for this round
+        BulkBidTiebreaker.query.filter_by(bulk_round_id=round_id).delete()
+        
+        # Delete all bids for this round
+        BulkBid.query.filter_by(round_id=round_id).delete()
+        
+        # Delete the round
+        db.session.delete(bulk_round)
+        db.session.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Bulk round deleted successfully. {freed_players} players set as free agents.',
+            'released_players': freed_players,
+            'refunded_amount': refunded_amount
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to delete bulk round: {str(e)}'}), 500
 
 if __name__ == '__main__':
     with app.app_context():
