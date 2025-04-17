@@ -243,7 +243,7 @@
     <!-- Top Navigation for larger screens -->
     <nav class="nav-glass sticky top-0 z-50 hidden sm:block">
         <div class="container mx-auto py-4 px-6 flex justify-between items-center">
-            <a href="{{ url_for('index') }}" class="flex items-center">
+            <a href="{% if current_user.is_authenticated %}{% if current_user.is_admin %}{{ url_for('dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-10 mr-3 hover-float">
                 <span class="text-2xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow header-text">SS League Auction</span>
             </a>
@@ -262,7 +262,7 @@
     <!-- Mobile header -->
     <header class="sm:hidden nav-glass sticky top-0 z-40 p-4">
         <div class="flex justify-center items-center">
-            <a href="{{ url_for('index') }}" class="flex items-center">
+            <a href="{% if current_user.is_authenticated %}{% if current_user.is_admin %}{{ url_for('dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-8 mr-2 hover-float">
                 <span class="text-xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow">SS League Auction</span>
             </a>
