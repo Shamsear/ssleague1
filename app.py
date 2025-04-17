@@ -2833,6 +2833,77 @@ def check_bulk_tiebreaker_status(tiebreaker_id):
         'next_tiebreaker_id': next_tiebreaker
     })
 
+@app.route('/admin/delete_bulk_round/<int:round_id>', methods=['POST'])
+@login_required
+def admin_delete_bulk_round(round_id):
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    bulk_round = BulkBidRound.query.get_or_404(round_id)
+    
+    if bulk_round.is_active:
+        return jsonify({'error': 'Cannot delete an active bulk round. Please finalize it first.'}), 400
+    
+    try:
+        released_players = 0
+        refunded_amount = 0
+        
+        # Find all bids in this round
+        bulk_bids = BulkBid.query.filter_by(round_id=round_id).all()
+        
+        # Group bids by player
+        bid_players = {}
+        for bid in bulk_bids:
+            if bid.player_id not in bid_players:
+                bid_players[bid.player_id] = []
+            bid_players[bid.player_id].append(bid)
+        
+        # Find all players that were allocated through this round
+        for player_id, bids in bid_players.items():
+            player = Player.query.get(player_id)
+            if player and player.team_id:
+                # Check if any of the bids matches the player's team
+                team_match = False
+                for bid in bids:
+                    if bid.team_id == player.team_id:
+                        team_match = True
+                        break
+                
+                if team_match:
+                    # Found a player allocated through this round
+                    # Refund the team
+                    team = Team.query.get(player.team_id)
+                    if team and player.acquisition_value:
+                        team.balance += player.acquisition_value
+                        refunded_amount += player.acquisition_value
+                    
+                    # Reset player's team and acquisition value
+                    player.team_id = None
+                    player.acquisition_value = None
+                    released_players += 1
+        
+        # Delete all tiebreakers for this round
+        tiebreakers = BulkBidTiebreaker.query.filter_by(bulk_round_id=round_id).all()
+        for tiebreaker in tiebreakers:
+            TeamBulkTiebreaker.query.filter_by(tiebreaker_id=tiebreaker.id).delete()
+        BulkBidTiebreaker.query.filter_by(bulk_round_id=round_id).delete()
+        
+        # Delete all bids for this round
+        BulkBid.query.filter_by(round_id=round_id).delete()
+        
+        # Delete the round
+        db.session.delete(bulk_round)
+        db.session.commit()
+        
+        return jsonify({
+            'message': 'Bulk bid round deleted successfully',
+            'released_players': released_players,
+            'refunded_amount': refunded_amount
+        })
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Failed to delete bulk round: {str(e)}'}), 500
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

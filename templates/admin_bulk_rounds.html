@@ -201,9 +201,14 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
-                                <a href="{{ url_for('admin_bulk_round', round_id=round.id) }}" class="text-primary hover:text-primary-dark">
-                                    View Details
-                                </a>
+                                <div class="flex justify-end space-x-2">
+                                    <a href="{{ url_for('admin_bulk_round', round_id=round.id) }}" class="text-primary hover:text-primary-dark">
+                                        View Details
+                                    </a>
+                                    <button onclick="deleteBulkRound({{ round.id }})" class="text-red-500 hover:text-red-700 cursor-pointer">
+                                        Delete
+                                    </button>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}
@@ -239,6 +244,27 @@
             .catch(error => {
                 console.error('Error finalizing round:', error);
                 alert('An error occurred while finalizing the round. Please try again.');
+            });
+        }
+    }
+    
+    function deleteBulkRound(roundId) {
+        if (confirm('Are you sure you want to delete this bulk round? This will release all players allocated in this round and refund the acquisition values to their teams. This action cannot be undone.')) {
+            fetch(`/admin/delete_bulk_round/${roundId}`, {
+                method: 'POST'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    alert(`Bulk round deleted successfully. ${data.released_players} players have been released.\n£${data.refunded_amount.toLocaleString()} refunded to teams.`);
+                    window.location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting bulk round:', error);
+                alert('An error occurred while deleting the bulk round. Please try again.');
             });
         }
     }
