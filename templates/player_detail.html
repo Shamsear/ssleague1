@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 
 {% macro stats_bar(label, value) %}
-<div class="bg-white/50 rounded-xl p-3">
+<div class="bg-white/50 rounded-xl p-3 hover:bg-white/60 transition-all duration-300">
     <div class="flex justify-between items-center mb-2">
         <span class="text-sm text-gray-700 font-medium">{{ label }}</span>
         <span class="text-xs font-medium bg-gray-100 text-gray-800 px-2 py-0.5 rounded-full">{{ value }}</span>
     </div>
-    <div class="w-full bg-gray-200 rounded-full h-2 shadow-inner overflow-hidden">
-        <div class="h-2 rounded-full transition-all duration-500 
+    <div class="w-full bg-gray-200 rounded-full h-2.5 shadow-inner overflow-hidden">
+        <div class="h-2.5 rounded-full transition-all duration-700 
             {% if value >= 85 %}bg-green-400 shadow
             {% elif value >= 75 %}bg-blue-400 shadow
             {% elif value >= 65 %}bg-yellow-400 shadow
             {% else %}bg-gray-400 shadow{% endif %}"
-            style="width: {{ value }}%">
+            style="width: 0%">
         </div>
     </div>
 </div>
@@ -25,7 +25,14 @@
     <div class="glass rounded-3xl p-6 sm:p-8 max-w-5xl mx-auto hover:shadow-lg transition-all duration-300">
         <!-- Header with Back Button -->
         <div class="flex items-center justify-between mb-8">
-            {% if request.referrer and 'team_players_data' in request.referrer %}
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('admin_players') }}" class="flex items-center text-gray-600 hover:text-primary transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span>Back to Admin Players</span>
+            </a>
+            {% elif request.referrer and 'team_players_data' in request.referrer %}
             <a href="{{ url_for('team_players_data') }}" class="flex items-center text-gray-600 hover:text-primary transition-colors">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -54,14 +61,14 @@
                 <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
                     <!-- Player Image -->
                     <div class="relative w-40 h-40 mx-auto mb-4 rounded-xl overflow-hidden shadow-md">
-                        {% if player.player_id %}
+                        {% if player.player_id and player.player_id > 0 %}
                             <img src="{{ url_for('static', filename='images/player_photos/' + player.player_id|string + '.png') }}" 
                                  alt="{{ player.name }}" 
                                  class="object-cover w-full h-full"
-                                 onerror="this.onerror=null; this.src='{{ url_for('static', filename='images/player_placeholder.png') }}'; this.classList.add('bg-primary/10');">
+                                 onerror="handleImageError(this)">
                         {% else %}
                             <div class="bg-primary/10 w-full h-full flex items-center justify-center">
-                                <span class="text-5xl font-bold text-primary">{{ player.position[0] }}</span>
+                                <span class="text-5xl font-bold text-primary">{{ player.position[0] if player.position else '?' }}</span>
                             </div>
                         {% endif %}
                         
@@ -114,7 +121,7 @@
                 </div>
                 
                 <!-- Acquisition Details -->
-                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
+                <div class="glass rounded-2xl p-6 shadow-md border border-white/20 bg-white/60 hover:bg-white/70 transition-all duration-300 transform hover:scale-[1.01]">
                     <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -122,34 +129,71 @@
                         Acquisition Details
                     </h3>
                     <div class="space-y-4">
-                        <div class="bg-gray-50 rounded-xl p-4">
-                            <p class="text-xs text-gray-500 uppercase tracking-wide">Cost</p>
+                        <div class="glass rounded-xl p-4 bg-white/40 hover:bg-white/50 transition-all duration-300 shadow-sm">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Team</p>
                             <p class="text-xl font-bold text-dark">
-                                {% if player.acquisition_value %}
-                                    £{{ "{:,}".format(player.acquisition_value) }}
+                                {% if player.team %}
+                                    <span class="flex items-center">
+                                        <svg class="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
+                                        {{ player.team.name }}
+                                    </span>
                                 {% else %}
-                                    Free Transfer
+                                    <span class="flex items-center">
+                                        <svg class="w-4 h-4 mr-1 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Free Agent
+                                    </span>
                                 {% endif %}
                             </p>
                         </div>
                         
-                        <div class="bg-gray-50 rounded-xl p-4">
-                            <p class="text-xs text-gray-500 uppercase tracking-wide">Acquired On</p>
+                        <div class="glass rounded-xl p-4 bg-white/40 hover:bg-white/50 transition-all duration-300 shadow-sm">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Cost</p>
                             <p class="text-xl font-bold text-dark">
-                                {% if player.acquired_at %}
-                                    {{ player.acquired_at.strftime('%d %b %Y') }}
-                                {% elif player.round_id %}
-                                    Via Round #{{ player.round_id }} auction
+                                {% if player.team and player.acquisition_value %}
+                                    <span class="flex items-center">
+                                        <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        £{{ "{:,}".format(player.acquisition_value) }}
+                                    </span>
                                 {% else %}
-                                    N/A
+                                    <span class="flex items-center">
+                                        <svg class="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Free Transfer
+                                    </span>
                                 {% endif %}
                             </p>
                         </div>
                         
-                        {% if player.round_id %}
-                        <div class="bg-gray-50 rounded-xl p-4">
-                            <p class="text-xs text-gray-500 uppercase tracking-wide">Round</p>
-                            <p class="text-xl font-bold text-dark">Round #{{ player.round_id }}</p>
+                        {% if player.acquired_at %}
+                        <div class="glass rounded-xl p-4 bg-white/40 hover:bg-white/50 transition-all duration-300 shadow-sm">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Acquired On</p>
+                            <p class="text-xl font-bold text-dark">
+                                <span class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    {{ player.acquired_at.strftime('%d %b %Y') if player.acquired_at else 'Unknown' }}
+                                </span>
+                            </p>
+                        </div>
+                        {% elif player.round_id %}
+                        <div class="glass rounded-xl p-4 bg-white/40 hover:bg-white/50 transition-all duration-300 shadow-sm">
+                            <p class="text-xs text-gray-500 uppercase tracking-wide mb-1">Acquired Via</p>
+                            <p class="text-xl font-bold text-dark">
+                                <span class="flex items-center">
+                                    <svg class="w-4 h-4 mr-1 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                                    </svg>
+                                    Round #{{ player.round_id }} auction
+                                </span>
+                            </p>
                         </div>
                         {% endif %}
                     </div>
@@ -168,12 +212,12 @@
                     </h3>
                     <div class="flex items-center">
                         <div class="w-24 h-24 bg-gradient-to-br 
-                            {% if player.overall_rating >= 85 %}from-green-400 to-green-500
-                            {% elif player.overall_rating >= 75 %}from-blue-400 to-blue-500
-                            {% elif player.overall_rating >= 65 %}from-yellow-400 to-yellow-500
+                            {% if player.overall_rating is not none and player.overall_rating >= 85 %}from-green-400 to-green-500
+                            {% elif player.overall_rating is not none and player.overall_rating >= 75 %}from-blue-400 to-blue-500
+                            {% elif player.overall_rating is not none and player.overall_rating >= 65 %}from-yellow-400 to-yellow-500
                             {% else %}from-gray-400 to-gray-500{% endif %}
                             rounded-full flex items-center justify-center shadow-lg">
-                            <span class="text-4xl font-bold text-white">{{ player.overall_rating }}</span>
+                            <span class="text-4xl font-bold text-white">{{ player.overall_rating or '--' }}</span>
                         </div>
                         <div class="ml-6">
                             <h4 class="text-lg font-semibold text-dark">{{ player.name }}</h4>
@@ -181,14 +225,14 @@
                             
                             <div class="mt-2">
                                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium 
-                                    {% if player.overall_rating >= 85 %}bg-green-100 text-green-800
-                                    {% elif player.overall_rating >= 75 %}bg-blue-100 text-blue-800
-                                    {% elif player.overall_rating >= 65 %}bg-yellow-100 text-yellow-800
+                                    {% if player.overall_rating is not none and player.overall_rating >= 85 %}bg-green-100 text-green-800
+                                    {% elif player.overall_rating is not none and player.overall_rating >= 75 %}bg-blue-100 text-blue-800
+                                    {% elif player.overall_rating is not none and player.overall_rating >= 65 %}bg-yellow-100 text-yellow-800
                                     {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                    {% if player.overall_rating >= 85 %}Elite
-                                    {% elif player.overall_rating >= 75 %}Excellent
-                                    {% elif player.overall_rating >= 65 %}Good
-                                    {% else %}Average{% endif %}
+                                    {% if player.overall_rating is not none and player.overall_rating >= 85 %}Elite
+                                    {% elif player.overall_rating is not none and player.overall_rating >= 75 %}Excellent
+                                    {% elif player.overall_rating is not none and player.overall_rating >= 65 %}Good
+                                    {% else %}Unrated{% endif %}
                                 </span>
                             </div>
                         </div>
@@ -199,7 +243,7 @@
                 <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
                     <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2" />
                         </svg>
                         Key Attributes
                     </h3>
@@ -292,25 +336,31 @@
                     </h3>
                     
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                        {% for stat_name, stat_value in player_stats.items() %}
-                            {% if stat_value and stat_name not in [
-                                'speed', 'acceleration', 'ball_control', 'dribbling', 'tight_possession',
-                                'offensive_awareness', 'defensive_awareness', 'tackling', 'defensive_engagement',
-                                'low_pass', 'lofted_pass', 'finishing', 'heading', 'stamina', 
-                                'physical_contact', 'kicking_power',
-                                'gk_awareness', 'gk_catching', 'gk_parrying', 'gk_reflexes', 'gk_reach'
-                            ] %}
-                                <div class="bg-gray-50 rounded-xl p-3">
-                                    <p class="text-xs text-gray-500 mb-1">{{ stat_name|capitalize|replace('_', ' ') }}</p>
-                                    <p class="text-base font-medium text-dark">{{ stat_value }}</p>
-                                </div>
-                            {% endif %}
-                        {% endfor %}
+                        {% if player_stats %}
+                            {% for stat_name, stat_value in player_stats.items() %}
+                                {% if stat_value and stat_name not in [
+                                    'speed', 'acceleration', 'ball_control', 'dribbling', 'tight_possession',
+                                    'offensive_awareness', 'defensive_awareness', 'tackling', 'defensive_engagement',
+                                    'low_pass', 'lofted_pass', 'finishing', 'heading', 'stamina', 
+                                    'physical_contact', 'kicking_power',
+                                    'gk_awareness', 'gk_catching', 'gk_parrying', 'gk_reflexes', 'gk_reach'
+                                ] %}
+                                    <div class="bg-gray-50 rounded-xl p-3">
+                                        <p class="text-xs text-gray-500 mb-1">{{ stat_name|capitalize|replace('_', ' ') }}</p>
+                                        <p class="text-base font-medium text-dark">{{ stat_value }}</p>
+                                    </div>
+                                {% endif %}
+                            {% endfor %}
+                        {% else %}
+                            <div class="col-span-4 text-center py-4 text-gray-500">
+                                <p>No additional statistics available</p>
+                            </div>
+                        {% endif %}
                     </div>
                 </div>
                 
                 <!-- Performance History -->
-                {% if player_performance %}
+                {% if player_performance and player_performance|length > 0 %}
                 <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
                     <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -332,17 +382,17 @@
                             <tbody class="divide-y divide-gray-200 bg-white/50">
                                 {% for game in player_performance %}
                                 <tr>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ game.date }}</td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ game.opponent }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ game.date if game.date else 'N/A' }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ game.opponent if game.opponent else 'N/A' }}</td>
                                     <td class="px-4 py-3 whitespace-nowrap text-sm">
                                         <span class="px-2 py-1 text-xs rounded-full 
                                             {% if game.result == 'W' %}bg-green-100 text-green-800
                                             {% elif game.result == 'L' %}bg-red-100 text-red-800
                                             {% else %}bg-yellow-100 text-yellow-800{% endif %}">
-                                            {{ game.result }}
+                                            {{ game.result if game.result else '-' }}
                                         </span>
                                     </td>
-                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ game.stats }}</td>
+                                    <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">{{ game.stats if game.stats else '-' }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -354,5 +404,25 @@
         </div>
     </div>
 </div>
+
+<script>
+    function handleImageError(img) {
+        img.onerror = null;
+        img.src = "{{ url_for('static', filename='images/player_placeholder.png') }}";
+        img.classList.add('bg-primary/10');
+    }
+    
+    // Initialize progress bars with animation
+    document.addEventListener('DOMContentLoaded', function() {
+        // Animate progress bars
+        const progressBars = document.querySelectorAll('.bg-gray-200 .h-2\\.5');
+        progressBars.forEach(bar => {
+            const value = parseInt(bar.parentElement.previousElementSibling.querySelector('.rounded-full').textContent);
+            setTimeout(() => {
+                bar.style.width = value + '%';
+            }, 200);
+        });
+    });
+</script>
 
 {% endblock %}

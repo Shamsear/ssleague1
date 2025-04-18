@@ -112,17 +112,11 @@ def dashboard():
         # Get active bulk bid round if any
         active_bulk_round = BulkBidRound.query.filter_by(is_active=True).first()
         
-        # Get player selection stats
-        total_player_count = Player.query.count()
-        eligible_player_count = Player.query.filter_by(is_auction_eligible=True).count()
-        
         return render_template('admin_dashboard.html', 
                               teams=teams,
                               pending_users=pending_users,
                               pending_resets=pending_resets,
                               active_bulk_round=active_bulk_round,
-                              total_player_count=total_player_count,
-                              eligible_player_count=eligible_player_count,
                               config=Config)
     
     # For team users
@@ -196,21 +190,8 @@ def start_round():
     duration = request.json.get('duration', 300)  # Default to 5 minutes (300 seconds)
     max_bids_per_team = request.json.get('max_bids_per_team', 5)  # Default to 5 bids per team
     
-    # Check if position is valid - could be a base position or a position group
-    if not position:
+    if not position or position not in Config.POSITIONS:
         return jsonify({'error': 'Invalid position'}), 400
-    
-    # Check if it's a position group (e.g. CF-1)
-    is_position_group = '-' in position
-    if is_position_group:
-        position_parts = position.split('-')
-        if len(position_parts) != 2 or position_parts[0] not in Config.POSITIONS:
-            return jsonify({'error': 'Invalid position group format'}), 400
-        base_position = position_parts[0] 
-    else:
-        # Regular position (not a group)
-        if position not in Config.POSITIONS:
-            return jsonify({'error': 'Invalid position'}), 400
     
     try:
         duration = int(duration)
@@ -281,14 +262,8 @@ def start_round():
     db.session.add(round)
     db.session.flush()  # Get the round ID
     
-    # Add players to the round based on position or position group
-    if is_position_group:
-        # Position group (e.g., CF-1) - filter by position_group
-        players = Player.query.filter_by(position_group=position, team_id=None, is_auction_eligible=True).all()
-    else:
-        # Regular position (e.g., CF) - filter by position
-        players = Player.query.filter_by(position=position, team_id=None, is_auction_eligible=True).all()
-    
+    # Add players of the specified position to the round
+    players = Player.query.filter_by(position=position, team_id=None).all()
     for player in players:
         player.round_id = round.id
     
@@ -297,7 +272,7 @@ def start_round():
     return jsonify({
         'success': True,
         'round_id': round.id,
-        'message': f'Round for {position} started successfully',
+        'message': f'Round for position {position} started successfully',
         'remaining_rounds': remaining_rounds - 1  # Subtract 1 to account for current round
     })
 
@@ -369,23 +344,10 @@ def finalize_round_internal(round_id):
         # Cannot finalize until tiebreakers are resolved
         return {"status": "tiebreaker_pending", "tiebreakers": [t.id for t in existing_tiebreakers]}
     
-    # Get all bids for this round
-    all_bids = Bid.query.filter_by(round_id=round_id).all()
+    bids = Bid.query.filter_by(round_id=round_id).all()
     
-    # Count bids per team
-    team_bid_counts = {}
-    for bid in all_bids:
-        team_bid_counts[bid.team_id] = team_bid_counts.get(bid.team_id, 0) + 1
-    
-    # Only consider teams that placed exactly the required number of bids
-    valid_team_ids = [team_id for team_id, count in team_bid_counts.items() 
-                      if count == round.max_bids_per_team]
-    
-    # Filter bids to only include those from valid teams
-    valid_bids = [bid for bid in all_bids if bid.team_id in valid_team_ids]
-    
-    # Start processing only the valid bids
-    return process_bids_with_tiebreaker_check(round_id, valid_bids)
+    # Start processing bids
+    return process_bids_with_tiebreaker_check(round_id, bids)
 
 def process_bids_with_tiebreaker_check(round_id, bids):
     """Process bids in descending order, checking for ties and creating tiebreakers if needed"""
@@ -816,7 +778,7 @@ def player_detail(player_id):
     referrer = request.referrer or ""
     from_players_database = "team_players_data" in referrer
     
-    # Allow access if user is admin OR coming from database page OR the player belongs to their team
+    # If not from the database page, make sure the player belongs to the current user's team
     if not current_user.is_admin and not from_players_database and (current_user.team is None or player not in current_user.team.players):
         flash('You do not have access to this player', 'danger')
         return redirect(url_for('team_players'))
@@ -900,8 +862,7 @@ def api_player_detail(player_id):
         'overall_rating': player.overall_rating,
         'playing_style': player.playing_style,
         'player_id': player.player_id,
-        'team_id': player.team_id,
-        'is_auction_eligible': player.is_auction_eligible
+        'team_id': player.team_id
     }
     return jsonify(result)
 
@@ -914,25 +875,14 @@ def admin_players():
     
     page = request.args.get('page', 1, type=int)
     position = request.args.get('position', '')
-    group = request.args.get('group', '')
     search_query = request.args.get('q', '')
-    eligibility_filter = request.args.get('eligibility', 'eligible')  # Default to showing eligible players only
     
     query = Player.query
     
-    # Apply eligibility filter
-    if eligibility_filter == 'eligible':
-        query = query.filter_by(is_auction_eligible=True)
-    
-    # Apply position filter
+    # Apply filters
     if position:
         query = query.filter_by(position=position)
     
-    # Apply position group filter
-    if group:
-        query = query.filter_by(position_group=group)
-    
-    # Apply search filter
     if search_query:
         query = query.filter(Player.name.ilike(f'%{search_query}%'))
     
@@ -943,9 +893,7 @@ def admin_players():
                           players=players_pagination.items,
                           players_pagination=players_pagination,
                           current_position=position,
-                          current_group=group,
                           search_query=search_query,
-                          eligibility_filter=eligibility_filter,
                           config=Config,
                           teams=Team.query.all())
 
@@ -1093,8 +1041,7 @@ def admin_add_player():
     player = Player(
         name=name,
         position=position,
-        overall_rating=overall_rating,
-        is_auction_eligible=True  # Set new players as eligible by default
+        overall_rating=overall_rating
     )
     db.session.add(player)
     db.session.commit()
@@ -1269,21 +1216,6 @@ def admin_round_detail(round_id):
     # Get all bids for this round
     bids = Bid.query.filter_by(round_id=round_id).all()
     
-    # Get cancelled teams (teams that didn't place exactly the required number of bids)
-    team_bid_counts = {}
-    for bid in bids:
-        team_bid_counts[bid.team_id] = team_bid_counts.get(bid.team_id, 0) + 1
-    
-    cancelled_teams = []
-    for team_id, count in team_bid_counts.items():
-        if count != round.max_bids_per_team:
-            team = Team.query.get(team_id)
-            cancelled_teams.append({
-                'team': team,
-                'bid_count': count,
-                'required_count': round.max_bids_per_team
-            })
-    
     # Organize bids by player and team
     bids_by_player = {}
     for player in round.players:
@@ -1314,7 +1246,6 @@ def admin_round_detail(round_id):
                           round=round,
                           teams=teams,
                           bids_by_player=bids_by_player,
-                          cancelled_teams=cancelled_teams,
                           config=Config)
 
 @app.route('/admin/export_round/<int:round_id>')
@@ -1351,10 +1282,7 @@ def admin_export_round(round_id):
                         'Bid Amount': winning_bid.amount,
                         'Overall Rating': player.overall_rating,
                         'Nationality': player.nationality,
-                        'Playing Style': player.playing_style,
-                        'player_id': player.player_id,
-                        'team_id': player.team_id,
-                        'is_auction_eligible': player.is_auction_eligible
+                        'Playing Style': player.playing_style
                     })
             
             # Create dataframe and export to Excel
@@ -1673,114 +1601,6 @@ def admin_edit_team(team_id):
     
     return jsonify({'message': 'Team updated successfully'})
 
-@app.route('/admin/team/<int:team_id>')
-@login_required
-def admin_team_details(team_id):
-    if not current_user.is_admin:
-        flash('You do not have permission to access this page')
-        return redirect(url_for('dashboard'))
-    
-    # Get the team and its details
-    team = Team.query.get_or_404(team_id)
-    
-    # Get team stats
-    team_stats = {}
-    
-    # Get players for this team
-    players = Player.query.filter_by(team_id=team.id).all()
-    
-    # Calculate total team value and get position counts
-    total_value = sum(player.acquisition_value for player in players if player.acquisition_value)
-    
-    # Position counts and average ratings
-    position_counts = {position: 0 for position in Config.POSITIONS}
-    position_values = {position: 0 for position in Config.POSITIONS}
-    position_ratings = {position: 0 for position in Config.POSITIONS}
-    
-    for player in players:
-        if player.position in position_counts:
-            position_counts[player.position] += 1
-            position_values[player.position] += player.acquisition_value or 0
-            position_ratings[player.position] += player.overall_rating or 0
-    
-    # Calculate average ratings for each position
-    position_avg_ratings = {}
-    for position in Config.POSITIONS:
-        if position_counts[position] > 0:
-            position_avg_ratings[position] = round(position_ratings[position] / position_counts[position], 1)
-        else:
-            position_avg_ratings[position] = 0
-    
-    # Calculate team statistics
-    avg_rating = round(sum(player.overall_rating for player in players if player.overall_rating) / len(players), 1) if players else 0
-    highest_value = max((player.acquisition_value for player in players if player.acquisition_value), default=0)
-    avg_player_value = round(total_value / len(players)) if players else 0
-    
-    # Get bid information
-    active_bids = Bid.query.join(Player).filter(
-        Bid.team_id == team.id,
-        Player.round_id != None,
-        Player.team_id != team.id
-    ).count()
-    
-    total_bids = Bid.query.filter_by(team_id=team.id).count()
-    successful_bids = len([p for p in players if p.acquisition_value is not None])
-    bid_success_rate = round((successful_bids / total_bids) * 100) if total_bids > 0 else 0
-    
-    # Get top players (limited to 5)
-    top_players = sorted(players, key=lambda p: p.overall_rating or 0, reverse=True)[:5]
-    
-    # Combine everything into team_stats
-    team_stats = {
-        'total_players': len(players),
-        'total_value': total_value,
-        'avg_rating': avg_rating,
-        'highest_value': highest_value,
-        'avg_player_value': avg_player_value,
-        'position_counts': position_counts,
-        'position_avg_ratings': position_avg_ratings,
-        'active_bids': active_bids,
-        'bid_success_rate': bid_success_rate,
-        'top_players': top_players
-    }
-    
-    return render_template('admin_team_details.html', team=team, team_stats=team_stats, config=Config)
-
-@app.route('/admin/update_team/<int:team_id>', methods=['POST'])
-@login_required
-def admin_update_team(team_id):
-    if not current_user.is_admin:
-        flash('You do not have permission to perform this action')
-        return redirect(url_for('dashboard'))
-    
-    team = Team.query.get_or_404(team_id)
-    
-    # Get form data
-    name = request.form.get('name')
-    
-    # Validate data
-    if not name:
-        flash('Team name is required', 'error')
-        return redirect(url_for('admin_team_details', team_id=team_id))
-    
-    # Check if name already exists for another team
-    existing_team = Team.query.filter_by(name=name).first()
-    if existing_team and existing_team.id != team_id:
-        flash('Another team with this name already exists', 'error')
-        return redirect(url_for('admin_team_details', team_id=team_id))
-    
-    # Update team details
-    team.name = name
-    
-    try:
-        db.session.commit()
-        flash('Team details updated successfully', 'success')
-    except Exception as e:
-        db.session.rollback()
-        flash(f'Error updating team: {str(e)}', 'error')
-    
-    return redirect(url_for('admin_team_details', team_id=team_id))
-
 @app.route('/admin/delete_team/<int:team_id>', methods=['POST'])
 @login_required
 def admin_delete_team(team_id):
@@ -1865,7 +1685,7 @@ def team_players_data():
     current_playing_style = request.args.get('playing_style', '')
     
     # Query players based on filters
-    query = Player.query.filter_by(is_auction_eligible=True)  # Only show eligible players
+    query = Player.query
     
     # Apply search filter if provided
     if search_query:
@@ -2295,7 +2115,7 @@ def team_bulk_round():
         return redirect(url_for('dashboard'))
     
     # Get all available players (not assigned to any team)
-    available_players = Player.query.filter(Player.team_id == None, Player.is_auction_eligible == True).all()
+    available_players = Player.query.filter(Player.team_id == None).all()
     
     # Get existing bids for this team in this round
     team_bids = BulkBid.query.filter_by(
@@ -2940,7 +2760,7 @@ def admin_resolve_bulk_tiebreaker(tiebreaker_id):
             tiebreaker.resolved = True
             
             db.session.commit()
-            flash(f'Tiebreaker resolved. Player {player.name} assigned to {winning_team.name} for Â£{player.acquisition_value}.', 'success')
+            flash(f'Tiebreaker resolved. Player {player.name} assigned to {winning_team.name} for A£{player.acquisition_value}.', 'success')
         else:
             flash('Could not find the original bid. Tiebreaker not resolved.', 'error')
     else:
@@ -2977,7 +2797,7 @@ def admin_resolve_bulk_tiebreaker(tiebreaker_id):
                 tiebreaker.resolved = True
                 
                 db.session.commit()
-                flash(f'Tiebreaker resolved with no bids. Player {player.name} randomly assigned to {team.name} for Â£{tiebreaker.current_amount}.', 'success')
+                flash(f'Tiebreaker resolved with no bids. Player {player.name} randomly assigned to {team.name} for A£{tiebreaker.current_amount}.', 'success')
             else:
                 flash('Could not find the original bid. Tiebreaker not resolved.', 'error')
         else:
@@ -3083,437 +2903,6 @@ def admin_delete_bulk_round(round_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'error': f'Failed to delete bulk round: {str(e)}'}), 500
-
-@app.route('/team_squad/<int:team_id>')
-@login_required
-def team_squad(team_id):
-    """
-    View another team's squad details.
-    All logged-in users can access this route to see other teams' players.
-    """
-    # Get the requested team
-    team = Team.query.get_or_404(team_id)
-    
-    # Get team players with optional filters
-    position_filter = request.args.get('position', 'all')
-    sort_by = request.args.get('sort', 'rating')
-    
-    # Get the team's players
-    players = Player.query.filter_by(team_id=team_id).all()
-    
-    # Apply position filter if needed
-    if position_filter != 'all':
-        players = [p for p in players if p.position == position_filter]
-    
-    # Apply sorting
-    if sort_by == 'rating':
-        players = sorted(players, key=lambda p: p.overall_rating or 0, reverse=True)
-    elif sort_by == 'cost':
-        players = sorted(players, key=lambda p: p.acquisition_value or 0, reverse=True)
-    elif sort_by == 'position':
-        players = sorted(players, key=lambda p: p.position)
-    else:  # Default: sort by name
-        players = sorted(players, key=lambda p: p.name)
-    
-    # Calculate position counts
-    position_counts = {position: 0 for position in Config.POSITIONS}
-    for player in players:
-        if player.position in position_counts:
-            position_counts[player.position] += 1
-    
-    # Calculate total team value
-    total_team_value = sum(player.acquisition_value or 0 for player in players)
-    
-    return render_template('team_squad.html', 
-                          team=team,
-                          players=players, 
-                          position_counts=position_counts,
-                          total_team_value=total_team_value,
-                          current_position=position_filter,
-                          sort_by=sort_by,
-                          config=Config)
-
-@app.route('/teams')
-@login_required
-def all_teams():
-    """
-    List all teams with basic statistics for regular users.
-    This allows users to navigate to specific team squads.
-    """
-    # Get all teams with their data
-    teams = Team.query.all()
-    teams_data = []
-    
-    for team in teams:
-        # Get players for this team
-        players = Player.query.filter_by(team_id=team.id).all()
-        
-        # Calculate position counts
-        position_counts = {position: 0 for position in Config.POSITIONS}
-        for player in players:
-            if player.position in position_counts:
-                position_counts[player.position] += 1
-        
-        # Calculate total team value
-        total_team_value = sum(player.acquisition_value or 0 for player in players)
-        
-        teams_data.append({
-            'team': team,
-            'total_players': len(players),
-            'position_counts': position_counts,
-            'total_team_value': total_team_value
-        })
-    
-    return render_template('team_list.html', teams=teams_data, config=Config)
-
-@app.route('/admin/player_selection')
-@login_required
-def admin_player_selection():
-    if not current_user.is_admin:
-        flash('You do not have permission to access this page', 'error')
-        return redirect(url_for('dashboard'))
-    
-    # Get all players
-    all_players = Player.query.order_by(Player.name).all()
-    
-    # Organize players by position
-    players_by_position = {}
-    position_stats = {}
-    
-    for position in Config.POSITIONS:
-        players_in_position = [p for p in all_players if p.position == position]
-        players_by_position[position] = players_in_position
-        
-        # Calculate stats for each position
-        total_players = len(players_in_position)
-        selected_players = len([p for p in players_in_position if p.is_auction_eligible])
-        
-        # Ensure selected players cannot exceed total players
-        if selected_players > total_players:
-            selected_players = total_players
-        
-        position_stats[position] = {
-            'total': total_players,
-            'selected': selected_players
-        }
-    
-    return render_template('admin_player_selection.html',
-                          all_players=all_players,
-                          players_by_position=players_by_position,
-                          position_stats=position_stats,
-                          config=Config)
-
-@app.route('/admin/update_player_eligibility', methods=['POST'])
-@login_required
-def admin_update_player_eligibility():
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-    
-    data = request.json
-    player_id = data.get('player_id')
-    is_eligible = data.get('is_eligible', False)
-    
-    if not player_id:
-        return jsonify({'success': False, 'error': 'Player ID is required'}), 400
-    
-    try:
-        player = Player.query.get_or_404(player_id)
-        player.is_auction_eligible = is_eligible
-        db.session.commit()
-        
-        message = f"Player {player.name} has been {'added to' if is_eligible else 'removed from'} auction list"
-        return jsonify({'success': True, 'message': message})
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-@app.route('/admin/export_player_selection')
-@login_required
-def admin_export_player_selection():
-    if not current_user.is_admin:
-        flash('You do not have permission to access this feature', 'error')
-        return redirect(url_for('dashboard'))
-    
-    try:
-        # Create a BytesIO object to store the Excel file
-        output = io.BytesIO()
-        
-        # Create Excel writer object
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            # Prepare data for each position
-            for position in Config.POSITIONS:
-                players = Player.query.filter_by(position=position, is_auction_eligible=True).order_by(Player.overall_rating.desc()).all()
-                
-                # Convert to DataFrame
-                data = []
-                for player in players:
-                    data.append({
-                        'Name': player.name,
-                        'Position': player.position,
-                        'Rating': player.overall_rating,
-                        'Nationality': player.nationality,
-                        'Team': player.team_name
-                    })
-                
-                if not data:
-                    continue  # Skip if no players in this position
-                
-                df = pd.DataFrame(data)
-                
-                # Write to sheet
-                df.to_excel(writer, sheet_name=position, index=False)
-                
-                # Auto-adjust columns width
-                worksheet = writer.sheets[position]
-                for i, col in enumerate(df.columns):
-                    column_width = max(df[col].astype(str).map(len).max(), len(col)) + 2
-                    worksheet.set_column(i, i, column_width)
-        
-        # Prepare the response
-        output.seek(0)
-        
-        return send_file(
-            output,
-            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            as_attachment=True,
-            download_name=f'player_selection_{datetime.now().strftime("%Y%m%d")}.xlsx'
-        )
-    except Exception as e:
-        flash(f'Error exporting player selection: {str(e)}', 'error')
-        return redirect(url_for('admin_player_selection'))
-
-@app.route('/admin/divide_position_groups', methods=['POST'])
-@login_required
-def admin_divide_position_groups():
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-    
-    position = request.json.get('position')
-    if not position or position not in Config.POSITIONS:
-        return jsonify({'success': False, 'error': 'Invalid position'}), 400
-    
-    try:
-        # Get all eligible players for this position
-        players = Player.query.filter_by(position=position, is_auction_eligible=True).all()
-        
-        if not players:
-            return jsonify({
-                'success': False, 
-                'error': f'No eligible players found for position {position}'
-            }), 404
-        
-        # Sort players by overall rating (from highest to lowest)
-        players.sort(key=lambda x: x.overall_rating if x.overall_rating else 0, reverse=True)
-        
-        # Divide players into two equally skilled groups
-        group1 = []
-        group2 = []
-        
-        # Snake draft pattern to ensure fairness
-        for i, player in enumerate(players):
-            if i % 4 in [0, 3]:  # 1st and 4th players go to group 1
-                player.position_group = f"{position}-1"
-                group1.append(player)
-            else:  # 2nd and 3rd players go to group 2
-                player.position_group = f"{position}-2"
-                group2.append(player)
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': f'Divided {len(players)} {position} players into two groups',
-            'group1_count': len(group1),
-            'group2_count': len(group2)
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/admin/swap_position_group', methods=['POST'])
-@login_required
-def admin_swap_position_group():
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-    
-    player_id = request.json.get('player_id')
-    if not player_id:
-        return jsonify({'success': False, 'error': 'Player ID is required'}), 400
-    
-    try:
-        player = Player.query.get_or_404(player_id)
-        
-        if not player.position_group:
-            return jsonify({
-                'success': False, 
-                'error': 'Player is not assigned to any position group'
-            }), 400
-        
-        # Swap the group (e.g., from CF-1 to CF-2 or vice versa)
-        position_base = player.position_group.split('-')[0]
-        group_num = player.position_group.split('-')[1]
-        
-        # Toggle group number
-        new_group_num = '2' if group_num == '1' else '1'
-        player.position_group = f"{position_base}-{new_group_num}"
-        
-        db.session.commit()
-        
-        return jsonify({
-            'success': True,
-            'message': f'Player {player.name} moved to group {player.position_group}',
-            'new_group': player.position_group
-        })
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/admin/start_group_round', methods=['POST'])
-@login_required
-def admin_start_group_round():
-    if not current_user.is_admin:
-        return jsonify({'error': 'Unauthorized'}), 403
-    
-    position_group = request.json.get('position_group')
-    duration = request.json.get('duration', 300)  # Default to 5 minutes (300 seconds)
-    max_bids_per_team = request.json.get('max_bids_per_team', 5)  # Default to 5 bids per team
-    
-    if not position_group:
-        return jsonify({'error': 'Invalid position group'}), 400
-    
-    # Extract base position from position group (e.g., "CF" from "CF-1")
-    position_parts = position_group.split('-')
-    if len(position_parts) != 2 or position_parts[0] not in Config.POSITIONS:
-        return jsonify({'error': 'Invalid position group format'}), 400
-    
-    position_base = position_parts[0]
-    group_num = position_parts[1]
-    
-    try:
-        duration = int(duration)
-        if duration < 30:  # Minimum duration of 30 seconds
-            return jsonify({'error': 'Duration must be at least 30 seconds'}), 400
-    except ValueError:
-        return jsonify({'error': 'Invalid duration value'}), 400
-    
-    try:
-        max_bids_per_team = int(max_bids_per_team)
-        if max_bids_per_team < 1:  # Minimum of 1 bid per team
-            return jsonify({'error': 'Maximum bids per team must be at least 1'}), 400
-    except ValueError:
-        return jsonify({'error': 'Invalid maximum bids per team value'}), 400
-    
-    # Check if there's already an active round
-    active_round = Round.query.filter_by(is_active=True).first()
-    if active_round:
-        return jsonify({
-            'error': f'There is already an active round for position {active_round.position}. Please finalize it before starting a new round.'
-        }), 400
-    
-    # Get auction settings
-    settings = AuctionSettings.get_settings()
-    
-    # Check if we've reached the maximum number of rounds
-    completed_rounds_count = Round.query.filter_by(is_active=False).count()
-    if completed_rounds_count >= settings.max_rounds:
-        return jsonify({
-            'error': f'Maximum number of rounds ({settings.max_rounds}) has been reached. No more rounds can be started.'
-        }), 400
-    
-    # Calculate remaining rounds (including this one)
-    remaining_rounds = settings.max_rounds - completed_rounds_count
-    
-    # Check if teams have sufficient balance for remaining rounds
-    min_required_balance = settings.min_balance_per_round * remaining_rounds
-    
-    # Get all approved teams
-    teams = Team.query.filter(Team.user.has(is_approved=True)).all()
-    
-    # Track teams with insufficient balance
-    insufficient_balance_teams = []
-    for team in teams:
-        if team.balance < min_required_balance:
-            insufficient_balance_teams.append({
-                'name': team.name,
-                'balance': team.balance, 
-                'required': min_required_balance
-            })
-    
-    if insufficient_balance_teams:
-        return jsonify({
-            'error': 'Some teams have insufficient balance for the remaining rounds',
-            'teams': insufficient_balance_teams,
-            'min_required_balance': min_required_balance,
-            'remaining_rounds': remaining_rounds
-        }), 400
-    
-    # Create new round with timer
-    round = Round(
-        position=position_group,  # Use full position group (e.g., "CF-1")
-        start_time=datetime.utcnow(),
-        duration=duration,
-        max_bids_per_team=max_bids_per_team
-    )
-    db.session.add(round)
-    db.session.flush()  # Get the round ID
-    
-    # Add players of the specified position group to the round
-    players = Player.query.filter_by(position_group=position_group, team_id=None, is_auction_eligible=True).all()
-    for player in players:
-        player.round_id = round.id
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'round_id': round.id,
-        'message': f'Round for position group {position_group} started successfully',
-        'remaining_rounds': remaining_rounds - 1  # Subtract 1 to account for current round
-    })
-
-@app.route('/admin/position_group_players')
-@login_required
-def admin_position_group_players():
-    if not current_user.is_admin:
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-    
-    position = request.args.get('position')
-    if not position or position not in Config.POSITIONS:
-        return jsonify({'success': False, 'error': 'Invalid position'}), 400
-    
-    try:
-        # Get all eligible players for this position
-        players = Player.query.filter_by(position=position, is_auction_eligible=True).all()
-        
-        player_data = []
-        for player in players:
-            player_data.append({
-                'id': player.id,
-                'name': player.name,
-                'position': player.position,
-                'position_group': player.position_group,
-                'overall_rating': player.overall_rating,
-                'team_name': player.team_name
-            })
-        
-        return jsonify({
-            'success': True,
-            'players': player_data
-        })
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/admin/position_groups')
-@login_required
-def admin_position_groups():
-    if not current_user.is_admin:
-        flash('You do not have permission to access this page', 'error')
-        return redirect(url_for('dashboard'))
-    
-    return render_template('admin_position_groups.html', config=Config)
 
 if __name__ == '__main__':
     with app.app_context():

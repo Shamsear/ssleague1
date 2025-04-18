@@ -8,7 +8,13 @@
     <div class="glass rounded-3xl p-3 sm:p-6 mb-4 sm:mb-8">
         <div class="flex flex-col gap-4 mb-4 sm:mb-6">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center">
-                <h2 class="text-xl font-bold text-dark gradient-text">Players</h2>
+                <h2 class="text-xl font-bold text-dark gradient-text">
+                    {% if eligibility_filter == 'eligible' %}
+                    Auction Eligible Players
+                    {% else %}
+                    All Players
+                    {% endif %}
+                </h2>
                 <a href="{{ url_for('dashboard') }}" class="px-4 py-2.5 text-sm glass rounded-xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center text-dark sm:justify-start mt-2 sm:mt-0">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
@@ -35,6 +41,18 @@
                             {% for position in config.POSITIONS %}
                             <option value="{{ position }}" {% if current_position == position %}selected{% endif %}>{{ position }}</option>
                             {% endfor %}
+                        </select>
+                        <select name="group" id="groupFilter" class="flex-1 py-2.5 px-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                            <option value="">All Groups</option>
+                            {% for position in ['CB', 'DMF', 'CMF', 'AMF', 'CF'] %}
+                                {% for suffix in [1, 2] %}
+                                <option value="{{ position }}-{{ suffix }}" {% if current_group == position + '-' + suffix|string %}selected{% endif %}>{{ position }}-{{ suffix }}</option>
+                                {% endfor %}
+                            {% endfor %}
+                        </select>
+                        <select name="eligibility" id="eligibilityFilter" class="flex-1 py-2.5 px-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                            <option value="eligible" {% if eligibility_filter == 'eligible' %}selected{% endif %}>Eligible Players</option>
+                            <option value="all" {% if eligibility_filter == 'all' %}selected{% endif %}>All Players</option>
                         </select>
                         <button type="submit" class="px-4 py-2.5 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all duration-300">
                             Filter
@@ -65,6 +83,7 @@
                     <tr>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Player</th>
                         <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden sm:table-cell">Position</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden sm:table-cell">Group</th>
                         <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Overall</th>
                         <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Team</th>
                         <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
@@ -75,11 +94,27 @@
                     <tr class="player-row hover:bg-white/60 transition-colors">
                         <td class="px-3 py-3 whitespace-nowrap">
                             <div class="flex flex-col">
-                                <div class="text-sm font-medium text-gray-800">{{ player.name }}</div>
+                                <div class="text-sm font-medium text-gray-800">
+                                    {{ player.name }}
+                                    {% if player.is_auction_eligible %}
+                                    <span class="ml-1 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                        Eligible
+                                    </span>
+                                    {% endif %}
+                                </div>
                                 <div class="text-xs text-gray-600 sm:hidden">{{ player.position }}</div>
                             </div>
                         </td>
                         <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-700 hidden sm:table-cell">{{ player.position }}</td>
+                        <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-700 hidden sm:table-cell">
+                            {% if player.position_group %}
+                                <span class="px-2 py-1 rounded-md bg-primary/10 text-primary">
+                                    {{ player.position_group }}
+                                </span>
+                            {% else %}
+                                <span class="text-gray-500">-</span>
+                            {% endif %}
+                        </td>
                         <td class="px-2 py-3 whitespace-nowrap text-sm">
                             <span class="px-2 py-1 rounded-md bg-opacity-10 
                             {% if player.overall_rating >= 85 %}bg-green-100 text-green-800
@@ -132,7 +167,7 @@
             <nav class="flex items-center space-x-1">
                 <!-- Previous page -->
                 {% if players_pagination.has_prev %}
-                <a href="{{ url_for('admin_players', page=players_pagination.prev_num, position=current_position, q=search_query) }}" 
+                <a href="{{ url_for('admin_players', page=players_pagination.prev_num, position=current_position, group=current_group, q=search_query, eligibility=eligibility_filter) }}" 
                    class="px-3 py-2 rounded-xl bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -154,7 +189,7 @@
                     </span>
                     {% elif page_num <= 2 or page_num >= players_pagination.pages - 1 or 
                            (page_num >= players_pagination.page - 1 and page_num <= players_pagination.page + 1) %}
-                    <a href="{{ url_for('admin_players', page=page_num, position=current_position, q=search_query) }}" 
+                    <a href="{{ url_for('admin_players', page=page_num, position=current_position, group=current_group, q=search_query, eligibility=eligibility_filter) }}" 
                        class="px-3 py-2 rounded-xl bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
                         {{ page_num }}
                     </a>
@@ -168,7 +203,7 @@
                 
                 <!-- Next page -->
                 {% if players_pagination.has_next %}
-                <a href="{{ url_for('admin_players', page=players_pagination.next_num, position=current_position, q=search_query) }}" 
+                <a href="{{ url_for('admin_players', page=players_pagination.next_num, position=current_position, group=current_group, q=search_query, eligibility=eligibility_filter) }}" 
                    class="px-3 py-2 rounded-xl bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
                     <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
@@ -312,6 +347,24 @@
                         </select>
                     </div>
                 </div>
+                <div id="acquisitionValueContainer" class="hidden">
+                    <label for="editPlayerAcquisitionValue" class="block text-sm font-medium text-gray-700 mb-1.5">Acquisition Cost</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </span>
+                        <input type="number" id="editPlayerAcquisitionValue" name="acquisition_value" min="0" step="0.01" class="pl-10 w-full py-2.5 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
+                    </div>
+                </div>
+                <div class="flex items-center justify-between bg-white/30 rounded-xl p-3">
+                    <label for="editPlayerEligibility" class="text-sm font-medium text-gray-700">Eligible for Auction</label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="editPlayerEligibility" name="is_auction_eligible" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                </div>
                 <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-medium hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button shadow-md">
                     Update Player
                 </button>
@@ -419,6 +472,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     button.classList.remove('opacity-75');
                 }, 3000);
             }, 100);
+        });
+    }
+    
+    // Add event listener for team selection change to toggle acquisition value field
+    const editPlayerTeamSelect = document.getElementById('editPlayerTeam');
+    if (editPlayerTeamSelect) {
+        editPlayerTeamSelect.addEventListener('change', function() {
+            const acquisitionValueContainer = document.getElementById('acquisitionValueContainer');
+            const acquisitionValueInput = document.getElementById('editPlayerAcquisitionValue');
+            
+            if (this.value) {
+                // If a team is selected, show the acquisition value field and make it required
+                acquisitionValueContainer.classList.remove('hidden');
+                acquisitionValueInput.required = true;
+            } else {
+                // If no team is selected (Free Agent), hide the field and remove required attribute
+                acquisitionValueContainer.classList.add('hidden');
+                acquisitionValueInput.required = false;
+                acquisitionValueInput.value = '';
+            }
         });
     }
 });
@@ -529,6 +602,24 @@ function showEditPlayerModal(id) {
                         </select>
                     </div>
                 </div>
+                <div id="acquisitionValueContainer" class="hidden">
+                    <label for="editPlayerAcquisitionValue" class="block text-sm font-medium text-gray-700 mb-1.5">Acquisition Cost</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </span>
+                        <input type="number" id="editPlayerAcquisitionValue" name="acquisition_value" min="0" step="0.01" class="pl-10 w-full py-2.5 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
+                    </div>
+                </div>
+                <div class="flex items-center justify-between bg-white/30 rounded-xl p-3">
+                    <label for="editPlayerEligibility" class="text-sm font-medium text-gray-700">Eligible for Auction</label>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="editPlayerEligibility" name="is_auction_eligible" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                </div>
                 <button type="submit" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white font-medium hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button shadow-md">
                     Update Player
                 </button>
@@ -540,6 +631,33 @@ function showEditPlayerModal(id) {
             document.getElementById('editPlayerPosition').value = player.position;
             document.getElementById('editPlayerOverall').value = player.overall_rating;
             document.getElementById('editPlayerTeam').value = player.team_id || '';
+            
+            // Set acquisition value if available and show field if team is selected
+            if (player.team_id) {
+                const acquisitionValueContainer = document.getElementById('acquisitionValueContainer');
+                const acquisitionValueInput = document.getElementById('editPlayerAcquisitionValue');
+                
+                acquisitionValueContainer.classList.remove('hidden');
+                acquisitionValueInput.required = true;
+                acquisitionValueInput.value = player.acquisition_value || '';
+            }
+            
+            // Add event listener for team dropdown change
+            document.getElementById('editPlayerTeam').addEventListener('change', function() {
+                const acquisitionValueContainer = document.getElementById('acquisitionValueContainer');
+                const acquisitionValueInput = document.getElementById('editPlayerAcquisitionValue');
+                
+                if (this.value) {
+                    // If a team is selected, show the acquisition value field and make it required
+                    acquisitionValueContainer.classList.remove('hidden');
+                    acquisitionValueInput.required = true;
+                } else {
+                    // If no team is selected (Free Agent), hide the field and remove required attribute
+                    acquisitionValueContainer.classList.add('hidden');
+                    acquisitionValueInput.required = false;
+                    acquisitionValueInput.value = '';
+                }
+            });
             
             // Set up the form submission
             document.getElementById('editPlayerForm').addEventListener('submit', function(e) {
@@ -584,18 +702,36 @@ function submitEditPlayerForm() {
     const position = document.getElementById('editPlayerPosition').value;
     const overall = document.getElementById('editPlayerOverall').value;
     const teamId = document.getElementById('editPlayerTeam').value;
+    const isAuctionEligible = document.getElementById('editPlayerEligibility').checked;
+    let acquisitionValue = null;
+    
+    if (teamId) {
+        acquisitionValue = document.getElementById('editPlayerAcquisitionValue').value;
+        if (!acquisitionValue) {
+            alert('Acquisition cost is required when assigning a player to a team.');
+            return;
+        }
+    }
+    
+    // Create the request data object
+    const requestData = {
+        name: name,
+        position: position,
+        overall_rating: parseInt(overall),
+        team_id: teamId ? parseInt(teamId) : null,
+        acquisition_value: acquisitionValue ? parseFloat(acquisitionValue) : null,
+        is_auction_eligible: isAuctionEligible
+    };
+    
+    // Debug: Log what we're sending to the server
+    console.log("Sending player update data:", requestData);
     
     fetch(`/admin/edit_player/${id}`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            name: name,
-            position: position,
-            overall_rating: parseInt(overall),
-            team_id: teamId ? parseInt(teamId) : null
-        })
+        body: JSON.stringify(requestData)
     })
     .then(response => {
         if (!response.ok) {
@@ -604,6 +740,9 @@ function submitEditPlayerForm() {
         return response.json();
     })
     .then(data => {
+        // Debug: Log the server response
+        console.log("Server response:", data);
+        
         if (data.error) {
             alert(data.error);
         } else {
