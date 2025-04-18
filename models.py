@@ -36,6 +36,8 @@ class Player(db.Model):
     team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
     round_id = db.Column(db.Integer, db.ForeignKey('round.id'), nullable=True)
     acquisition_value = db.Column(db.Integer, nullable=True)
+    is_auction_eligible = db.Column(db.Boolean, default=True)  # New field to track if player is eligible for auction
+    position_group = db.Column(db.String(10), nullable=True)  # Added field to track position groups (e.g., CF-1, CF-2)
     
     # Added fields for efootball player attributes
     team_name = db.Column(db.String(100), nullable=True)

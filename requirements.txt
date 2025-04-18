@@ -16,4 +16,8 @@ MarkupSafe==2.1.5
 itsdangerous==2.1.2
 click==8.1.7
 blinker==1.7.0
-pywebpush==1.14.0 
+pywebpush==1.14.0
+XlsxWriter==3.1.9
+python-jose==3.3.0
+cryptography==41.0.7
+requests==2.31.0 

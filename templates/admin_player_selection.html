@@ -1,0 +1,392 @@
+{% extends "base.html" %}
+
+{% block title %}Player Selection - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-3 sm:px-4 py-3 sm:py-6">
+    <div class="glass rounded-3xl p-3 sm:p-6 mb-6 backdrop-blur-md">
+        <div class="flex flex-col gap-4 mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center">
+                    <a href="{{ url_for('dashboard') }}" class="inline-flex items-center justify-center p-2 mr-3 rounded-xl bg-white/60 text-gray-700 hover:bg-white/80 transition-all duration-200 backdrop-blur-sm border border-gray-200/50 shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </a>
+                    <div>
+                        <h2 class="text-2xl font-bold text-dark gradient-text">Player Selection</h2>
+                        <p class="text-sm text-gray-600 mt-1">Manage which players will appear in auction rounds</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center">
+                    <a href="{{ url_for('admin_export_player_selection') }}" class="px-4 py-2 bg-white text-primary border border-primary/20 rounded-lg text-sm hover:bg-white/90 transition-all duration-300 flex items-center">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Export Selection
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Player Selection Overview -->
+        <div class="glass p-5 rounded-xl bg-white/40 backdrop-blur-sm border border-white/10 shadow-sm mb-6">
+            <div class="flex flex-col sm:flex-row justify-between gap-4 mb-4">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Player Selection Status</h3>
+                    <p class="text-sm text-gray-600">Selected players will appear in auction rounds and bulk auction rounds</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="selectAllBtn" class="px-3 py-1.5 bg-green-100 text-green-800 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors">
+                        Select All
+                    </button>
+                    <button id="deselectAllBtn" class="px-3 py-1.5 bg-red-100 text-red-800 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors">
+                        Deselect All
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                {% for position in config.POSITIONS %}
+                <div class="glass p-3 rounded-xl bg-white/50 backdrop-blur-sm">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2 flex items-center">
+                        <span class="w-3 h-3 rounded-full {{ {'GK': 'bg-yellow-400', 'DEF': 'bg-blue-400', 'MID': 'bg-green-400', 'FWD': 'bg-red-400'}.get(position, 'bg-gray-400') }} mr-1.5"></span>
+                        {{ position }} Players
+                    </h4>
+                    <div class="flex justify-between items-center">
+                        <div class="text-xs text-gray-500">
+                            <span id="{{ position }}-selected-count">{{ position_stats[position].selected }}</span> / {{ position_stats[position].total }} selected
+                        </div>
+                        <div>
+                            <button onclick="togglePositionSelection('{{ position }}', true)" class="text-xs text-green-600 hover:text-green-800">Select All</button>
+                            <span class="text-gray-300 mx-1">|</span>
+                            <button onclick="togglePositionSelection('{{ position }}', false)" class="text-xs text-red-600 hover:text-red-800">Deselect All</button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Player Selection Tabs -->
+        <div class="glass p-5 rounded-xl bg-white/30 backdrop-blur-sm border border-white/10 shadow-sm">
+            <div class="flex flex-col sm:flex-row justify-between gap-4 mb-4">
+                <h3 class="text-lg font-semibold text-gray-800">Player Selection</h3>
+                <div class="relative w-full sm:w-64">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input type="text" id="playerSearch" placeholder="Search players..." 
+                           class="pl-10 w-full py-2 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                </div>
+            </div>
+            
+            <!-- Position Tabs -->
+            <div class="mb-4 border-b border-gray-200">
+                <ul class="flex flex-wrap -mb-px" id="positionTabs" role="tablist">
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block py-2 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-t-lg border-b-2 border-transparent active" 
+                                id="all-tab" data-tabs-target="#all" type="button" role="tab" aria-controls="all" aria-selected="true">
+                            All
+                        </button>
+                    </li>
+                    {% for position in config.POSITIONS %}
+                    <li class="mr-2" role="presentation">
+                        <button class="inline-block py-2 px-4 text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 rounded-t-lg border-b-2 border-transparent" 
+                                id="{{ position }}-tab" data-tabs-target="#{{ position }}" type="button" role="tab" aria-controls="{{ position }}" aria-selected="false">
+                            {{ position }}
+                        </button>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <!-- Tab Content -->
+            <div id="positionTabContent">
+                <div class="p-1 rounded-lg" id="all" role="tabpanel" aria-labelledby="all-tab">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-white/50">
+                                <tr>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Include in Auction</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white/30 divide-y divide-gray-200">
+                                {% for player in all_players %}
+                                <tr class="hover:bg-white/60 player-row" data-name="{{ player.name|lower }}" data-position="{{ player.position }}">
+                                    <td class="px-3 py-3 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            {% if player.team_id %}
+                                            <span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                                            {% else %}
+                                            <span class="w-2 h-2 rounded-full bg-gray-300 mr-2"></span>
+                                            {% endif %}
+                                            <div class="text-sm font-medium text-gray-900">{{ player.name }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-3 whitespace-nowrap">
+                                        <span class="px-2 py-1 text-xs rounded-full {{ {'GK': 'bg-yellow-100 text-yellow-800', 'DEF': 'bg-blue-100 text-blue-800', 'MID': 'bg-green-100 text-green-800', 'FWD': 'bg-red-100 text-red-800'}.get(player.position, 'bg-gray-100 text-gray-800') }}">
+                                            {{ player.position }}
+                                        </span>
+                                    </td>
+                                    <td class="px-3 py-3 whitespace-nowrap">
+                                        <div class="text-sm text-gray-500">{{ player.overall_rating }}</div>
+                                    </td>
+                                    <td class="px-3 py-3 whitespace-nowrap text-center">
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" class="sr-only peer player-toggle" 
+                                                   data-player-id="{{ player.id }}"
+                                                   data-position="{{ player.position }}"
+                                                   {% if player.is_auction_eligible %}checked{% endif %}>
+                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                        </label>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                {% for position in config.POSITIONS %}
+                <div class="hidden p-1 rounded-lg" id="{{ position }}" role="tabpanel" aria-labelledby="{{ position }}-tab">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-white/50">
+                                <tr>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                                    <th class="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Include in Auction</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white/30 divide-y divide-gray-200">
+                                {% for player in players_by_position[position] %}
+                                <tr class="hover:bg-white/60 player-row" data-name="{{ player.name|lower }}">
+                                    <td class="px-3 py-3 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            {% if player.team_id %}
+                                            <span class="w-2 h-2 rounded-full bg-green-500 mr-2"></span>
+                                            {% else %}
+                                            <span class="w-2 h-2 rounded-full bg-gray-300 mr-2"></span>
+                                            {% endif %}
+                                            <div class="text-sm font-medium text-gray-900">{{ player.name }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-3 py-3 whitespace-nowrap">
+                                        <div class="text-sm text-gray-500">{{ player.overall_rating }}</div>
+                                    </td>
+                                    <td class="px-3 py-3 whitespace-nowrap text-center">
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" class="sr-only peer player-toggle" 
+                                                   data-player-id="{{ player.id }}"
+                                                   data-position="{{ player.position }}"
+                                                   {% if player.is_auction_eligible %}checked{% endif %}>
+                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                        </label>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tab Navigation
+    const tabs = document.querySelectorAll('[data-tabs-target]');
+    const tabContents = document.querySelectorAll('[role="tabpanel"]');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = document.querySelector(tab.dataset.tabsTarget);
+            
+            tabContents.forEach(tc => tc.classList.add('hidden'));
+            tabs.forEach(t => {
+                t.classList.remove('active', 'text-primary', 'border-primary');
+                t.classList.add('text-gray-500', 'border-transparent');
+            });
+            
+            target.classList.remove('hidden');
+            tab.classList.add('active', 'text-primary', 'border-primary');
+            tab.classList.remove('text-gray-500', 'border-transparent');
+        });
+    });
+    
+    // Player toggles
+    const playerToggles = document.querySelectorAll('.player-toggle');
+    
+    playerToggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            const playerId = this.dataset.playerId;
+            const isChecked = this.checked;
+            const position = this.dataset.position;
+            
+            // Update other toggles for the same player
+            document.querySelectorAll(`.player-toggle[data-player-id="${playerId}"]`).forEach(t => {
+                t.checked = isChecked;
+            });
+            
+            // Update position counters
+            updatePositionCounter(position);
+            
+            // Send AJAX request to update player eligibility
+            fetch('/admin/update_player_eligibility', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    player_id: playerId,
+                    is_eligible: isChecked
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showToast(data.message);
+                } else {
+                    showToast('Error: ' + data.error);
+                    // Revert toggle if there was an error
+                    this.checked = !isChecked;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Error updating player eligibility');
+                // Revert toggle if there was an error
+                this.checked = !isChecked;
+            });
+        });
+    });
+    
+    // Search functionality
+    const searchInput = document.getElementById('playerSearch');
+    
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        const playerRows = document.querySelectorAll('.player-row');
+        
+        playerRows.forEach(row => {
+            const playerName = row.dataset.name;
+            if (playerName.includes(searchTerm)) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+    });
+    
+    // Select/Deselect All buttons
+    document.getElementById('selectAllBtn').addEventListener('click', function() {
+        playerToggles.forEach(toggle => {
+            if (!toggle.checked) {
+                toggle.checked = true;
+                toggle.dispatchEvent(new Event('change'));
+            }
+        });
+         // Update all position counters after toggling all players
+         updateAllPositionCounters();
+    });
+    
+    
+    
+    document.getElementById('deselectAllBtn').addEventListener('click', function() {
+        playerToggles.forEach(toggle => {
+            if (toggle.checked) {
+                toggle.checked = false;
+                toggle.dispatchEvent(new Event('change'));
+            }
+        });
+         // Update all position counters after toggling all players
+         updateAllPositionCounters();
+    });
+    
+    // Function to update position counters
+    function updatePositionCounter(position) {
+        const allTogglesForPosition = document.querySelectorAll(`.player-toggle[data-position="${position}"]`);
+        const selectedCount = Array.from(allTogglesForPosition).filter(t => t.checked).length;
+        const countElement = document.getElementById(`${position}-selected-count`);
+        
+        if (countElement) {
+            // Get the total from the display text (format: "X / Y selected")
+            const totalText = countElement.parentElement.textContent;
+            const totalMatch = totalText.match(/\/\s*(\d+)\s*selected/);
+            const total = totalMatch ? parseInt(totalMatch[1], 10) : selectedCount;
+            
+            // Ensure selected count doesn't exceed total
+            const displayCount = Math.min(selectedCount, total);
+            countElement.textContent = displayCount;
+        }
+    }
+     // Function to update all position counters
+     function updateAllPositionCounters() {
+        // Get all unique positions from player toggles
+        const positions = new Set();
+        playerToggles.forEach(toggle => {
+            if (toggle.dataset.position) {
+                positions.add(toggle.dataset.position);
+            }
+        });
+        
+        // Update counter for each position
+        positions.forEach(position => {
+            updatePositionCounter(position);
+        });
+    }
+    
+    // Function to toggle selection for a specific position
+    window.togglePositionSelection = function(position, isSelected) {
+        const toggles = document.querySelectorAll(`.player-toggle[data-position="${position}"]`);
+        
+        toggles.forEach(toggle => {
+            if (toggle.checked !== isSelected) {
+                toggle.checked = isSelected;
+                toggle.dispatchEvent(new Event('change'));
+            }
+        });
+        // Update all position counters after toggling all players
+        updateAllPositionCounters();
+    };
+    
+    // Toast notification
+    function showToast(message) {
+        // Create toast if it doesn't exist
+        if (!document.getElementById('toast')) {
+            const toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.className = 'fixed bottom-4 right-4 bg-primary text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center';
+            toast.innerHTML = `
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span id="toast-message"></span>
+            `;
+            document.body.appendChild(toast);
+        }
+        
+        const toast = document.getElementById('toast');
+        document.getElementById('toast-message').textContent = message;
+        
+        // Show toast
+        toast.classList.remove('translate-y-20', 'opacity-0');
+        
+        // Hide toast after 3 seconds
+        setTimeout(() => {
+            toast.classList.add('translate-y-20', 'opacity-0');
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}
