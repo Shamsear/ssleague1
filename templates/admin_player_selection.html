@@ -227,8 +227,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // Player toggles
     const playerToggles = document.querySelectorAll('.player-toggle');
     
+    // Track if we're in a bulk operation to prevent individual AJAX calls
+    let bulkOperationInProgress = false;
+    
     playerToggles.forEach(toggle => {
         toggle.addEventListener('change', function() {
+            // Skip individual processing during bulk operations
+            if (bulkOperationInProgress) return;
+            
             const playerId = this.dataset.playerId;
             const isChecked = this.checked;
             const position = this.dataset.position;
@@ -242,34 +248,70 @@ document.addEventListener('DOMContentLoaded', function() {
             updatePositionCounter(position);
             
             // Send AJAX request to update player eligibility
-            fetch('/admin/update_player_eligibility', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    player_id: playerId,
-                    is_eligible: isChecked
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    showToast(data.message);
-                } else {
-                    showToast('Error: ' + data.error);
-                    // Revert toggle if there was an error
-                    this.checked = !isChecked;
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                showToast('Error updating player eligibility');
-                // Revert toggle if there was an error
-                this.checked = !isChecked;
-            });
+            updatePlayerEligibility(playerId, isChecked);
         });
     });
+    
+    // Function to update player eligibility via AJAX
+    function updatePlayerEligibility(playerId, isChecked) {
+        return fetch('/admin/update_player_eligibility', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                player_id: playerId,
+                is_eligible: isChecked
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                return true;
+            } else {
+                showToast('Error: ' + data.error);
+                return false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error updating player eligibility');
+            return false;
+        });
+    }
+    
+    // Function to bulk update player eligibility
+    function bulkUpdatePlayerEligibility(playerIds, isChecked) {
+        // Show loading toast
+        showToast('Updating player eligibility...');
+        
+        // Process players in batches to avoid overwhelming the server
+        const batchSize = 20;
+        const batches = [];
+        
+        // Create batches of player IDs
+        for (let i = 0; i < playerIds.length; i += batchSize) {
+            batches.push(playerIds.slice(i, i + batchSize));
+        }
+        
+        // Process batches sequentially
+        return batches.reduce((promise, batch, index) => {
+            return promise.then(() => {
+                // Update progress toast for large batches
+                if (batches.length > 1) {
+                    showToast(`Processing batch ${index + 1}/${batches.length}...`);
+                }
+                
+                // Create promises for each player in the batch
+                const batchPromises = batch.map(playerId => 
+                    updatePlayerEligibility(playerId, isChecked)
+                );
+                
+                // Wait for all promises in the batch to complete
+                return Promise.all(batchPromises);
+            });
+        }, Promise.resolve());
+    }
     
     // Search functionality
     const searchInput = document.getElementById('playerSearch');
@@ -288,29 +330,89 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Select/Deselect All buttons
+    // Select/Deselect All buttons (optimized)
     document.getElementById('selectAllBtn').addEventListener('click', function() {
-        playerToggles.forEach(toggle => {
-            if (!toggle.checked) {
+        // Disable the button to prevent multiple clicks
+        this.disabled = true;
+        
+        // Start bulk operation
+        bulkOperationInProgress = true;
+        
+        try {
+            // First, update UI (checkbox states) without triggering change events
+            const playerIds = [];
+            playerToggles.forEach(toggle => {
                 toggle.checked = true;
-                toggle.dispatchEvent(new Event('change'));
-            }
-        });
-         // Update all position counters after toggling all players
-         updateAllPositionCounters();
+                playerIds.push(toggle.dataset.playerId);
+            });
+            
+            // Get unique player IDs (since same player can appear in multiple tabs)
+            const uniquePlayerIds = [...new Set(playerIds)];
+            
+            // Update all position counters
+            updateAllPositionCounters();
+            
+            // Then send bulk AJAX request
+            bulkUpdatePlayerEligibility(uniquePlayerIds, true)
+                .then(() => {
+                    showToast('All players selected successfully');
+                })
+                .catch(error => {
+                    console.error('Error in bulk selection:', error);
+                    showToast('Error selecting all players');
+                })
+                .finally(() => {
+                    bulkOperationInProgress = false;
+                    this.disabled = false;
+                });
+        } catch (err) {
+            console.error(err);
+            bulkOperationInProgress = false;
+            this.disabled = false;
+            showToast('An error occurred');
+        }
     });
     
-    
-    
     document.getElementById('deselectAllBtn').addEventListener('click', function() {
-        playerToggles.forEach(toggle => {
-            if (toggle.checked) {
+        // Disable the button to prevent multiple clicks
+        this.disabled = true;
+        
+        // Start bulk operation
+        bulkOperationInProgress = true;
+        
+        try {
+            // First, update UI (checkbox states) without triggering change events
+            const playerIds = [];
+            playerToggles.forEach(toggle => {
                 toggle.checked = false;
-                toggle.dispatchEvent(new Event('change'));
-            }
-        });
-         // Update all position counters after toggling all players
-         updateAllPositionCounters();
+                playerIds.push(toggle.dataset.playerId);
+            });
+            
+            // Get unique player IDs (since same player can appear in multiple tabs)
+            const uniquePlayerIds = [...new Set(playerIds)];
+            
+            // Update all position counters
+            updateAllPositionCounters();
+            
+            // Then send bulk AJAX request
+            bulkUpdatePlayerEligibility(uniquePlayerIds, false)
+                .then(() => {
+                    showToast('All players deselected successfully');
+                })
+                .catch(error => {
+                    console.error('Error in bulk deselection:', error);
+                    showToast('Error deselecting all players');
+                })
+                .finally(() => {
+                    bulkOperationInProgress = false;
+                    this.disabled = false;
+                });
+        } catch (err) {
+            console.error(err);
+            bulkOperationInProgress = false;
+            this.disabled = false;
+            showToast('An error occurred');
+        }
     });
     
     // Function to update position counters
@@ -330,8 +432,9 @@ document.addEventListener('DOMContentLoaded', function() {
             countElement.textContent = displayCount;
         }
     }
-     // Function to update all position counters
-     function updateAllPositionCounters() {
+    
+    // Function to update all position counters
+    function updateAllPositionCounters() {
         // Get all unique positions from player toggles
         const positions = new Set();
         playerToggles.forEach(toggle => {
@@ -346,18 +449,44 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Function to toggle selection for a specific position
+    // Function to toggle selection for a specific position (optimized)
     window.togglePositionSelection = function(position, isSelected) {
-        const toggles = document.querySelectorAll(`.player-toggle[data-position="${position}"]`);
+        // Start bulk operation
+        bulkOperationInProgress = true;
         
-        toggles.forEach(toggle => {
-            if (toggle.checked !== isSelected) {
+        try {
+            const toggles = document.querySelectorAll(`.player-toggle[data-position="${position}"]`);
+            const playerIds = [];
+            
+            // First update UI without triggering change events
+            toggles.forEach(toggle => {
                 toggle.checked = isSelected;
-                toggle.dispatchEvent(new Event('change'));
-            }
-        });
-        // Update all position counters after toggling all players
-        updateAllPositionCounters();
+                playerIds.push(toggle.dataset.playerId);
+            });
+            
+            // Get unique player IDs
+            const uniquePlayerIds = [...new Set(playerIds)];
+            
+            // Update position counters
+            updatePositionCounter(position);
+            
+            // Then send bulk AJAX request
+            bulkUpdatePlayerEligibility(uniquePlayerIds, isSelected)
+                .then(() => {
+                    showToast(`${position} players ${isSelected ? 'selected' : 'deselected'} successfully`);
+                })
+                .catch(error => {
+                    console.error(`Error in bulk ${isSelected ? 'selection' : 'deselection'}:`, error);
+                    showToast(`Error ${isSelected ? 'selecting' : 'deselecting'} ${position} players`);
+                })
+                .finally(() => {
+                    bulkOperationInProgress = false;
+                });
+        } catch (err) {
+            console.error(err);
+            bulkOperationInProgress = false;
+            showToast('An error occurred');
+        }
     };
     
     // Toast notification
@@ -366,7 +495,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!document.getElementById('toast')) {
             const toast = document.createElement('div');
             toast.id = 'toast';
-            toast.className = 'fixed bottom-4 right-4 bg-primary text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center';
+            toast.className = 'fixed bottom-4 right-4 bg-primary text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
             toast.innerHTML = `
                 <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -382,8 +511,13 @@ document.addEventListener('DOMContentLoaded', function() {
         // Show toast
         toast.classList.remove('translate-y-20', 'opacity-0');
         
+        // Clear any existing hide timeout
+        if (toast.hideTimeout) {
+            clearTimeout(toast.hideTimeout);
+        }
+        
         // Hide toast after 3 seconds
-        setTimeout(() => {
+        toast.hideTimeout = setTimeout(() => {
             toast.classList.add('translate-y-20', 'opacity-0');
         }, 3000);
     }
