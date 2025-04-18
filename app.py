@@ -1612,6 +1612,21 @@ def delete_user(user_id):
     
     # Delete the user's team if it exists
     if user.team:
+        team_id = user.team.id
+        
+        # Delete team tiebreakers
+        TeamTiebreaker.query.filter_by(team_id=team_id).delete()
+        
+        # Delete bulk tiebreakers if they exist
+        TeamBulkTiebreaker.query.filter_by(team_id=team_id).delete()
+        
+        # Delete bids made by this team
+        Bid.query.filter_by(team_id=team_id).delete()
+        
+        # Delete bulk bids made by this team
+        BulkBid.query.filter_by(team_id=team_id).delete()
+        
+        # Now delete the team
         db.session.delete(user.team)
     
     # Delete the user
