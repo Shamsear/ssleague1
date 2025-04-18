@@ -60,11 +60,13 @@
                                 <option value="">Select a position</option>
                                 {% for position in config.POSITIONS %}
                                 <option value="{{ position }}">{{ position }}</option>
-                                
-                                <!-- Position Groups for this position -->
-                                {% for suffix in [1, 2] %}
-                                <option value="{{ position }}-{{ suffix }}">{{ position }}-{{ suffix }}</option>
                                 {% endfor %}
+                                
+                                <!-- Position Groups -->
+                                {% for position in ['CB', 'DMF', 'CMF', 'AMF', 'CF'] %}
+                                    {% for suffix in [1, 2] %}
+                                    <option value="{{ position }}-{{ suffix }}">{{ position }}-{{ suffix }}</option>
+                                    {% endfor %}
                                 {% endfor %}
                             </select>
                         </div>

@@ -14,6 +14,28 @@
             
             <!-- Filter Controls (for mobile and desktop) -->
             <div class="flex flex-col gap-2 sm:flex-row">
+                <!-- Position Filter -->
+                <div class="relative">
+                    <select id="positionFilter" class="pl-10 py-2.5 pr-4 bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
+                        <option value="all">All Positions</option>
+                        <option value="GK">GK</option>
+                        <option value="CB">CB</option>
+                        <option value="RB">RB</option>
+                        <option value="LB">LB</option>
+                        <option value="DMF">DMF</option>
+                        <option value="CMF">CMF</option>
+                        <option value="RMF">RMF</option>
+                        <option value="LMF">LMF</option>
+                        <option value="AMF">AMF</option>
+                        <option value="SS">SS</option>
+                        <option value="CF">CF</option>
+                    </select>
+                    <svg class="w-5 h-5 text-gray-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </div>
+                
+                <!-- Position Group Filter -->
                 <div class="relative">
                     <select id="positionGroupFilter" class="pl-10 py-2.5 pr-4 bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
                         <option value="all">All Position Groups</option>
@@ -254,37 +276,75 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Position group filter
+    // Position filter
+    const positionFilter = document.getElementById('positionFilter');
     const positionGroupFilter = document.getElementById('positionGroupFilter');
-    if (positionGroupFilter) {
-        positionGroupFilter.addEventListener('change', function() {
-            const selectedGroup = this.value;
+    
+    // Function to apply all filters
+    function applyFilters() {
+        const selectedPosition = positionFilter ? positionFilter.value : 'all';
+        const selectedGroup = positionGroupFilter ? positionGroupFilter.value : 'all';
+        
+        // Filter mobile cards
+        const mobileCards = document.querySelectorAll('.player-card-mobile');
+        mobileCards.forEach(function(card) {
+            const playerPosition = card.getAttribute('data-player-position') || '';
+            const playerGroup = card.getAttribute('data-player-group') || '';
             
-            // Filter mobile cards
-            const mobileCards = document.querySelectorAll('.player-card-mobile');
-            mobileCards.forEach(function(card) {
-                const playerGroup = card.getAttribute('data-player-group') || '';
-                
-                if (selectedGroup === 'all' || playerGroup === selectedGroup) {
-                    card.style.display = '';
-                } else {
-                    card.style.display = 'none';
-                }
-            });
+            const positionMatch = selectedPosition === 'all' || playerPosition.toUpperCase() === selectedPosition;
+            const groupMatch = selectedGroup === 'all' || playerGroup === selectedGroup;
             
-            // Filter desktop table rows
-            const tableRows = document.querySelectorAll('#playersTable tbody tr');
-            tableRows.forEach(function(row) {
+            if (positionMatch && groupMatch) {
+                card.style.display = '';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+        
+        // Filter desktop table rows
+        const tableRows = document.querySelectorAll('#playersTable tbody tr');
+        tableRows.forEach(function(row) {
+            const cells = row.querySelectorAll('td');
+            if (cells.length > 0) {
+                const positionCell = cells[1].textContent.trim();
+                const playerPosition = positionCell.match(/[A-Z]{1,3}/)?.[0] || '';
                 const playerGroup = row.getAttribute('data-player-group') || '';
                 
-                if (selectedGroup === 'all' || playerGroup === selectedGroup) {
+                const positionMatch = selectedPosition === 'all' || playerPosition === selectedPosition;
+                const groupMatch = selectedGroup === 'all' || playerGroup === selectedGroup;
+                
+                if (positionMatch && groupMatch) {
                     row.style.display = '';
                 } else {
                     row.style.display = 'none';
                 }
-            });
+            }
         });
     }
+    
+    // Add event listeners to filters
+    if (positionFilter) {
+        positionFilter.addEventListener('change', function() {
+            applyFilters();
+            // If there's an active search, reapply it
+            if (searchInput && searchInput.value.trim() !== '') {
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        });
+    }
+    
+    if (positionGroupFilter) {
+        positionGroupFilter.addEventListener('change', function() {
+            applyFilters();
+            // If there's an active search, reapply it
+            if (searchInput && searchInput.value.trim() !== '') {
+                searchInput.dispatchEvent(new Event('input'));
+            }
+        });
+    }
+    
+    // Apply filters on initial page load
+    applyFilters();
     
     // Mobile search functionality
     const searchInput = document.getElementById('searchPlayersMobile');
@@ -294,25 +354,26 @@ document.addEventListener('DOMContentLoaded', function() {
             const searchTerm = this.value.toLowerCase().trim();
             const playerCards = document.querySelectorAll('.player-card-mobile');
             
-            // If search is empty, show all cards
-            if (searchTerm === '') {
-                playerCards.forEach(card => {
-                    card.classList.remove('hidden');
-                    setTimeout(() => {
-                        card.style.opacity = '1';
-                        card.style.transform = 'scale(1)';
-                    }, 10);
-                });
-                return;
-            }
+            // Get current filter values
+            const selectedPosition = positionFilter ? positionFilter.value : 'all';
+            const selectedGroup = positionGroupFilter ? positionGroupFilter.value : 'all';
             
-            // Filter cards based on search term
+            // Filter cards based on search term and current filters
             playerCards.forEach(card => {
                 const playerName = card.getAttribute('data-player-name');
-                const playerPosition = card.getAttribute('data-player-position');
+                const playerPosition = card.getAttribute('data-player-position') || '';
+                const playerGroup = card.getAttribute('data-player-group') || '';
                 
-                // Check if the search term is contained in either name or position
-                if (playerName.includes(searchTerm) || playerPosition.includes(searchTerm)) {
+                // Check if matches search and filters
+                const matchesSearch = searchTerm === '' || 
+                                     playerName.includes(searchTerm) || 
+                                     playerPosition.includes(searchTerm);
+                                     
+                const matchesPosition = selectedPosition === 'all' || playerPosition.toUpperCase() === selectedPosition;
+                const matchesGroup = selectedGroup === 'all' || playerGroup === selectedGroup;
+                
+                // Only show if all criteria match
+                if (matchesSearch && matchesPosition && matchesGroup) {
                     // Show card with animation
                     card.classList.remove('hidden');
                     setTimeout(() => {
