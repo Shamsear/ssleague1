@@ -6,7 +6,9 @@ function arePushNotificationsSupported() {
 // Register the service worker
 async function registerServiceWorker() {
   try {
-    const registration = await navigator.serviceWorker.register('/static/js/sw.js');
+    const registration = await navigator.serviceWorker.register('/static/js/sw.js', {
+      scope: '/'
+    });
     console.log('Service Worker registered with scope:', registration.scope);
     return registration;
   } catch (error) {
@@ -52,6 +54,23 @@ async function getPublicVapidKey() {
   }
 }
 
+// Check subscription status
+async function checkSubscriptionStatus() {
+  try {
+    if (!arePushNotificationsSupported()) {
+      return false;
+    }
+    
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    
+    return !!subscription;
+  } catch (error) {
+    console.error('Error checking subscription status:', error);
+    return false;
+  }
+}
+
 // Subscribe to push notifications
 async function subscribeToPushNotifications() {
   try {
@@ -60,6 +79,7 @@ async function subscribeToPushNotifications() {
     let subscription = await registration.pushManager.getSubscription();
     
     if (subscription) {
+      console.log('Already subscribed to push notifications');
       return subscription;
     }
     
@@ -92,9 +112,28 @@ async function subscribeToPushNotifications() {
       })
     });
     
+    document.getElementById('notification-status').innerText = 'Notifications enabled for this device';
+    document.getElementById('notification-status').className = 'text-green-500';
+    document.getElementById('enable-notifications').classList.add('hidden');
+    document.getElementById('disable-notifications').classList.remove('hidden');
+    
+    // Test notification if on development
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+      setTimeout(async () => {
+        await fetch('/api/test-notification', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+      }, 3000);
+    }
+    
     return subscription;
   } catch (error) {
     console.error('Error subscribing to push notifications:', error);
+    document.getElementById('notification-status').innerText = 'Error enabling notifications: ' + error.message;
+    document.getElementById('notification-status').className = 'text-red-500';
     return null;
   }
 }
@@ -159,13 +198,44 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
+// Display browser-specific notification instructions
+function displayBrowserInstructions() {
+  const ua = navigator.userAgent;
+  let instructions = '';
+  
+  if (/android/i.test(ua)) {
+    if (/chrome/i.test(ua)) {
+      instructions = 'For reliable notifications on Android, please keep Chrome running in the background.';
+    } else if (/firefox/i.test(ua)) {
+      instructions = 'Make sure Firefox is allowed to run in the background in your device settings.';
+    }
+  } else if (/iPad|iPhone|iPod/.test(ua)) {
+    instructions = 'Push notifications on iOS require you to add this site to your home screen and use it as a web app.';
+  } else if (/Windows/.test(ua)) {
+    instructions = 'Allow notifications in your browser settings to receive updates even when the site is closed.';
+  }
+  
+  if (instructions) {
+    const infoElement = document.getElementById('notification-info');
+    if (infoElement) {
+      infoElement.innerText = instructions;
+    }
+  }
+}
+
 // Initialize notifications
 async function initNotifications() {
   if (!arePushNotificationsSupported()) {
     console.log('Push notifications are not supported by this browser');
-    document.getElementById('notification-container').classList.add('hidden');
+    
+    const container = document.getElementById('notification-container');
+    if (container) {
+      container.classList.add('hidden');
+    }
     return;
   }
+  
+  displayBrowserInstructions();
   
   // Register service worker
   const registration = await registerServiceWorker();

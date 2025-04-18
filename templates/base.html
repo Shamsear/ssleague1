@@ -288,6 +288,10 @@
             {% endif %}
         {% endwith %}
 
+        {% if current_user.is_authenticated %}
+            {% include 'partials/notification_component.html' %}
+        {% endif %}
+
         {% block content %}{% endblock %}
         
         <!-- Spacer for mobile bottom nav -->

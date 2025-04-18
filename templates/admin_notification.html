@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}Send Urgent Notifications - Admin{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6">
+    <div class="glass rounded-3xl p-6 mb-8 animate__animated animate__fadeIn">
+        <div class="flex items-center mb-6">
+            <div class="bg-red-100 p-2 rounded-full mr-3">
+                <svg class="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold admin-gradient-text vision-text-shadow">Send Urgent Notifications</h1>
+        </div>
+
+        <div class="bg-red-50 border-l-4 border-red-400 p-4 mb-6 rounded-r-xl">
+            <div class="flex">
+                <div class="flex-shrink-0">
+                    <svg class="h-5 w-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="ml-3">
+                    <p class="text-sm leading-5 text-red-700">
+                        <strong>Important:</strong> Use this feature responsibly. Notifications will be sent even when users are not on the website.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('send_urgent_notification') }}" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="space-y-4">
+                    <div>
+                        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">Notification Title</label>
+                        <input type="text" name="title" id="title" 
+                               class="w-full px-4 py-2 rounded-xl border border-gray-300 bg-white/60 focus:ring-2 focus:ring-primary focus:border-primary"
+                               value="URGENT: Important Update" required>
+                    </div>
+                    
+                    <div>
+                        <label for="message" class="block text-sm font-medium text-gray-700 mb-1">Message Content</label>
+                        <textarea name="message" id="message" rows="5" 
+                                  class="w-full px-4 py-2 rounded-xl border border-gray-300 bg-white/60 focus:ring-2 focus:ring-primary focus:border-primary"
+                                  placeholder="Enter your notification message here..." required></textarea>
+                    </div>
+                    
+                    <div>
+                        <label for="url" class="block text-sm font-medium text-gray-700 mb-1">Destination URL</label>
+                        <input type="text" name="url" id="url" 
+                               class="w-full px-4 py-2 rounded-xl border border-gray-300 bg-white/60 focus:ring-2 focus:ring-primary focus:border-primary"
+                               value="/dashboard" required>
+                        <p class="mt-1 text-xs text-gray-500">URL users will be directed to when they click the notification</p>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <div>
+                        <label for="target" class="block text-sm font-medium text-gray-700 mb-1">Target Recipients</label>
+                        <select name="target" id="target" 
+                                class="w-full px-4 py-2 rounded-xl border border-gray-300 bg-white/60 focus:ring-2 focus:ring-primary focus:border-primary"
+                                onchange="toggleTeamSelect()">
+                            <option value="all">All Users</option>
+                            <option value="admins">Admin Users Only</option>
+                            <option value="teams">Team Managers Only</option>
+                            <option value="specific_team">Specific Team</option>
+                        </select>
+                    </div>
+                    
+                    <div id="team-select-container" class="hidden">
+                        <label for="team_id" class="block text-sm font-medium text-gray-700 mb-1">Select Team</label>
+                        <select name="team_id" id="team_id" 
+                                class="w-full px-4 py-2 rounded-xl border border-gray-300 bg-white/60 focus:ring-2 focus:ring-primary focus:border-primary">
+                            {% for team in teams %}
+                            <option value="{{ team.id }}">{{ team.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded-r-xl">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm leading-5 text-yellow-700" id="recipient-info">
+                                    This notification will be sent to all users with notification permissions.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="pt-4">
+                        <button type="submit" class="w-full px-6 py-3 bg-red-600 text-white font-medium rounded-xl hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors flex items-center justify-center">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            Send Urgent Notification
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function toggleTeamSelect() {
+    const targetSelect = document.getElementById('target');
+    const teamSelectContainer = document.getElementById('team-select-container');
+    const recipientInfo = document.getElementById('recipient-info');
+    
+    if (targetSelect.value === 'specific_team') {
+        teamSelectContainer.classList.remove('hidden');
+        recipientInfo.innerText = "This notification will be sent only to the selected team's manager.";
+    } else {
+        teamSelectContainer.classList.add('hidden');
+        
+        if (targetSelect.value === 'all') {
+            recipientInfo.innerText = "This notification will be sent to all users with notification permissions.";
+        } else if (targetSelect.value === 'admins') {
+            recipientInfo.innerText = "This notification will be sent only to admin users.";
+        } else if (targetSelect.value === 'teams') {
+            recipientInfo.innerText = "This notification will be sent to all team managers.";
+        }
+    }
+}
+</script>
+{% endblock %} 
