@@ -16,4 +16,4 @@ class Config:
     INITIAL_BALANCE = 15000
     MINIMUM_BID = 10
     MAX_PLAYERS_PER_TEAM = 25
-    POSITIONS = ['GK', 'CB', 'RB', 'LB', 'CMF', 'DMF', 'RMF', 'LMF', 'AMF', 'SS', 'CF'] 
+    POSITIONS = ['GK', 'CB', 'RB', 'LB', 'CMF', 'DMF', 'RMF', 'LMF', 'AMF', 'LWF', 'RWF', 'SS', 'CF'] 

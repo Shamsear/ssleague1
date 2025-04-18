@@ -3181,16 +3181,13 @@ def admin_player_selection():
     position_stats = {}
     
     for position in Config.POSITIONS:
+        # Get players for this specific position only
         players_in_position = [p for p in all_players if p.position == position]
         players_by_position[position] = players_in_position
         
         # Calculate stats for each position
         total_players = len(players_in_position)
         selected_players = len([p for p in players_in_position if p.is_auction_eligible])
-        
-        # Ensure selected players cannot exceed total players
-        if selected_players > total_players:
-            selected_players = total_players
         
         position_stats[position] = {
             'total': total_players,
@@ -3218,13 +3215,25 @@ def admin_update_player_eligibility():
     
     try:
         player = Player.query.get_or_404(player_id)
+        old_status = player.is_auction_eligible
         player.is_auction_eligible = is_eligible
         db.session.commit()
         
-        message = f"Player {player.name} has been {'added to' if is_eligible else 'removed from'} auction list"
-        return jsonify({'success': True, 'message': message})
+        status_change = "unchanged" if old_status == is_eligible else ("added to" if is_eligible else "removed from")
+        message = f"Player {player.name} ({player.position}) has been {status_change} auction list"
+        
+        print(f"Player eligibility updated: {player.name} (ID: {player_id}, Position: {player.position}) - Eligible: {is_eligible}")
+        
+        return jsonify({
+            'success': True, 
+            'message': message,
+            'player_id': player_id,
+            'position': player.position,
+            'is_eligible': is_eligible
+        })
     except Exception as e:
         db.session.rollback()
+        print(f"Error updating player eligibility: {str(e)}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/admin/export_player_selection')
@@ -3514,6 +3523,90 @@ def admin_position_groups():
         return redirect(url_for('dashboard'))
     
     return render_template('admin_position_groups.html', config=Config)
+
+@app.route('/admin/rounds/status')
+@login_required
+def admin_rounds_status():
+    """
+    Endpoint that returns minimal data about active rounds and tiebreakers
+    Used for automatic refresh detection in the admin rounds page
+    """
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Get active rounds
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    active_round_ids = [round.id for round in active_rounds]
+    
+    # Get active tiebreakers
+    active_tiebreakers = Tiebreaker.query.filter_by(resolved=False).all()
+    
+    # Check if any rounds are in processing status (indicating need for refresh)
+    processing_rounds = any(round.status == "processing" for round in active_rounds)
+    
+    return jsonify({
+        'active_round_ids': active_round_ids,
+        'active_tiebreaker_count': len(active_tiebreakers),
+        'needs_refresh': processing_rounds
+    })
+
+@app.route('/team/dashboard/status')
+@login_required
+def team_dashboard_status():
+    """
+    Endpoint that returns minimal data about active rounds, tiebreakers, 
+    and bulk rounds for the team dashboard auto-refresh
+    """
+    # Get active rounds
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    active_round_ids = [round.id for round in active_rounds]
+    
+    # Get active bulk rounds
+    active_bulk_round = BulkBidRound.query.filter_by(is_active=True).first()
+    
+    # Get team's active tiebreakers
+    active_tiebreakers = []
+    team_tiebreakers = []
+    
+    if current_user.team:
+        # Get regular tiebreakers for this team
+        team_tiebreakers = db.session.query(TeamTiebreaker).join(
+            Tiebreaker, TeamTiebreaker.tiebreaker_id == Tiebreaker.id
+        ).filter(
+            TeamTiebreaker.team_id == current_user.team.id,
+            Tiebreaker.resolved == False
+        ).all()
+        
+        for tt in team_tiebreakers:
+            active_tiebreakers.append({
+                'id': tt.id,
+                'tiebreaker_id': tt.tiebreaker_id,
+                'has_bid': tt.new_amount is not None
+            })
+        
+        # Get bulk tiebreakers for this team
+        team_bulk_tiebreakers = db.session.query(TeamBulkTiebreaker).join(
+            BulkBidTiebreaker, TeamBulkTiebreaker.tiebreaker_id == BulkBidTiebreaker.id
+        ).filter(
+            TeamBulkTiebreaker.team_id == current_user.team.id,
+            TeamBulkTiebreaker.is_active == True,
+            BulkBidTiebreaker.winner_team_id.is_(None)
+        ).all()
+        
+        for tbt in team_bulk_tiebreakers:
+            active_tiebreakers.append({
+                'id': tbt.id,
+                'tiebreaker_id': tbt.tiebreaker_id,
+                'has_bid': tbt.last_bid is not None,
+                'is_bulk': True
+            })
+    
+    return jsonify({
+        'active_round_ids': active_round_ids,
+        'has_active_bulk_round': active_bulk_round is not None,
+        'active_tiebreakers': active_tiebreakers,
+        'team_balance': current_user.team.balance if current_user.team else 0
+    })
 
 if __name__ == '__main__':
     with app.app_context():

@@ -124,6 +124,69 @@
                     </div>
                 </div>
                 
+                <!-- Selected Players Table -->
+                <div class="mb-6">
+                    <h4 class="font-medium text-dark mb-3 flex items-center">
+                        <svg class="w-4 h-4 mr-1.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        Your Selected Players ({{ bid_count }})
+                    </h4>
+                    
+                    {% set team_bids = current_user.team.bids|selectattr('round_id', 'equalto', round.id)|list %}
+                    {% if team_bids %}
+                        <div class="overflow-x-auto bg-white/40 rounded-xl backdrop-blur-md p-2 shadow-sm border border-white/30">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead>
+                                    <tr>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Position</th>
+                                        <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Bid Amount</th>
+                                        <th class="px-3 py-2 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-20">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-200 bg-white/20">
+                                    {% for bid in team_bids %}
+                                        <tr class="hover:bg-white/30 transition-colors">
+                                            <td class="px-3 py-2 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="bg-primary/10 h-7 w-7 rounded-full flex items-center justify-center mr-2 flex-shrink-0">
+                                                        <span class="text-sm font-bold text-primary">{{ bid.player.position[0] }}</span>
+                                                    </div>
+                                                    <div class="truncate max-w-[120px] sm:max-w-none">
+                                                        <div class="text-sm font-medium text-gray-900 truncate">{{ bid.player.name }}</div>
+                                                        <div class="text-xs text-gray-500 sm:hidden">{{ bid.player.position }}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-3 py-2 whitespace-nowrap hidden sm:table-cell">
+                                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium {{ {'GK': 'bg-yellow-100 text-yellow-800', 'CB': 'bg-blue-100 text-blue-800', 'RB': 'bg-blue-100 text-blue-800', 'LB': 'bg-blue-100 text-blue-800', 'CMF': 'bg-green-100 text-green-800', 'DMF': 'bg-green-100 text-green-800', 'RMF': 'bg-green-100 text-green-800', 'LMF': 'bg-green-100 text-green-800', 'AMF': 'bg-green-100 text-green-800', 'LWF': 'bg-red-100 text-red-800', 'RWF': 'bg-red-100 text-red-800', 'SS': 'bg-red-100 text-red-800', 'CF': 'bg-red-100 text-red-800'}.get(bid.player.position, 'bg-gray-100 text-gray-800') }}">
+                                                    {{ bid.player.position }}
+                                                </span>
+                                            </td>
+                                            <td class="px-3 py-2 whitespace-nowrap text-right">
+                                                <div class="text-sm font-medium text-primary">£{{ "{:,}".format(bid.amount) }}</div>
+                                            </td>
+                                            <td class="px-3 py-2 whitespace-nowrap text-center">
+                                                <button type="button" class="text-xs text-red-500 hover:text-red-700 cancel-bid-btn bg-red-50 hover:bg-red-100 rounded-lg px-2 py-1 transition-colors" data-bid-id="{{ bid.id }}">
+                                                    <span class="hidden sm:inline">Cancel</span>
+                                                    <svg class="w-4 h-4 inline sm:hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                                    </svg>
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4 bg-white/20 rounded-xl backdrop-blur-sm border border-white/30">
+                            <p class="text-gray-500 text-sm">You haven't selected any players yet. Place bids from the available players below.</p>
+                        </div>
+                    {% endif %}
+                </div>
+                
                 <!-- Available Players -->
                 <h4 class="font-medium text-dark mb-3 flex items-center">
                     <svg class="w-4 h-4 mr-1.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -286,23 +349,28 @@
                             // If there's a specific redirect URL (like to a tiebreaker)
                             console.log("Redirecting to tiebreaker:", data.redirect_to);
                             window.location.href = data.redirect_to;
-                        } else {
-                            // Check if there's an active tiebreaker notification
+                            return;
+                        } else if (data.tiebreaker_id) {
+                            // If there's a tiebreaker but no redirect URL
                             const tiebreakerNotification = document.getElementById('tiebreaker-notification');
                             const goToTiebreakerLink = document.getElementById('go-to-tiebreaker');
                             
-                            if (tiebreakerNotification && data.message && data.message.includes('Tiebreaker')) {
-                                // Show tiebreaker notification instead of reload
+                            if (tiebreakerNotification) {
+                                // Show tiebreaker notification
                                 tiebreakerNotification.classList.remove('hidden');
-                                if (goToTiebreakerLink && data.tiebreaker_id) {
+                                if (goToTiebreakerLink) {
                                     goToTiebreakerLink.href = `/tiebreaker/${data.tiebreaker_id}`;
                                 }
-                            } else {
-                                // Default behavior: reload the page to show updated state
-                                console.log("Round ended, reloading page:", data.message);
-                                window.location.reload();
+                                return;
                             }
                         }
+                        
+                        // Default behavior: reload the page to show updated state
+                        console.log("Round ended, reloading page:", data.message);
+                        
+                        // Set a flag to indicate we're handling the reload
+                        sessionStorage.setItem('roundEndingReload', 'true');
+                        window.location.reload();
                         return;
                     }
                     
@@ -321,11 +389,18 @@
                             const timerElement = minutesElement.parentElement;
                             if (timerElement) {
                                 if (data.remaining <= 0) {
-                                    // For zero time left, show special styling and wait for server response
+                                    // For zero time left, show special styling
                                     timerElement.classList.add('text-red-600', 'animate-pulse');
                                     timerElement.classList.remove('text-primary', 'text-orange-500');
                                     minutesElement.textContent = "00";
                                     secondsElement.textContent = "00";
+                                    
+                                    // Force refresh if timer reaches zero and server says round is still active
+                                    // (this handles edge cases where server hasn't updated the round status yet)
+                                    console.log("Timer reached zero, forcing refresh in 3 seconds");
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 3000);
                                 } else if (data.remaining < 30) {
                                     timerElement.classList.add('text-red-600', 'animate-pulse');
                                     timerElement.classList.remove('text-primary', 'text-orange-500');
@@ -358,11 +433,14 @@
                             // If there's a specific redirect URL
                             console.log("Redirecting to:", data.redirect_to);
                             window.location.href = data.redirect_to;
-                        } else {
-                            // Default behavior: reload the page
-                            console.log("Bulk round ended, reloading page:", data.message);
-                            window.location.reload();
+                            return;
                         }
+                        
+                        // Default behavior: reload the page
+                        console.log("Bulk round ended, reloading page:", data.message);
+                        // Set a flag to indicate we're handling the reload
+                        sessionStorage.setItem('bulkRoundEndingReload', 'true');
+                        window.location.reload();
                         return;
                     }
                     
@@ -380,7 +458,19 @@
                             // Update timer color based on remaining time
                             const timerElement = minutesElement.parentElement;
                             if (timerElement) {
-                                if (data.remaining < 30) {
+                                if (data.remaining <= 0) {
+                                    // For zero time left, show special styling
+                                    timerElement.classList.add('text-red-600', 'animate-pulse');
+                                    timerElement.classList.remove('text-purple-700', 'text-orange-500');
+                                    minutesElement.textContent = "00";
+                                    secondsElement.textContent = "00";
+                                    
+                                    // Force refresh when timer hits zero
+                                    console.log("Bulk timer reached zero, forcing refresh in 3 seconds");
+                                    setTimeout(() => {
+                                        window.location.reload();
+                                    }, 3000);
+                                } else if (data.remaining < 30) {
                                     timerElement.classList.add('text-red-600', 'animate-pulse');
                                     timerElement.classList.remove('text-purple-700', 'text-orange-500');
                                 } else if (data.remaining < 60) {
@@ -496,6 +586,38 @@
     
     // Initialize everything when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
+        // Check if we should check for tiebreakers (after round ended)
+        const wasRefreshingForRoundEnd = sessionStorage.getItem('roundEndingReload') === 'true' || 
+                                         sessionStorage.getItem('bulkRoundEndingReload') === 'true';
+        
+        if (wasRefreshingForRoundEnd) {
+            // Clear the flag
+            sessionStorage.removeItem('roundEndingReload');
+            sessionStorage.removeItem('bulkRoundEndingReload');
+            
+            // Check for active tiebreakers
+            fetch('/check_active_tiebreakers')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.has_tiebreaker && data.tiebreaker_id) {
+                        // Activate tiebreaker notification
+                        const tiebreakerNotification = document.getElementById('tiebreaker-notification');
+                        const goToTiebreakerLink = document.getElementById('go-to-tiebreaker');
+                        
+                        if (tiebreakerNotification) {
+                            tiebreakerNotification.classList.remove('hidden');
+                        }
+                        
+                        if (goToTiebreakerLink) {
+                            goToTiebreakerLink.href = `/tiebreaker/${data.tiebreaker_id}`;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking for tiebreakers:', error);
+                });
+        }
+        
         // Initialize timers
         updateTimers();
         // Update timers more frequently for a smoother experience

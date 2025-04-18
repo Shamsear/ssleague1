@@ -423,30 +423,82 @@
 <script>
 // Show toast notification
 function showToast(message, type = 'success') {
+    // Create toast if it doesn't exist
+    if (!document.getElementById('toast')) {
+        const toast = document.createElement('div');
+        toast.id = 'toast';
+        toast.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
+        
+        // Create success icon
+        const successIcon = document.createElement('div');
+        successIcon.id = 'toast-icon-success';
+        successIcon.innerHTML = `<svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>`;
+        
+        // Create error icon
+        const errorIcon = document.createElement('div');
+        errorIcon.id = 'toast-icon-error';
+        errorIcon.className = 'hidden';
+        errorIcon.innerHTML = `<svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>`;
+        
+        // Create info icon
+        const infoIcon = document.createElement('div');
+        infoIcon.id = 'toast-icon-info';
+        infoIcon.className = 'hidden';
+        infoIcon.innerHTML = `<svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>`;
+        
+        // Create message container
+        const messageSpan = document.createElement('span');
+        messageSpan.id = 'toast-message';
+        
+        // Add elements to toast
+        toast.appendChild(successIcon);
+        toast.appendChild(errorIcon);
+        toast.appendChild(infoIcon);
+        toast.appendChild(messageSpan);
+        
+        document.body.appendChild(toast);
+    }
+    
     const toast = document.getElementById('toast');
     const successIcon = document.getElementById('toast-icon-success');
     const errorIcon = document.getElementById('toast-icon-error');
+    const infoIcon = document.getElementById('toast-icon-info');
     
     document.getElementById('toast-message').textContent = message;
     
-    // Show the appropriate icon
+    // Hide all icons first
+    successIcon.classList.add('hidden');
+    errorIcon.classList.add('hidden');
+    infoIcon.classList.add('hidden');
+    
+    // Show the appropriate icon and set colors
     if (type === 'success') {
         successIcon.classList.remove('hidden');
-        errorIcon.classList.add('hidden');
-        toast.classList.remove('bg-red-50');
-        toast.classList.add('bg-white');
-    } else {
-        successIcon.classList.add('hidden');
+        toast.className = 'fixed bottom-4 right-4 bg-white text-gray-800 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
+    } else if (type === 'error') {
         errorIcon.classList.remove('hidden');
-        toast.classList.add('bg-red-50');
-        toast.classList.remove('bg-white');
+        toast.className = 'fixed bottom-4 right-4 bg-red-50 text-red-800 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
+    } else if (type === 'info') {
+        infoIcon.classList.remove('hidden');
+        toast.className = 'fixed bottom-4 right-4 bg-blue-50 text-blue-800 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
     }
     
     // Show toast
     toast.classList.remove('translate-y-20', 'opacity-0');
     
+    // Clear any existing hide timeout
+    if (toast.hideTimeout) {
+        clearTimeout(toast.hideTimeout);
+    }
+    
     // Hide toast after 3 seconds
-    setTimeout(() => {
+    toast.hideTimeout = setTimeout(() => {
         toast.classList.add('translate-y-20', 'opacity-0');
     }, 3000);
 }
@@ -627,6 +679,78 @@ function formatTime(seconds) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
+// Check if the page needs a full refresh
+async function checkForPageChanges() {
+    try {
+        // Prevent frequent refreshes by checking the last refresh timestamp
+        const lastRefreshTime = localStorage.getItem('lastRoundsPageRefresh');
+        const currentTime = Date.now();
+        
+        if (lastRefreshTime && (currentTime - parseInt(lastRefreshTime)) < 15000) {
+            // Don't refresh if it's been less than 15 seconds since last refresh
+            console.log('Skipping refresh check - last refresh was less than 15 seconds ago');
+            setTimeout(checkForPageChanges, 10000);
+            return;
+        }
+        
+        // Get current round IDs on the page
+        const activeRoundElements = document.querySelectorAll('[data-round-id]');
+        const currentRoundIds = Array.from(activeRoundElements).map(el => el.dataset.roundId);
+        
+        // Find the Active Tiebreakers section by looking for the heading text
+        let tiebreakersSection = null;
+        const headings = document.querySelectorAll('h2.gradient-text');
+        for (let i = 0; i < headings.length; i++) {
+            if (headings[i].textContent.includes('Active Tiebreakers')) {
+                tiebreakersSection = headings[i];
+                break;
+            }
+        }
+        
+        // Get the tiebreaker count from the badge
+        let currentTiebreakerCount = 0;
+        if (tiebreakersSection) {
+            const badge = tiebreakersSection.querySelector('.rounded-full');
+            if (badge) {
+                currentTiebreakerCount = parseInt(badge.textContent.trim());
+            }
+        }
+        
+        // Fetch latest rounds data
+        const response = await fetch('/admin/rounds/status');
+        const data = await response.json();
+        
+        console.log('Page status check:', {
+            'Current active rounds': currentRoundIds.length,
+            'API active rounds': data.active_round_ids.length,
+            'Current tiebreakers': currentTiebreakerCount,
+            'API tiebreakers': data.active_tiebreaker_count,
+            'Processing rounds': data.needs_refresh
+        });
+        
+        // Check if any rounds have been added or removed, or if tiebreaker count changed
+        if (data.active_round_ids.length !== currentRoundIds.length || 
+            !data.active_round_ids.every(id => currentRoundIds.includes(id.toString())) ||
+            data.active_tiebreaker_count !== currentTiebreakerCount ||
+            data.needs_refresh) {
+            
+            console.log('Page update needed, refreshing...');
+            // Store the refresh timestamp
+            localStorage.setItem('lastRoundsPageRefresh', currentTime.toString());
+            location.reload();
+            return;
+        }
+        
+        // If no full refresh needed, continue with individual timers
+        console.log('No full page refresh needed, continuing with timer updates');
+    } catch (error) {
+        console.error('Error checking for page changes:', error);
+    }
+    
+    // Check again in 10 seconds
+    setTimeout(checkForPageChanges, 10000);
+}
+
 // Initialize timers for all active rounds
 function initializeTimers() {
     {% for round in active_rounds %}
@@ -643,6 +767,7 @@ async function initTimer(roundId) {
                 const data = await response.json();
                 
                 if (!data.active) {
+                    console.log(`Round ${roundId} is no longer active, refreshing page...`);
                     // Round is no longer active, reload the page
                     location.reload();
                     return;
@@ -666,12 +791,22 @@ async function initTimer(roundId) {
                             timerContainer.className = 'text-sm font-medium px-4 py-2 rounded-xl bg-white/80 backdrop-blur-sm shadow-sm flex items-center';
                         }
                     }
+                    
+                    // If timer is about to expire, show toast notification
+                    if (remainingSeconds <= 10 && remainingSeconds > 0) {
+                        showToast(`Round #${roundId} ends in ${remainingSeconds} seconds`, 'info');
+                    }
+                    
+                    // When timer expires exactly, show a notification
+                    if (remainingSeconds === 0) {
+                        showToast(`Round #${roundId} has ended and will be finalized`, 'info');
+                    }
                 }
                 
                 // Check again in 1 second
                 setTimeout(checkStatus, 1000);
             } catch (error) {
-                console.error('Error checking round status:', error);
+                console.error(`Error checking round ${roundId} status:`, error);
                 // Retry after a delay
                 setTimeout(checkStatus, 5000);
             }
@@ -680,13 +815,16 @@ async function initTimer(roundId) {
         // Start checking
         checkStatus();
     } catch (error) {
-        console.error('Error initializing timer:', error);
+        console.error(`Error initializing timer for round ${roundId}:`, error);
     }
 }
 
 // Initialize timers when the page loads
 document.addEventListener('DOMContentLoaded', function() {
     initializeTimers();
+    
+    // Start periodic check for page changes
+    checkForPageChanges();
     
     // Add responsive behavior for mobile
     const adjustForMobile = () => {

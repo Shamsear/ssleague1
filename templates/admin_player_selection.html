@@ -417,19 +417,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to update position counters
     function updatePositionCounter(position) {
+        // Get all toggles for this position
         const allTogglesForPosition = document.querySelectorAll(`.player-toggle[data-position="${position}"]`);
-        const selectedCount = Array.from(allTogglesForPosition).filter(t => t.checked).length;
+        
+        // Create a Set to store unique player IDs
+        const checkedPlayerIds = new Set();
+        
+        // Loop through all toggles and add checked player IDs to the Set
+        allTogglesForPosition.forEach(toggle => {
+            if (toggle.checked) {
+                checkedPlayerIds.add(toggle.dataset.playerId);
+            }
+        });
+        
+        // The size of the Set is the count of unique checked players
+        const selectedCount = checkedPlayerIds.size;
+        
+        // Get the display element
         const countElement = document.getElementById(`${position}-selected-count`);
         
         if (countElement) {
-            // Get the total from the display text (format: "X / Y selected")
+            // Get the total from the display text
             const totalText = countElement.parentElement.textContent;
             const totalMatch = totalText.match(/\/\s*(\d+)\s*selected/);
-            const total = totalMatch ? parseInt(totalMatch[1], 10) : selectedCount;
+            const total = totalMatch ? parseInt(totalMatch[1], 10) : allTogglesForPosition.length;
             
-            // Ensure selected count doesn't exceed total
-            const displayCount = Math.min(selectedCount, total);
-            countElement.textContent = displayCount;
+            // Update the display with the actual count
+            countElement.textContent = selectedCount;
+            
+            // Debug log to help diagnose issues
+            console.log(`Position ${position}: ${selectedCount} selected out of ${total} total`);
         }
     }
     
