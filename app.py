@@ -2558,6 +2558,24 @@ def withdraw_from_bulk_tiebreaker():
     if not team_tiebreaker:
         return jsonify({'error': 'You are not part of this tiebreaker or have already withdrawn.'}), 400
     
+    # Check if this team has the highest bid and prevent withdrawal if so
+    active_teams = TeamBulkTiebreaker.query.filter_by(
+        tiebreaker_id=tiebreaker_id,
+        is_active=True
+    ).all()
+    
+    highest_bid = 0
+    highest_bidder_id = None
+    
+    for tt in active_teams:
+        if tt.last_bid and tt.last_bid > highest_bid:
+            highest_bid = tt.last_bid
+            highest_bidder_id = tt.team_id
+    
+    # If there's a highest bidder and it's this team, don't allow withdrawal
+    if highest_bidder_id == current_user.team.id and highest_bid > 0:
+        return jsonify({'error': 'You cannot withdraw while you have the highest bid.'}), 400
+    
     # Mark the team as inactive in the tiebreaker
     team_tiebreaker.is_active = False
     db.session.commit()
@@ -3021,12 +3039,37 @@ def check_bulk_tiebreaker_status(tiebreaker_id):
         if next_team_tiebreaker:
             next_tiebreaker = next_team_tiebreaker.tiebreaker_id
     
-    # Return tiebreaker status information
-    return jsonify({
+    # Build response with basic info
+    response_data = {
         'resolved': tiebreaker.resolved,
         'winner_team_id': tiebreaker.winner_team_id if tiebreaker.resolved else None,
-        'next_tiebreaker_id': next_tiebreaker
-    })
+        'next_tiebreaker_id': next_tiebreaker,
+        'current_amount': tiebreaker.current_amount
+    }
+    
+    # If include_teams parameter is provided, include detailed team information
+    if request.args.get('include_teams') == 'true' and not tiebreaker.resolved:
+        # Get all active teams in this tiebreaker
+        team_tiebreakers = TeamBulkTiebreaker.query.filter_by(
+            tiebreaker_id=tiebreaker_id,
+            is_active=True
+        ).all()
+        
+        # Prepare competing teams data
+        competing_teams = []
+        for tt in team_tiebreakers:
+            team = Team.query.get(tt.team_id)
+            team_data = {
+                'id': team.id,
+                'name': team.name,
+                'last_bid': tt.last_bid,
+                'last_bid_time': tt.last_bid_time.strftime('%H:%M:%S') if tt.last_bid_time else None
+            }
+            competing_teams.append(team_data)
+        
+        response_data['competing_teams'] = competing_teams
+    
+    return jsonify(response_data)
 
 @app.route('/admin/delete_bulk_round/<int:round_id>', methods=['POST'])
 @login_required
