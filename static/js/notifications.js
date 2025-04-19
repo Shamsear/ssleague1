@@ -3,6 +3,12 @@ function arePushNotificationsSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window;
 }
 
+// Check if running as a PWA
+function isRunningAsPWA() {
+  return window.navigator.standalone || 
+         window.matchMedia('(display-mode: standalone)').matches;
+}
+
 // Listen for messages from the service worker
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', function(event) {
@@ -30,28 +36,39 @@ async function registerServiceWorker() {
   }
 }
 
-// Request permission for notifications
+// Request notification permission
 async function requestNotificationPermission() {
   try {
+    document.getElementById('notification-status').innerText = 'Requesting permission...';
+    document.getElementById('notification-status').className = 'text-yellow-500';
+    
     const permission = await Notification.requestPermission();
+    console.log('Notification permission:', permission);
+    
     if (permission === 'granted') {
-      console.log('Notification permission granted');
+      localStorage.setItem('notificationPermission', 'granted');
       document.getElementById('notification-status').innerText = 'Notifications enabled';
       document.getElementById('notification-status').className = 'text-green-500';
       document.getElementById('enable-notifications').classList.add('hidden');
       document.getElementById('disable-notifications').classList.remove('hidden');
-      return true;
-    } else {
-      console.log('Notification permission denied');
-      document.getElementById('notification-status').innerText = 'Notifications disabled';
+      
+      // Subscribe
+      await subscribeToPushNotifications();
+    } else if (permission === 'denied') {
+      localStorage.setItem('notificationPermission', 'denied');
+      document.getElementById('notification-status').innerText = 'Notifications blocked';
       document.getElementById('notification-status').className = 'text-red-500';
-      document.getElementById('enable-notifications').classList.remove('hidden');
-      document.getElementById('disable-notifications').classList.add('hidden');
-      return false;
+      document.getElementById('notification-info').innerText = 'Please enable notifications in your browser settings';
+    } else {
+      // default is "default" which means dismissed without making a choice
+      localStorage.setItem('notificationPermission', 'default');
+      document.getElementById('notification-status').innerText = 'Notifications not enabled';
+      document.getElementById('notification-status').className = 'text-gray-500';
     }
   } catch (error) {
     console.error('Error requesting notification permission:', error);
-    return false;
+    document.getElementById('notification-status').innerText = 'Error requesting permission';
+    document.getElementById('notification-status').className = 'text-red-500';
   }
 }
 
@@ -178,6 +195,9 @@ async function subscribeToPushNotifications() {
 // Unsubscribe from push notifications
 async function unsubscribeFromPushNotifications() {
   try {
+    document.getElementById('notification-status').innerText = 'Disabling notifications...';
+    document.getElementById('notification-status').className = 'text-yellow-500';
+    
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.getSubscription();
     
@@ -201,21 +221,30 @@ async function unsubscribeFromPushNotifications() {
       // Clear localStorage entries
       try {
         localStorage.removeItem('pushSubscription');
-        localStorage.setItem('notificationPermission', 'denied');
+        localStorage.setItem('notificationPermission', 'default');
       } catch (e) {
         console.warn('Could not update localStorage:', e);
       }
       
+      // Update UI
       document.getElementById('notification-status').innerText = 'Notifications disabled';
-      document.getElementById('notification-status').className = 'text-red-500';
+      document.getElementById('notification-status').className = 'text-gray-500';
       document.getElementById('enable-notifications').classList.remove('hidden');
       document.getElementById('disable-notifications').classList.add('hidden');
       
       return true;
+    } else {
+      console.log('No subscription found to unsubscribe from');
+      document.getElementById('notification-status').innerText = 'No active subscription found';
+      document.getElementById('notification-status').className = 'text-gray-500';
+      document.getElementById('enable-notifications').classList.remove('hidden');
+      document.getElementById('disable-notifications').classList.add('hidden');
+      return false;
     }
-    return false;
   } catch (error) {
     console.error('Error unsubscribing from push notifications:', error);
+    document.getElementById('notification-status').innerText = 'Error disabling notifications';
+    document.getElementById('notification-status').className = 'text-red-500';
     return false;
   }
 }
@@ -308,6 +337,13 @@ async function initNotifications() {
     return;
   }
   
+  // Set checking status
+  const statusElement = document.getElementById('notification-status');
+  if (statusElement) {
+    statusElement.innerText = 'Checking notification status...';
+    statusElement.className = 'text-gray-500';
+  }
+  
   displayBrowserInstructions();
   
   // First check localStorage for persisted state
@@ -317,6 +353,10 @@ async function initNotifications() {
   // Register service worker
   const registration = await registerServiceWorker();
   if (!registration) {
+    if (statusElement) {
+      statusElement.innerText = 'Service worker failed to register';
+      statusElement.className = 'text-red-500';
+    }
     return;
   }
   
@@ -336,10 +376,18 @@ async function initNotifications() {
     document.getElementById('notification-status').innerText = 'Notifications blocked';
     document.getElementById('notification-status').className = 'text-red-500';
     document.getElementById('notification-info').innerText = 'Please enable notifications in your browser settings';
-  } else if (savedPermission === 'granted' && isRunningAsPWA()) {
-    // For iOS PWA, we know they previously granted permission but might need to re-enable
-    document.getElementById('notification-status').innerText = 'Tap Enable to restore notifications';
-    document.getElementById('notification-status').className = 'text-yellow-500';
+  } else {
+    // Default state - show enable button
+    document.getElementById('notification-status').innerText = 'Notifications not enabled';
+    document.getElementById('notification-status').className = 'text-gray-500';
+    document.getElementById('enable-notifications').classList.remove('hidden');
+    document.getElementById('disable-notifications').classList.add('hidden');
+    
+    // Special case for iOS PWA with saved permission
+    if (savedPermission === 'granted' && isRunningAsPWA()) {
+      document.getElementById('notification-status').innerText = 'Tap Enable to restore notifications';
+      document.getElementById('notification-status').className = 'text-yellow-500';
+    }
   }
 }
 
