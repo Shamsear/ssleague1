@@ -3,6 +3,19 @@ function arePushNotificationsSupported() {
   return 'serviceWorker' in navigator && 'PushManager' in window;
 }
 
+// Listen for messages from the service worker
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.addEventListener('message', function(event) {
+    console.log('Message from service worker:', event.data);
+    
+    // Handle resubscription requests
+    if (event.data && event.data.type === 'resubscribe') {
+      console.log('Resubscription requested');
+      subscribeToPushNotifications();
+    }
+  });
+}
+
 // Register the service worker
 async function registerServiceWorker() {
   try {
@@ -80,6 +93,13 @@ async function subscribeToPushNotifications() {
     
     if (subscription) {
       console.log('Already subscribed to push notifications');
+      // Save subscription to localStorage for iOS persistence
+      try {
+        localStorage.setItem('pushSubscription', JSON.stringify(subscription.toJSON()));
+        localStorage.setItem('notificationPermission', 'granted');
+      } catch (e) {
+        console.warn('Could not save subscription to localStorage:', e);
+      }
       return subscription;
     }
     
@@ -99,6 +119,14 @@ async function subscribeToPushNotifications() {
     });
     
     console.log('User subscribed to push notifications');
+    
+    // Save to localStorage for iOS persistence
+    try {
+      localStorage.setItem('pushSubscription', JSON.stringify(subscription.toJSON()));
+      localStorage.setItem('notificationPermission', 'granted');
+    } catch (e) {
+      console.warn('Could not save subscription to localStorage:', e);
+    }
     
     // Send the subscription to the server
     await fetch('/api/subscribe', {
@@ -127,6 +155,15 @@ async function subscribeToPushNotifications() {
           }
         });
       }, 3000);
+    }
+    
+    // Request background sync if supported
+    if ('SyncManager' in window) {
+      try {
+        await registration.sync.register('sync-subscription');
+      } catch (err) {
+        console.log('Background sync not supported:', err);
+      }
     }
     
     return subscription;
@@ -160,6 +197,14 @@ async function unsubscribeFromPushNotifications() {
       // Unsubscribe on the browser
       await subscription.unsubscribe();
       console.log('User unsubscribed from push notifications');
+      
+      // Clear localStorage entries
+      try {
+        localStorage.removeItem('pushSubscription');
+        localStorage.setItem('notificationPermission', 'denied');
+      } catch (e) {
+        console.warn('Could not update localStorage:', e);
+      }
       
       document.getElementById('notification-status').innerText = 'Notifications disabled';
       document.getElementById('notification-status').className = 'text-red-500';
@@ -203,14 +248,42 @@ function displayBrowserInstructions() {
   const ua = navigator.userAgent;
   let instructions = '';
   
-  if (/android/i.test(ua)) {
+  if (/iPad|iPhone|iPod/.test(ua)) {
+    if (!isRunningAsPWA()) {
+      instructions = 'To receive notifications on iOS, you must add this site to your home screen and open it from there.';
+      
+      // Add detailed iOS installation guide if not already shown
+      setTimeout(() => {
+        if (!document.getElementById('ios-install-guide')) {
+          const container = document.getElementById('notification-container');
+          if (container) {
+            const iosGuide = document.createElement('div');
+            iosGuide.id = 'ios-install-guide';
+            iosGuide.className = 'mt-3 p-3 bg-blue-50 text-xs rounded-xl border border-blue-100 w-full';
+            iosGuide.innerHTML = `
+              <p class="font-medium mb-1">How to install on iOS:</p>
+              <ol class="list-decimal pl-5 space-y-1">
+                <li>Tap the share icon at the bottom of Safari</li>
+                <li>Scroll down and tap "Add to Home Screen"</li>
+                <li>Tap "Add" in the top right</li>
+                <li>Close Safari completely (swipe up from bottom)</li>
+                <li>Open the app from your home screen</li>
+              </ol>
+              <p class="mt-2 italic text-blue-600">This is required for notifications to work on iOS.</p>
+            `;
+            container.parentNode.insertBefore(iosGuide, container.nextSibling);
+          }
+        }
+      }, 500);
+    } else {
+      instructions = 'Notifications will work when this app is closed. You launched it correctly from the home screen.';
+    }
+  } else if (/android/i.test(ua)) {
     if (/chrome/i.test(ua)) {
       instructions = 'For reliable notifications on Android, please keep Chrome running in the background.';
     } else if (/firefox/i.test(ua)) {
       instructions = 'Make sure Firefox is allowed to run in the background in your device settings.';
     }
-  } else if (/iPad|iPhone|iPod/.test(ua)) {
-    instructions = 'Push notifications on iOS require you to add this site to your home screen and use it as a web app.';
   } else if (/Windows/.test(ua)) {
     instructions = 'Allow notifications in your browser settings to receive updates even when the site is closed.';
   }
@@ -237,6 +310,10 @@ async function initNotifications() {
   
   displayBrowserInstructions();
   
+  // First check localStorage for persisted state
+  const savedPermission = localStorage.getItem('notificationPermission');
+  const savedSubscription = localStorage.getItem('pushSubscription');
+  
   // Register service worker
   const registration = await registerServiceWorker();
   if (!registration) {
@@ -259,6 +336,10 @@ async function initNotifications() {
     document.getElementById('notification-status').innerText = 'Notifications blocked';
     document.getElementById('notification-status').className = 'text-red-500';
     document.getElementById('notification-info').innerText = 'Please enable notifications in your browser settings';
+  } else if (savedPermission === 'granted' && isRunningAsPWA()) {
+    // For iOS PWA, we know they previously granted permission but might need to re-enable
+    document.getElementById('notification-status').innerText = 'Tap Enable to restore notifications';
+    document.getElementById('notification-status').className = 'text-yellow-500';
   }
 }
 

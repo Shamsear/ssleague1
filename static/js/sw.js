@@ -3,9 +3,11 @@
 const CACHE_NAME = 'ss-auction-v1';
 const ASSETS_TO_CACHE = [
   '/',
+  '/dashboard',
   '/static/images/logo.png',
   '/static/js/notifications.js',
-  '/dashboard'
+  '/static/manifest.json',
+  '/api/vapid-public-key'
 ];
 
 // Install event - cache important assets
@@ -41,6 +43,53 @@ self.addEventListener('activate', function(event) {
   );
 });
 
+// iOS PWA persistence helper - store subscription in IndexedDB
+const dbPromise = idb();
+
+function idb() {
+  if (!('indexedDB' in self)) return Promise.resolve();
+  
+  return new Promise((resolve, reject) => {
+    const openRequest = indexedDB.open('PushSubscriptionStore', 1);
+    
+    openRequest.onupgradeneeded = function(event) {
+      const db = event.target.result;
+      if (!db.objectStoreNames.contains('subscriptions')) {
+        db.createObjectStore('subscriptions', { keyPath: 'id' });
+      }
+    };
+    
+    openRequest.onsuccess = function(event) {
+      resolve(event.target.result);
+    };
+    
+    openRequest.onerror = function(event) {
+      console.error('IndexedDB error:', event.target.error);
+      resolve(); // Resolve anyway to not block
+    };
+  });
+}
+
+// Store subscription in IndexedDB
+function storeSubscription(subscription) {
+  return dbPromise.then(db => {
+    if (!db) return;
+    
+    const tx = db.transaction('subscriptions', 'readwrite');
+    const store = tx.objectStore('subscriptions');
+    
+    store.put({
+      id: 1, // Always use same ID to overwrite
+      subscription: subscription,
+      timestamp: Date.now()
+    });
+    
+    return tx.complete;
+  }).catch(err => {
+    console.error('Error storing subscription:', err);
+  });
+}
+
 // Fetch event - serve from cache when offline
 self.addEventListener('fetch', function(event) {
   // Only cache GET requests
@@ -49,8 +98,11 @@ self.addEventListener('fetch', function(event) {
   // Skip non-HTTP(S) requests
   if (!event.request.url.startsWith('http')) return;
   
-  // Skip API calls
-  if (event.request.url.includes('/api/')) return;
+  // Don't cache API calls except for the VAPID key
+  if (event.request.url.includes('/api/') && 
+      !event.request.url.includes('/api/vapid-public-key')) {
+    return;
+  }
   
   event.respondWith(
     caches.match(event.request)
@@ -62,7 +114,7 @@ self.addEventListener('fetch', function(event) {
         return fetch(event.request)
           .then(response => {
             // Don't cache if not a valid response
-            if (!response || response.status !== 200 || response.type !== 'basic') {
+            if (!response || response.status !== 200) {
               return response;
             }
             
@@ -77,7 +129,7 @@ self.addEventListener('fetch', function(event) {
             return response;
           })
           .catch(() => {
-            // If both cache and network fail, show offline page
+            // If both cache and network fail, show offline page for navigation requests
             if (event.request.mode === 'navigate') {
               return caches.match('/');
             }
@@ -85,6 +137,52 @@ self.addEventListener('fetch', function(event) {
       })
   );
 });
+
+// Periodically sync subscriptions (helpful for iOS)
+self.addEventListener('sync', function(event) {
+  if (event.tag === 'sync-subscription') {
+    event.waitUntil(syncSubscription());
+  }
+});
+
+// Function to sync subscription with server if needed
+async function syncSubscription() {
+  try {
+    // Try to get subscription from IndexedDB
+    const db = await dbPromise;
+    if (!db) return;
+    
+    const tx = db.transaction('subscriptions', 'readonly');
+    const store = tx.objectStore('subscriptions');
+    const storedData = await store.get(1);
+    
+    if (!storedData || !storedData.subscription) {
+      return; // No stored subscription
+    }
+    
+    // Get current subscription
+    const currentSubscription = await self.registration.pushManager.getSubscription();
+    
+    // If we have no current subscription but have a stored one, try to resubscribe
+    if (!currentSubscription && storedData.subscription) {
+      try {
+        // We can't directly reuse the stored subscription,
+        // but we can notify the main thread to resubscribe
+        const clients = await self.clients.matchAll();
+        if (clients.length > 0) {
+          clients[0].postMessage({
+            type: 'resubscribe',
+            subscription: storedData.subscription
+          });
+        }
+      } catch (err) {
+        console.error('Error resubscribing:', err);
+      }
+    }
+  } catch (err) {
+    console.error('Error in syncSubscription:', err);
+  }
+}
 
 // Listen for push notification events
 self.addEventListener('push', function(event) {

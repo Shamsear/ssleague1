@@ -21,4 +21,39 @@
         </button>
     </div>
     <input type="hidden" id="user-id" value="{{ current_user.id if current_user.is_authenticated else '' }}">
-</div> 
+</div>
+
+<!-- iOS-specific notice -->
+<div id="ios-pwa-notice" class="hidden glass rounded-2xl p-4 mb-4 sm:mb-6 bg-yellow-50/80 text-sm">
+    <div class="flex items-start">
+        <div class="bg-yellow-100 p-2 rounded-full mr-3 shrink-0">
+            <svg class="w-5 h-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+            </svg>
+        </div>
+        <div>
+            <h3 class="text-sm font-medium text-yellow-800">iOS Users: Important Notice</h3>
+            <p class="text-xs text-yellow-700 mt-1 mb-2">For notifications to work properly on your iPhone/iPad, you must:</p>
+            <ol class="list-decimal pl-5 text-xs text-yellow-700 space-y-1">
+                <li>Tap the share icon at the bottom of Safari</li>
+                <li>Select "Add to Home Screen" and tap "Add"</li>
+                <li>Close Safari completely (swipe up from bottom)</li>
+                <li>Open the app from your home screen icon</li>
+                <li>Then enable notifications when prompted</li>
+            </ol>
+            <p class="text-xs text-yellow-700 mt-2 italic">Web push notifications on iOS only work when launched from the home screen.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+// Show iOS notice if on iOS but not in PWA mode
+document.addEventListener('DOMContentLoaded', function() {
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+    const isPWA = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+    
+    if (isIOS && !isPWA) {
+        document.getElementById('ios-pwa-notice').classList.remove('hidden');
+    }
+});
+</script> 
