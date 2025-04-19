@@ -3,26 +3,20 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="SS League Auction">
-    <link rel="apple-touch-icon" href="/static/images/logo.png">
     <title>{% block title %}SS League Auction{% endblock %}</title>
-    <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="image/png">
-    
     <!-- PWA Support -->
-    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
-    <meta name="theme-color" content="#0066FF">
-    
-    <!-- iOS PWA Support -->
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="apple-mobile-web-app-title" content="SS League Auction">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="SS Auction">
+    <meta name="theme-color" content="#0066FF">
+    <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/logo.png') }}">
-    
+    <!-- End PWA Support -->
+    <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -303,10 +297,6 @@
             {% endif %}
         {% endwith %}
 
-        {% if current_user.is_authenticated %}
-            {% include 'partials/notification_component.html' %}
-        {% endif %}
-
         {% block content %}{% endblock %}
         
         <!-- Spacer for mobile bottom nav -->
@@ -443,5 +433,23 @@
             </div>
         </div>
     </nav>
+
+    <!-- Add to Home Screen buttons -->
+    <div class="add-to-home fixed bottom-24 right-4 bg-primary text-white p-3 rounded-full shadow-lg z-50 hidden">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+    </div>
+    
+    <!-- iOS installation prompt -->
+    <div class="ios-prompt fixed bottom-0 left-0 right-0 bg-white p-4 shadow-lg z-50 hidden">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="font-bold">Install SS Auction App</p>
+                <p class="text-sm text-gray-600">Tap <span class="inline-block"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 inline" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></span> and then "Add to Home Screen"</p>
+            </div>
+            <button class="text-primary font-bold" onclick="this.parentElement.parentElement.style.display='none'">Close</button>
+        </div>
+    </div>
 </body>
 </html> 

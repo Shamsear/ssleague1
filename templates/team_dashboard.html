@@ -178,7 +178,7 @@
         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6 gap-3">
             <div class="flex items-center">
                 <div class="bg-purple-100 p-2 rounded-full mr-3">
-                    <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                 </div>
@@ -1169,38 +1169,20 @@ async function deleteBid(bidId) {
     }
 }
 
-// Show toast notification
-function showToast(message, type = 'success') {
+// Toast notification system
+function showToast(message, type = 'info') {
+    // Remove existing toasts
+    const existingToasts = document.querySelectorAll('.toast-notification');
+    existingToasts.forEach(toast => toast.remove());
+
     // Create toast element
     const toast = document.createElement('div');
-    toast.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg flex items-center z-50 animate-fadeIn';
-    
-    // Set background color based on type
-    if (type === 'success') {
-        toast.classList.add('bg-green-100', 'text-green-800');
-        toast.innerHTML = `
-            <svg class="w-5 h-5 mr-2 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>`;
-    } else if (type === 'error') {
-        toast.classList.add('bg-red-100', 'text-red-800');
-        toast.innerHTML = `
-            <svg class="w-5 h-5 mr-2 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>`;
-    } else if (type === 'info') {
-        toast.classList.add('bg-blue-100', 'text-blue-800');
-        toast.innerHTML = `
-            <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-            </svg>`;
-    }
-    
-    // Add message
-    toast.innerHTML += `<span>${message}</span>`;
-    
-    // Remove existing toasts
-    document.querySelectorAll('.animate-fadeIn').forEach(el => el.remove());
+    toast.className = `toast-notification fixed bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full shadow-lg z-50 ${
+        type === 'error' ? 'bg-red-500 text-white' : 
+        type === 'success' ? 'bg-green-500 text-white' : 
+        'bg-blue-500 text-white'
+    } animate-fadeIn`;
+    toast.textContent = message;
     
     // Add to document
     document.body.appendChild(toast);
@@ -1283,52 +1265,6 @@ async function initTimer(roundId) {
         checkStatus();
     } catch (error) {
         console.error('Error initializing timer:', error);
-    }
-}
-
-// Function to check if dashboard needs updates
-async function checkDashboardStatus() {
-    try {
-        // Get current state of dashboard
-        const currentState = {
-            activeRounds: Array.from(document.querySelectorAll('[data-round-id]')).map(el => el.dataset.roundId),
-            regularTiebreakers: document.querySelectorAll('[href*="get_tiebreaker"]').length,
-            bulkTiebreakers: document.querySelectorAll('[href*="team_bulk_tiebreaker"]').length,
-            hasBulkRound: document.querySelector('[id="active_bulk_round"]') !== null,
-            teamBalance: document.querySelector('.stats-balance') ? 
-                parseInt(document.querySelector('.stats-balance').textContent.replace(/[^0-9]/g, '')) : 0
-        };
-        
-        // Fetch latest dashboard data
-        const response = await fetch('/team/dashboard/status');
-        const data = await response.json();
-        
-        console.log('Dashboard status check:', {
-            current: currentState,
-            server: data
-        });
-        
-        // Check if anything important has changed
-        const currentTiebreakerCount = currentState.regularTiebreakers + currentState.bulkTiebreakers;
-        const needsRefresh = 
-            data.active_round_ids.length !== currentState.activeRounds.length || 
-            !data.active_round_ids.every(id => currentState.activeRounds.includes(id.toString())) ||
-            data.active_tiebreakers.length !== currentTiebreakerCount ||
-            data.has_active_bulk_round !== currentState.hasBulkRound;
-        
-        if (needsRefresh) {
-            console.log('Dashboard changes detected, refreshing page...');
-            showToast('Updates available, refreshing page...', 'info');
-            setTimeout(() => location.reload(), 1500);
-            return;
-        }
-        
-        // Check again in 15 seconds
-        setTimeout(checkDashboardStatus, 15000);
-    } catch (error) {
-        console.error('Error checking dashboard status:', error);
-        // Try again in 30 seconds if there was an error
-        setTimeout(checkDashboardStatus, 30000);
     }
 }
 
@@ -1498,5 +1434,51 @@ document.addEventListener('DOMContentLoaded', () => {
         modal.classList.add('flex');
     }
 });
-</script>
-{% endblock %} 
+
+// Function to check if dashboard needs updates
+async function checkDashboardStatus() {
+    try {
+        // Get current state of dashboard
+        const currentState = {
+            activeRounds: Array.from(document.querySelectorAll('[data-round-id]')).map(el => el.dataset.roundId),
+            regularTiebreakers: document.querySelectorAll('[href*="get_tiebreaker"]').length,
+            bulkTiebreakers: document.querySelectorAll('[href*="team_bulk_tiebreaker"]').length,
+            hasBulkRound: document.querySelector('[id="active_bulk_round"]') !== null,
+            teamBalance: document.querySelector('.stats-balance') ? 
+                parseInt(document.querySelector('.stats-balance').textContent.replace(/[^0-9]/g, '')) : 0
+        };
+        
+        // Fetch latest dashboard data
+        const response = await fetch('/team/dashboard/status');
+        const data = await response.json();
+        
+        console.log('Dashboard status check:', {
+            current: currentState,
+            server: data
+        });
+        
+        // Check if anything important has changed
+        const currentTiebreakerCount = currentState.regularTiebreakers + currentState.bulkTiebreakers;
+        const needsRefresh = 
+            data.active_round_ids.length !== currentState.activeRounds.length || 
+            !data.active_round_ids.every(id => currentState.activeRounds.includes(id.toString())) ||
+            data.active_tiebreakers.length !== currentTiebreakerCount ||
+            data.has_active_bulk_round !== currentState.hasBulkRound;
+        
+        if (needsRefresh) {
+            console.log('Dashboard changes detected, refreshing page...');
+            showToast('Updates available, refreshing page...', 'info');
+            setTimeout(() => location.reload(), 1500);
+            return;
+        }
+        
+        // Check again in 15 seconds
+        setTimeout(checkDashboardStatus, 15000);
+    } catch (error) {
+        console.error('Error checking dashboard status:', error);
+        // Try again in 30 seconds if there was an error
+        setTimeout(checkDashboardStatus, 30000);
+    }
+}
+
+// Add these styles for animations

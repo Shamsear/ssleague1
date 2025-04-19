@@ -194,83 +194,6 @@
     // Track current highest bid for update detection
     let currentHighestBid = {{ tiebreaker.current_amount }};
     let lastUpdateTime = Date.now();
-    let lastSoundTime = Date.now() - 60000; // Start with long delay so first update doesn't play sound
-    let notificationsEnabled = false; // Default to silent mode
-    let updateInterval = 5000; // Default polling interval - 5 seconds
-    
-    // Add notification settings controls to the UI
-    function addNotificationControls() {
-        const actionsDiv = document.querySelector('.glass-card.p-4.rounded-xl.bg-white\\/50');
-        
-        // Check if controls already exist
-        if (document.getElementById('notification-controls')) return;
-        
-        const controlsHTML = `
-            <div id="notification-controls" class="mt-4 pt-3 border-t border-gray-200 flex flex-wrap gap-3 items-center justify-end">
-                <div class="text-xs text-gray-500">Update settings:</div>
-                <div class="flex items-center">
-                    <label for="sound-toggle" class="mr-2 text-xs cursor-pointer">
-                        <span class="relative inline-block w-8 h-4 rounded-full bg-gray-200 transition-colors duration-200 ease-in-out ${notificationsEnabled ? 'bg-green-400' : ''}">
-                            <span class="absolute inset-y-0 left-0 w-4 h-4 rounded-full bg-white shadow transform transition-transform duration-200 ease-in-out ${notificationsEnabled ? 'translate-x-4' : ''}"></span>
-                        </span>
-                        <span class="ml-1">Sound</span>
-                    </label>
-                    <input id="sound-toggle" type="checkbox" class="hidden" ${notificationsEnabled ? 'checked' : ''}>
-                </div>
-                <div class="flex items-center">
-                    <label for="update-frequency" class="text-xs mr-2">Refresh:</label>
-                    <select id="update-frequency" class="text-xs bg-white/60 border border-gray-200 rounded p-1">
-                        <option value="2000" ${updateInterval === 2000 ? 'selected' : ''}>Fast (2s)</option>
-                        <option value="5000" ${updateInterval === 5000 ? 'selected' : ''}>Normal (5s)</option>
-                        <option value="10000" ${updateInterval === 10000 ? 'selected' : ''}>Slow (10s)</option>
-                    </select>
-                </div>
-            </div>
-        `;
-        
-        actionsDiv.insertAdjacentHTML('beforeend', controlsHTML);
-        
-        // Add event listeners
-        document.getElementById('sound-toggle').addEventListener('change', function() {
-            notificationsEnabled = this.checked;
-            
-            // Update toggle appearance
-            const toggleBg = this.previousElementSibling.querySelector('span');
-            const toggleKnob = toggleBg.querySelector('span');
-            
-            if (notificationsEnabled) {
-                toggleBg.classList.add('bg-green-400');
-                toggleKnob.classList.add('translate-x-4');
-            } else {
-                toggleBg.classList.remove('bg-green-400');
-                toggleKnob.classList.remove('translate-x-4');
-            }
-            
-            // Play a test sound if enabled
-            if (notificationsEnabled) {
-                playUpdateSound(0.1); // Quiet test sound
-            }
-        });
-        
-        document.getElementById('update-frequency').addEventListener('change', function() {
-            updateInterval = parseInt(this.value);
-        });
-    }
-    
-    // Function to play notification sound with configurable volume
-    function playUpdateSound(volume = 0.15) {
-        if (!notificationsEnabled) return;
-        
-        // Respect the cooldown period to avoid sound spam
-        const now = Date.now();
-        if (now - lastSoundTime < 8000) return; // Minimum 8 seconds between sounds
-        
-        lastSoundTime = now;
-        
-        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBgNLqPv/xHQrCgY1h+P4zYQ9GQ0ghfL98pBLIw8Xd/n/+5RLHg8Wha4OBjuYqsWQNw0LCiAXBjOkzOegRQkIGycHYh1DtOXgoUoMDyQnDmsGJ7Dq8bJZExwqMA5uBE+k8fnFcCEhLywPcwVEncTa12YiLTAZHQUKlvDx0FwaMywHHBgLChkHZJHN78FEDxgUBRkRBwwOA1ea3fO3OwwREAsgEgUOBgRcs+3/vi4HCAcNKRQIGRIMaMXw/rkgAwIFCjAXDR8SC3LT/f2yEgAAAAcxGBEkFQ+E4f/7pQgAAAAGMBsdKBUTl+v92JkEAAABCS0gJCQSIqj/95gMAQECCCgkJScSKbX/+ZEFAAIBBiQpJicULcL//48AAAAABSEtJiURN9D//4sAAAAABh8yKCIQPOD//4MGAgIDCBk2KR8RQ+///38AAAAAB2RQWUpEdv///3gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
-        audio.volume = volume;
-        audio.play().catch(e => console.log('Audio play prevented by browser policy'));
-    }
     
     // Function to refresh competing teams section and current bid
     function refreshCompetingTeams() {
@@ -287,19 +210,22 @@
                     // Update the current bid display
                     document.querySelector('.text-xl.font-bold.text-primary').textContent = `£${data.current_amount}`;
                     
-                    // Update the bid input minimum and value
+                    // Update the bid input minimum
                     document.getElementById('bidAmount').min = data.current_amount + 1;
                     document.getElementById('bidAmount').value = data.current_amount + 1;
                     
-                    // Visual feedback - only flash briefly for significant changes
-                    if (data.current_amount - currentHighestBid > 100) {
-                        const bidDisplay = document.querySelector('.text-center.bg-white\\/30.rounded-lg');
-                        bidDisplay.classList.add('bg-yellow-100');
-                        setTimeout(() => bidDisplay.classList.remove('bg-yellow-100'), 800);
-                    }
+                    // Flash the current bid display to indicate a change
+                    const bidDisplay = document.querySelector('.text-center.bg-white\\/30.rounded-lg');
+                    bidDisplay.classList.add('bg-yellow-100');
+                    setTimeout(() => bidDisplay.classList.remove('bg-yellow-100'), 1000);
                     
-                    // Play notification sound with rate limiting
-                    playUpdateSound();
+                    // Play a subtle notification sound if it's been more than 3 seconds since last update
+                    if (Date.now() - lastUpdateTime > 3000) {
+                        // Create and play a notification sound
+                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBgNLqPv/xHQrCgY1h+P4zYQ9GQ0ghfL98pBLIw8Xd/n/+5RLHg8Wha4OBjuYqsWQNw0LCiAXBjOkzOegRQkIGycHYh1DtOXgoUoMDyQnDmsGJ7Dq8bJZExwqMA5uBE+k8fnFcCEhLywPcwVEncTa12YiLTAZHQUKlvDx0FwaMywHHBgLChkHZJHN78FEDxgUBRkRBwwOA1ea3fO3OwwREAsgEgUOBgRcs+3/vi4HCAcNKRQIGRIMaMXw/rkgAwIFCjAXDR8SC3LT/f2yEgAAAAcxGBEkFQ+E4f/7pQgAAAAGMBsdKBUTl+v92JkEAAABCS0gJCQSIqj/95gMAQECCCgkJScSKbX/+ZEFAAIBBiQpJicULcL//48AAAAABSEtJiURN9D//4sAAAAABh8yKCIQPOD//4MGAgIDCBk2KR8RQ+///38AAAAAB2RQWUpEdv///3gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
+                        audio.volume = 0.2;
+                        audio.play().catch(e => console.log('Audio play prevented by browser policy'));
+                    }
                     
                     currentHighestBid = data.current_amount;
                     lastUpdateTime = Date.now();
@@ -312,11 +238,11 @@
                     // Check if we need to rebuild the teams display
                     let needsRebuild = false;
                     
-                    // Check if team count has changed
+                    // Check if team count or bid state has changed
                     if (teamsContainer.children.length !== data.competing_teams.length) {
                         needsRebuild = true;
                     } else {
-                        // Check if the bid status of any team has changed substantially
+                        // Check if the bid status of any team has changed
                         for (const team of data.competing_teams) {
                             const existingTeamEl = Array.from(teamsContainer.children).find(el => 
                                 el.querySelector('.font-medium.text-dark').textContent === team.name
@@ -328,21 +254,9 @@
                             }
                             
                             const hasBid = existingTeamEl.textContent.includes('Last bid');
-                            if (!hasBid && team.last_bid) {
-                                // New bid from a team that didn't have one before
+                            if ((team.last_bid && !hasBid) || (!team.last_bid && hasBid)) {
                                 needsRebuild = true;
                                 break;
-                            } else if (hasBid && !team.last_bid) {
-                                // Team's bid was removed (unlikely but possible)
-                                needsRebuild = true;
-                                break;
-                            } else if (hasBid && team.last_bid) {
-                                // Check if the bid amount has changed significantly
-                                const bidText = existingTeamEl.textContent.match(/£(\d+)/);
-                                if (bidText && parseInt(bidText[1]) !== team.last_bid) {
-                                    needsRebuild = true;
-                                    break;
-                                }
                             }
                         }
                     }
@@ -399,13 +313,13 @@
                     }
                 }
                 
-                // Continue checking for updates with the user-selected interval
-                setTimeout(refreshCompetingTeams, updateInterval);
+                // Continue checking for updates
+                setTimeout(refreshCompetingTeams, 3000);
             })
             .catch(error => {
                 console.error('Error refreshing competing teams:', error);
-                // Continue checking even if there's an error, but back off a bit
-                setTimeout(refreshCompetingTeams, updateInterval * 2);
+                // Continue checking even if there's an error
+                setTimeout(refreshCompetingTeams, 5000);
             });
     }
     
@@ -448,6 +362,5 @@
     // Start checking tiebreaker status and refresh competing teams
     checkTiebreakerStatus();
     refreshCompetingTeams();
-    addNotificationControls(); // Add the notification controls to the UI
 </script>
 {% endblock %} 

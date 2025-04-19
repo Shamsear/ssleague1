@@ -39,15 +39,10 @@ def load_user(user_id):
 
 @app.route('/')
 def index():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
     return render_template('index.html')
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-        
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -65,9 +60,6 @@ def login():
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
-    if current_user.is_authenticated:
-        return redirect(url_for('dashboard'))
-        
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -2175,28 +2167,6 @@ def get_vapid_public_key():
         'publicKey': app.config.get('VAPID_PUBLIC_KEY')
     })
 
-@app.route('/api/test-notification', methods=['POST'])
-@login_required
-def test_notification():
-    """Send a test notification to the current user"""
-    try:
-        notification_data = {
-            "title": "Notification Test",
-            "body": "Your notifications are working correctly! You'll receive important updates even when the site is closed.",
-            "data": {
-                "type": "test",
-                "url": "/dashboard"
-            },
-            "tag": "test_notification",
-            "renotify": True
-        }
-        
-        send_push_notification(current_user.id, notification_data)
-        return jsonify({'success': True, 'message': 'Test notification sent'})
-    except Exception as e:
-        app.logger.error(f"Error sending test notification: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
 @app.route('/api/subscribe', methods=['POST'])
 @login_required
 def subscribe():
@@ -2924,10 +2894,10 @@ def admin_bulk_tiebreakers():
         highest_bid = 0
         highest_bidder = None
         
-        for tt in team_tiebreakers:
-            if tt.last_bid and tt.last_bid > highest_bid:
-                highest_bid = tt.last_bid
-                highest_bidder = tt.team
+        for team_tiebreaker in team_tiebreakers:
+            if team_tiebreaker.last_bid and team_tiebreaker.last_bid > highest_bid:
+                highest_bid = team_tiebreaker.last_bid
+                highest_bidder = team_tiebreaker.team
         
         tiebreaker_details[tiebreaker.id] = {
             'teams': team_tiebreakers,
@@ -3696,89 +3666,9 @@ def team_dashboard_status():
         'team_balance': current_user.team.balance if current_user.team else 0
     })
 
-# Function to send notification to all users
-def send_notification_to_all(notification_data, admin_only=False, team_only=False):
-    """Send push notification to all users, optionally filtering by admin or team status"""
-    try:
-        # Get all users or filter by role
-        if admin_only:
-            users = User.query.filter_by(is_admin=True).all()
-        elif team_only:
-            users = User.query.filter(User.team != None).all()
-        else:
-            users = User.query.all()
-            
-        # Send to each user
-        for user in users:
-            send_push_notification(user.id, notification_data)
-            
-        return True
-    except Exception as e:
-        app.logger.error(f"Error sending notification to all users: {str(e)}")
-        return False
-        
-# Admin route for sending urgent notifications
-@app.route('/admin/send-urgent-notification', methods=['GET', 'POST'])
-@login_required
-def send_urgent_notification():
-    """Admin interface for sending urgent notifications to all users or specific teams"""
-    if not current_user.is_admin:
-        flash('Access denied.', 'error')
-        return redirect(url_for('dashboard'))
-        
-    teams = Team.query.all()
-    
-    if request.method == 'POST':
-        title = request.form.get('title', 'URGENT: Important Update')
-        message = request.form.get('message', '')
-        target = request.form.get('target', 'all')  # 'all', 'admins', 'teams', 'specific_team'
-        team_id = request.form.get('team_id')
-        url = request.form.get('url', '/dashboard')
-        
-        if not message:
-            flash('Message is required.', 'error')
-            return render_template('admin_notification.html', teams=teams)
-            
-        notification_data = {
-            "title": title,
-            "body": message,
-            "data": {
-                "type": "urgent",
-                "url": url
-            },
-            "tag": "urgent_notification",
-            "renotify": True
-        }
-        
-        if target == 'all':
-            send_notification_to_all(notification_data)
-        elif target == 'admins':
-            send_notification_to_all(notification_data, admin_only=True)
-        elif target == 'teams':
-            send_notification_to_all(notification_data, team_only=True)
-        elif target == 'specific_team' and team_id:
-            team = Team.query.get(team_id)
-            if team and team.user:
-                send_push_notification(team.user.id, notification_data)
-        
-        flash('Notification sent successfully.', 'success')
-        return redirect(url_for('admin_dashboard'))
-        
-    return render_template('admin_notification.html', teams=teams)
-
-# Add a route to serve the service worker file with the Service-Worker-Allowed header
-@app.route('/static/js/sw.js')
-def serve_service_worker_js():
-    response = app.send_static_file('js/sw.js')
-    # Set the Service-Worker-Allowed header to allow a broader scope
-    response.headers['Service-Worker-Allowed'] = '/'
-    return response
-
-# Also serve the root sw.js with appropriate headers
-@app.route('/sw.js')
-def serve_root_service_worker():
-    response = app.send_static_file('js/sw.js')
-    return response
+@app.route('/service-worker.js')
+def service_worker():
+    return app.send_static_file('js/service-worker.js')
 
 if __name__ == '__main__':
     with app.app_context():

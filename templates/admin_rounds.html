@@ -63,7 +63,7 @@
                                 {% endfor %}
                                 
                                 <!-- Position Groups -->
-                                {% for position in ['CB', 'DMF', 'CMF', 'AMF', 'CF'] %}
+                                {% for position in ['CB', 'RB', 'LB', 'CMF', 'DMF', 'RMF', 'LMF', 'AMF', 'SS', 'CF'] %}
                                     {% for suffix in [1, 2] %}
                                     <option value="{{ position }}-{{ suffix }}">{{ position }}-{{ suffix }}</option>
                                     {% endfor %}
@@ -346,7 +346,7 @@
                                     <div class="glass rounded-lg p-2.5 backdrop-blur-sm border border-gray-100/30 hover:shadow-sm transition-all duration-200">
                                         <div class="flex justify-between items-center">
                                             <div class="flex items-center gap-2 mr-2">
-                                                <div class="w-8 h-8 rounded-full bg-{{ {'GK': 'yellow', 'DEF': 'blue', 'MID': 'green', 'FWD': 'red'}.get(player.position, 'gray') }}-100 flex items-center justify-center text-{{ {'GK': 'yellow', 'DEF': 'blue', 'MID': 'green', 'FWD': 'red'}.get(player.position, 'gray') }}-500 text-xs font-bold">
+                                                <div class="w-8 h-8 rounded-full bg-{{ {'GK': 'yellow', 'CB': 'blue', 'RB': 'blue', 'LB': 'blue', 'CMF': 'green', 'DMF': 'green', 'RMF': 'green', 'LMF': 'green', 'AMF': 'green', 'SS': 'green', 'CF': 'red'}.get(player.position, 'gray') }}-100 flex items-center justify-center text-{{ {'GK': 'yellow', 'CB': 'blue', 'RB': 'blue', 'LB': 'blue', 'CMF': 'green', 'DMF': 'green', 'RMF': 'green', 'LMF': 'green', 'AMF': 'green', 'SS': 'green', 'CF': 'red'}.get(player.position, 'gray') }}-500 text-xs font-bold">
                                                     {{ player.position[0] }}
                                                 </div>
                                                 <div class="truncate">
@@ -682,51 +682,20 @@ function formatTime(seconds) {
 // Check if the page needs a full refresh
 async function checkForPageChanges() {
     try {
-        // Prevent frequent refreshes by checking the last refresh timestamp
-        const lastRefreshTime = localStorage.getItem('lastRoundsPageRefresh');
-        const currentTime = Date.now();
-        
-        if (lastRefreshTime && (currentTime - parseInt(lastRefreshTime)) < 15000) {
-            // Don't refresh if it's been less than 15 seconds since last refresh
-            console.log('Skipping refresh check - last refresh was less than 15 seconds ago');
-            setTimeout(checkForPageChanges, 10000);
-            return;
-        }
-        
         // Get current round IDs on the page
         const activeRoundElements = document.querySelectorAll('[data-round-id]');
         const currentRoundIds = Array.from(activeRoundElements).map(el => el.dataset.roundId);
         
-        // Find the Active Tiebreakers section by looking for the heading text
-        let tiebreakersSection = null;
-        const headings = document.querySelectorAll('h2.gradient-text');
-        for (let i = 0; i < headings.length; i++) {
-            if (headings[i].textContent.includes('Active Tiebreakers')) {
-                tiebreakersSection = headings[i];
-                break;
-            }
-        }
-        
-        // Get the tiebreaker count from the badge
-        let currentTiebreakerCount = 0;
-        if (tiebreakersSection) {
-            const badge = tiebreakersSection.querySelector('.rounded-full');
-            if (badge) {
-                currentTiebreakerCount = parseInt(badge.textContent.trim());
-            }
-        }
+        // Get current tiebreaker count if section exists
+        const tiebreakersSection = document.querySelector('h2.gradient-text:nth-of-type(2)');
+        const tiebreakerCountElement = tiebreakersSection ? 
+            tiebreakersSection.querySelector('.rounded-full') : null;
+        const currentTiebreakerCount = tiebreakerCountElement ? 
+            parseInt(tiebreakerCountElement.textContent.trim()) : 0;
         
         // Fetch latest rounds data
         const response = await fetch('/admin/rounds/status');
         const data = await response.json();
-        
-        console.log('Page status check:', {
-            'Current active rounds': currentRoundIds.length,
-            'API active rounds': data.active_round_ids.length,
-            'Current tiebreakers': currentTiebreakerCount,
-            'API tiebreakers': data.active_tiebreaker_count,
-            'Processing rounds': data.needs_refresh
-        });
         
         // Check if any rounds have been added or removed, or if tiebreaker count changed
         if (data.active_round_ids.length !== currentRoundIds.length || 
@@ -735,8 +704,6 @@ async function checkForPageChanges() {
             data.needs_refresh) {
             
             console.log('Page update needed, refreshing...');
-            // Store the refresh timestamp
-            localStorage.setItem('lastRoundsPageRefresh', currentTime.toString());
             location.reload();
             return;
         }
@@ -845,4 +812,3 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('resize', adjustForMobile);
 });
 </script>
-{% endblock %}
