@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory, session
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory, session, make_response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest, PushSubscription, AuctionSettings, BulkBidTiebreaker, BulkBidRound, BulkBid, TeamBulkTiebreaker
 from config import Config
@@ -34,6 +34,25 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+# Add a before_request handler to prevent browser back button for authenticated users
+@app.before_request
+def before_request():
+    # Check if authenticated user is trying to access public pages
+    if current_user.is_authenticated:
+        public_routes = ['index', 'login', 'register', 'reset_password_request']
+        if request.endpoint in public_routes:
+            return redirect(url_for('dashboard'))
+
+# Add an after_request handler to set cache control headers
+@app.after_request
+def add_header(response):
+    # Prevent caching for authenticated users
+    if current_user.is_authenticated:
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
 # Add request time to context
 @app.context_processor
 def inject_time():
@@ -53,7 +72,16 @@ def offline():
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    # Redirect authenticated users to dashboard
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+    
+    # Set no-cache headers for unauthenticated users
+    response = make_response(render_template('index.html'))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -74,10 +102,20 @@ def login():
                 flash('Your account is pending approval. Please contact an administrator.')
                 return render_template('login.html')
         flash('Invalid username or password')
-    return render_template('login.html')
+    
+    # Set no-cache headers
+    response = make_response(render_template('login.html'))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
+    # Redirect authenticated users to dashboard
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+        
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -101,11 +139,22 @@ def register():
         
         db.session.commit()
         return redirect(url_for('login'))
-    return render_template('register.html')
+    
+    # Set no-cache headers
+    response = make_response(render_template('register.html'))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.route('/dashboard')
 @login_required
 def dashboard():
+    # Verify we have a valid session - enhance security
+    if not current_user.is_authenticated:
+        session.clear()
+        return redirect(url_for('login'))
+    
     # Check if any active rounds have expired
     active_rounds = Round.query.filter_by(is_active=True).all()
     for round in active_rounds:
@@ -134,14 +183,20 @@ def dashboard():
         total_player_count = Player.query.count()
         eligible_player_count = Player.query.filter_by(is_auction_eligible=True).count()
         
-        return render_template('admin_dashboard.html', 
+        # Make response with strong cache headers
+        response = make_response(render_template('admin_dashboard.html', 
                               teams=teams,
                               pending_users=pending_users,
                               pending_resets=pending_resets,
                               active_bulk_round=active_bulk_round,
                               total_player_count=total_player_count,
                               eligible_player_count=eligible_player_count,
-                              config=Config)
+                              config=Config))
+        
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+        return response
     
     # For team users
     active_rounds = Round.query.filter_by(is_active=True).all()
@@ -195,14 +250,19 @@ def dashboard():
                 
                 round_results.append(result)
     
-    return render_template('team_dashboard.html', 
+    # Make response with strong cache headers
+    response = make_response(render_template('team_dashboard.html', 
                           active_rounds=active_rounds, 
                           rounds=rounds,
                           team_tiebreakers=team_tiebreakers,
                           team_bulk_tiebreakers=team_bulk_tiebreakers,
                           bid_counts=bid_counts,
-                          active_bulk_round=BulkBidRound.query.filter_by(is_active=True).first(),
-                          round_results=round_results)
+                          round_results=round_results))
+                          
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 @app.route('/start_round', methods=['POST'])
 @login_required
@@ -670,8 +730,17 @@ def logout():
     session.clear()
     
     response = redirect(url_for('index'))
-    # Clear session cookies
+    
+    # Clear all possible cookies 
     response.delete_cookie('session')
+    response.delete_cookie('remember_token')
+    response.delete_cookie('remember')
+    # Also delete cookies with path and domain parameters
+    response.delete_cookie('session', path='/')
+    
+    # Force browsers to delete session cookies by setting expiry to past date
+    response.set_cookie('session', '', expires=0)
+    
     # Add cache-control headers to prevent caching
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
@@ -679,6 +748,12 @@ def logout():
     
     # Add flash message
     flash(f'You have been successfully logged out')
+    
+    # Ensure we're redirecting to a non-auth-required page after logout
+    if current_user.is_authenticated:
+        # If somehow still authenticated (session not properly cleared), force another logout
+        logout_user()
+        session.clear()
     
     return response
 

@@ -7,6 +7,12 @@
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
+<script>
+    // Redirect to dashboard if already logged in
+    {% if current_user.is_authenticated %}
+    window.location.href = "{{ url_for('dashboard') }}";
+    {% endif %}
+</script>
 {% endblock %}
 
 {% block content %}

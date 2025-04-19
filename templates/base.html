@@ -270,7 +270,7 @@
     <!-- Top Navigation for larger screens -->
     <nav class="nav-glass sticky top-0 z-50 hidden sm:block">
         <div class="container mx-auto py-4 px-6 flex justify-between items-center">
-            <a href="{% if current_user.is_authenticated %}{% if current_user.is_admin %}{{ url_for('dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
+            <a href="{% if current_user.is_authenticated %}{{ url_for('dashboard') }}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-10 mr-3 hover-float">
                 <span class="text-2xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow header-text">SS League Auction</span>
             </a>
@@ -292,7 +292,7 @@
     <!-- Mobile header -->
     <header class="sm:hidden nav-glass sticky top-0 z-40 p-4">
         <div class="flex justify-center items-center">
-            <a href="{% if current_user.is_authenticated %}{% if current_user.is_admin %}{{ url_for('dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
+            <a href="{% if current_user.is_authenticated %}{{ url_for('dashboard') }}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
                 <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-8 mr-2 hover-float">
                 <span class="text-xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow">SS League Auction</span>
             </a>
@@ -406,7 +406,7 @@
                                 <span class="text-xs mt-1">Active</span>
                             </a>
                         {% else %}
-                            <a href="{{ url_for('team_stats') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_stats' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                            <a href="{{ url_for('team_players_data') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_players_data' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                                 </svg>
@@ -479,10 +479,21 @@
                 link.addEventListener('click', function(e) {
                     // Clear caches on logout
                     if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                        // This line sends a message to the service worker
                         navigator.serviceWorker.controller.postMessage({
                             action: 'clearCacheOnLogout'
                         });
+                        
+                        // For additional safety, unregister service workers on logout
+                        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                            for(let registration of registrations) {
+                                registration.unregister();
+                            }
+                        });
                     }
+                    
+                    // Clear localStorage on logout
+                    localStorage.clear();
                     
                     // Continue with normal logout
                     // We don't prevent default because we want the actual logout to happen
@@ -490,5 +501,44 @@
             });
         });
     </script>
+
+    <!-- Only include back button prevention for authenticated users -->
+    {% if current_user.is_authenticated %}
+    <script>
+        // Prevent back button behavior for authenticated users
+        document.addEventListener('DOMContentLoaded', function() {
+            // Disable caching for all pages
+            window.onpageshow = function(event) {
+                if (event.persisted) {
+                    // If page loaded from cache (back button), reload from server
+                    window.location.reload();
+                }
+            };
+            
+            // Prevent back navigation to login/register pages
+            function preventBackNavigation() {
+                // Check if we're authenticated and URL contains login/register/home
+                if (
+                    window.location.href.includes('/login') || 
+                    window.location.href.includes('/register') || 
+                    window.location.href === "{{ url_for('index') }}"
+                ) {
+                    // Redirect to dashboard
+                    window.location.replace("{{ url_for('dashboard') }}");
+                }
+            }
+            
+            // Run check when page loads
+            preventBackNavigation();
+            
+            // Replace history state to prevent back button
+            history.pushState(null, null, location.href);
+            window.onpopstate = function() {
+                history.go(1);
+                preventBackNavigation();
+            };
+        });
+    </script>
+    {% endif %}
 </body>
 </html> 
