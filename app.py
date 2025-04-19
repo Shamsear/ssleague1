@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory, session
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest, PushSubscription, AuctionSettings, BulkBidTiebreaker, BulkBidRound, BulkBid, TeamBulkTiebreaker
 from config import Config
@@ -13,6 +13,7 @@ from pywebpush import webpush, WebPushException
 import os
 import base64
 from sqlalchemy import func
+import time
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -33,6 +34,11 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+# Add request time to context
+@app.context_processor
+def inject_time():
+    return dict(time=time.time())
+
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -51,6 +57,10 @@ def index():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    # Check if user is already logged in
+    if current_user.is_authenticated:
+        return redirect(url_for('dashboard'))
+        
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -58,7 +68,7 @@ def login():
         if user and user.check_password(password):
             # Check if user is either an admin or has been approved
             if user.is_admin or user.is_approved:
-                login_user(user)
+                login_user(user, remember=False)  # Don't use "remember me" functionality
                 return redirect(url_for('dashboard'))
             else:
                 flash('Your account is pending approval. Please contact an administrator.')
@@ -650,8 +660,27 @@ def delete_bid(bid_id):
 @app.route('/logout')
 @login_required
 def logout():
+    # Get the username before logging out for the flash message
+    username = current_user.username if current_user.is_authenticated else ""
+    
+    # Standard logout
     logout_user()
-    return redirect(url_for('index'))
+    
+    # Clear all session data
+    session.clear()
+    
+    response = redirect(url_for('index'))
+    # Clear session cookies
+    response.delete_cookie('session')
+    # Add cache-control headers to prevent caching
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
+    # Add flash message
+    flash(f'You have been successfully logged out')
+    
+    return response
 
 @app.route('/tiebreaker/<int:tiebreaker_id>', methods=['GET'])
 @login_required

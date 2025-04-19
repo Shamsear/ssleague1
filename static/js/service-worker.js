@@ -36,8 +36,21 @@ self.addEventListener('activate', event => {
   );
 });
 
+// Add message event listener to handle logout and clear cache
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.action === 'clearCacheOnLogout') {
+    self.skipWaiting();
+    caches.delete(CACHE_NAME);
+  }
+});
+
 // Fetch event - serve from cache if available, otherwise fetch from network
 self.addEventListener('fetch', event => {
+  // Skip cache for logout and login routes
+  if (event.request.url.includes('/logout') || event.request.url.includes('/login')) {
+    return event.respondWith(fetch(event.request));
+  }
+  
   event.respondWith(
     caches.match(event.request)
       .then(response => {
@@ -61,8 +74,11 @@ self.addEventListener('fetch', event => {
             
             caches.open(CACHE_NAME)
               .then(cache => {
-                // Don't cache API responses or dynamic content
-                if (!event.request.url.includes('/api/') && !event.request.url.includes('?')) {
+                // Don't cache API responses, dynamic content, or authentication-related paths
+                if (!event.request.url.includes('/api/') && 
+                    !event.request.url.includes('?') &&
+                    !event.request.url.includes('/login') &&
+                    !event.request.url.includes('/logout')) {
                   cache.put(event.request, responseToCache);
                 }
               });
