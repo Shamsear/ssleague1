@@ -3766,6 +3766,20 @@ def send_urgent_notification():
         
     return render_template('admin_notification.html', teams=teams)
 
+# Add a route to serve the service worker file with the Service-Worker-Allowed header
+@app.route('/static/js/sw.js')
+def serve_service_worker_js():
+    response = app.send_static_file('js/sw.js')
+    # Set the Service-Worker-Allowed header to allow a broader scope
+    response.headers['Service-Worker-Allowed'] = '/'
+    return response
+
+# Also serve the root sw.js with appropriate headers
+@app.route('/sw.js')
+def serve_root_service_worker():
+    response = app.send_static_file('js/sw.js')
+    return response
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()

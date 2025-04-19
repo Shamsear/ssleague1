@@ -65,7 +65,7 @@ async function checkServiceWorkerFileExists(url) {
 // Register the service worker
 async function registerServiceWorker() {
   try {
-    console.log('Attempting to register service worker at: /static/js/sw.js');
+    console.log('Attempting to register service worker at root level');
     
     // First, attempt to clean up any problematic existing service workers
     await cleanupExistingServiceWorkers();
@@ -73,12 +73,14 @@ async function registerServiceWorker() {
     // Add a version query parameter to force a fresh registration if there are caching issues
     const swVersion = new Date().getTime();
     
-    // Try different possible paths for the service worker
+    // Try different possible paths for the service worker, starting with the root path
+    // to avoid the scope restriction issue
     const possiblePaths = [
-      `/static/js/sw.js?v=${swVersion}`,
-      `${window.location.origin}/static/js/sw.js?v=${swVersion}`,
       `/sw.js?v=${swVersion}`,
-      `${window.location.origin}/sw.js?v=${swVersion}`
+      `${window.location.origin}/sw.js?v=${swVersion}`,
+      // Only try these as fallbacks if the root service worker fails
+      `/static/js/sw.js?v=${swVersion}`,
+      `${window.location.origin}/static/js/sw.js?v=${swVersion}`
     ];
     
     let registration = null;
