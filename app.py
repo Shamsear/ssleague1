@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest, PushSubscription, AuctionSettings, BulkBidTiebreaker, BulkBidRound, BulkBid, TeamBulkTiebreaker
 from config import Config
@@ -36,6 +36,14 @@ login_manager.login_view = 'login'
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+@app.route('/service-worker.js')
+def service_worker():
+    return send_from_directory('static/js', 'service-worker.js', mimetype='application/javascript')
+
+@app.route('/offline')
+def offline():
+    return send_from_directory('static', 'offline.html')
 
 @app.route('/')
 def index():
