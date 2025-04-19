@@ -48,6 +48,20 @@ async function cleanupExistingServiceWorkers() {
   }
 }
 
+// Check if service worker file exists and is accessible
+async function checkServiceWorkerFileExists(url) {
+  try {
+    const response = await fetch(url, { method: 'HEAD' });
+    console.log('Service worker file accessibility check:', 
+      response.ok ? 'File accessible' : 'File not found or not accessible',
+      'Status:', response.status);
+    return response.ok;
+  } catch (error) {
+    console.error('Error checking service worker file:', error);
+    return false;
+  }
+}
+
 // Register the service worker
 async function registerServiceWorker() {
   try {
@@ -58,18 +72,69 @@ async function registerServiceWorker() {
     
     // Add a version query parameter to force a fresh registration if there are caching issues
     const swVersion = new Date().getTime();
-    const swUrl = `/static/js/sw.js?v=${swVersion}`;
     
-    const registration = await navigator.serviceWorker.register(swUrl, {
-      scope: '/'
-    });
-    console.log('Service Worker registered with scope:', registration.scope);
-    return registration;
+    // Try different possible paths for the service worker
+    const possiblePaths = [
+      `/static/js/sw.js?v=${swVersion}`,
+      `${window.location.origin}/static/js/sw.js?v=${swVersion}`,
+      `/sw.js?v=${swVersion}`,
+      `${window.location.origin}/sw.js?v=${swVersion}`
+    ];
+    
+    let registration = null;
+    let lastError = null;
+    
+    // Try each path until one succeeds
+    for (const swUrl of possiblePaths) {
+      try {
+        console.log('Attempting to register service worker with path:', swUrl);
+        
+        // Verify file is accessible before attempting to register
+        const fileExists = await checkServiceWorkerFileExists(swUrl);
+        if (!fileExists) {
+          console.warn(`Service worker file at ${swUrl} is not accessible, trying next path.`);
+          continue;
+        }
+        
+        registration = await navigator.serviceWorker.register(swUrl, {
+          scope: '/'
+        });
+        
+        console.log('Service Worker registered successfully with path:', swUrl);
+        console.log('Service Worker scope:', registration.scope);
+        return registration;
+      } catch (error) {
+        console.warn(`Failed to register service worker with path ${swUrl}:`, error);
+        lastError = error;
+      }
+    }
+    
+    // If we reached here, all paths failed
+    throw lastError || new Error('Failed to register service worker with all possible paths');
   } catch (error) {
     console.error('Service Worker registration failed:', error);
     console.error('Error name:', error.name);
     console.error('Error message:', error.message);
     console.error('Error stack:', error.stack);
+    
+    // Provide specific troubleshooting based on error type
+    if (error.name === 'SecurityError') {
+      console.error('Service Worker registration failed due to security constraints. HTTPS is required except on localhost.');
+    } else if (error.name === 'NetworkError') {
+      console.error('Service Worker registration failed due to network error. Check if the file exists and is accessible.');
+    } else if (error.name === 'TypeError') {
+      console.error('Service Worker registration failed. This could be due to a MIME type issue - sw.js should be served with JavaScript MIME type.');
+    }
+    
+    // Browser-specific troubleshooting
+    const ua = navigator.userAgent;
+    if (/chrome/i.test(ua)) {
+      console.info('Chrome troubleshooting: Open chrome://serviceworker-internals/ to see registered Service Workers and debug issues.');
+    } else if (/firefox/i.test(ua)) {
+      console.info('Firefox troubleshooting: Open about:debugging#workers to see Service Worker status.');
+    } else if (/edge/i.test(ua)) {
+      console.info('Edge troubleshooting: Open edge://serviceworker-internals/ to debug Service Worker issues.');
+    }
     
     // Check if we're not on HTTPS
     if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
