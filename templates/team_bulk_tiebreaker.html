@@ -83,36 +83,10 @@
                         Place Bid
                     </button>
                     
-                    {% set has_highest_bid = false %}
-                    {% set highest_bid = 0 %}
-                    {% set highest_bidder = none %}
-                    
-                    {% for team in active_teams %}
-                        {% if team.last_bid and team.last_bid > highest_bid %}
-                            {% set highest_bid = team.last_bid %}
-                            {% set highest_bidder = team %}
-                        {% endif %}
-                    {% endfor %}
-                    
-                    {% if highest_bidder and highest_bidder.team_id == current_user.team.id and highest_bid > 0 %}
-                        {% set has_highest_bid = true %}
-                    {% endif %}
-                    
-                    <button onclick="withdrawFromTiebreaker({{ tiebreaker.id }})" 
-                            class="px-4 py-2 rounded-lg {% if has_highest_bid %}bg-gray-400 cursor-not-allowed{% else %}bg-red-500 hover:bg-red-600{% endif %} text-white transition-colors duration-200"
-                            {% if has_highest_bid %}disabled{% endif %}>
+                    <button onclick="withdrawFromTiebreaker({{ tiebreaker.id }})" class="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors duration-200">
                         Withdraw
                     </button>
                 </div>
-                
-                {% if has_highest_bid %}
-                <div class="mt-3 text-sm text-yellow-700 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                    <svg class="inline-block w-4 h-4 mr-1 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    You cannot withdraw while you have the highest bid. Other teams must outbid you first.
-                </div>
-                {% endif %}
             </div>
         </div>
         
@@ -191,138 +165,6 @@
         }
     }
     
-    // Track current highest bid for update detection
-    let currentHighestBid = {{ tiebreaker.current_amount }};
-    let lastUpdateTime = Date.now();
-    
-    // Function to refresh competing teams section and current bid
-    function refreshCompetingTeams() {
-        fetch('/check_bulk_tiebreaker_status/{{ tiebreaker.id }}?include_teams=true')
-            .then(response => response.json())
-            .then(data => {
-                if (data.resolved) {
-                    // Handle resolved case - already implemented in checkTiebreakerStatus
-                    return;
-                }
-                
-                // Check if there's a new highest bid
-                if (data.current_amount !== currentHighestBid) {
-                    // Update the current bid display
-                    document.querySelector('.text-xl.font-bold.text-primary').textContent = `£${data.current_amount}`;
-                    
-                    // Update the bid input minimum
-                    document.getElementById('bidAmount').min = data.current_amount + 1;
-                    document.getElementById('bidAmount').value = data.current_amount + 1;
-                    
-                    // Flash the current bid display to indicate a change
-                    const bidDisplay = document.querySelector('.text-center.bg-white\\/30.rounded-lg');
-                    bidDisplay.classList.add('bg-yellow-100');
-                    setTimeout(() => bidDisplay.classList.remove('bg-yellow-100'), 1000);
-                    
-                    // Play a subtle notification sound if it's been more than 3 seconds since last update
-                    if (Date.now() - lastUpdateTime > 3000) {
-                        // Create and play a notification sound
-                        const audio = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBgNLqPv/xHQrCgY1h+P4zYQ9GQ0ghfL98pBLIw8Xd/n/+5RLHg8Wha4OBjuYqsWQNw0LCiAXBjOkzOegRQkIGycHYh1DtOXgoUoMDyQnDmsGJ7Dq8bJZExwqMA5uBE+k8fnFcCEhLywPcwVEncTa12YiLTAZHQUKlvDx0FwaMywHHBgLChkHZJHN78FEDxgUBRkRBwwOA1ea3fO3OwwREAsgEgUOBgRcs+3/vi4HCAcNKRQIGRIMaMXw/rkgAwIFCjAXDR8SC3LT/f2yEgAAAAcxGBEkFQ+E4f/7pQgAAAAGMBsdKBUTl+v92JkEAAABCS0gJCQSIqj/95gMAQECCCgkJScSKbX/+ZEFAAIBBiQpJicULcL//48AAAAABSEtJiURN9D//4sAAAAABh8yKCIQPOD//4MGAgIDCBk2KR8RQ+///38AAAAAB2RQWUpEdv///3gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA');
-                        audio.volume = 0.2;
-                        audio.play().catch(e => console.log('Audio play prevented by browser policy'));
-                    }
-                    
-                    currentHighestBid = data.current_amount;
-                    lastUpdateTime = Date.now();
-                }
-                
-                // Update competing teams section if data available
-                if (data.competing_teams) {
-                    const teamsContainer = document.querySelector('.glass-card.mb-6.p-4.rounded-xl.bg-white\\/30 .grid');
-                    
-                    // Check if we need to rebuild the teams display
-                    let needsRebuild = false;
-                    
-                    // Check if team count or bid state has changed
-                    if (teamsContainer.children.length !== data.competing_teams.length) {
-                        needsRebuild = true;
-                    } else {
-                        // Check if the bid status of any team has changed
-                        for (const team of data.competing_teams) {
-                            const existingTeamEl = Array.from(teamsContainer.children).find(el => 
-                                el.querySelector('.font-medium.text-dark').textContent === team.name
-                            );
-                            
-                            if (!existingTeamEl) {
-                                needsRebuild = true;
-                                break;
-                            }
-                            
-                            const hasBid = existingTeamEl.textContent.includes('Last bid');
-                            if ((team.last_bid && !hasBid) || (!team.last_bid && hasBid)) {
-                                needsRebuild = true;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    // Rebuild the teams display if needed
-                    if (needsRebuild) {
-                        teamsContainer.innerHTML = '';
-                        
-                        data.competing_teams.forEach(team => {
-                            const isCurrentUser = team.id === {{ current_user.team.id }};
-                            const teamHtml = `
-                                <div class="p-3 rounded-lg ${isCurrentUser ? 'bg-primary/10 border border-primary/20' : 'bg-white/60'}">
-                                    <div class="font-medium text-dark">${team.name}</div>
-                                    ${team.last_bid 
-                                      ? `<div class="text-sm text-gray-500">Last bid: £${team.last_bid} (${team.last_bid_time})</div>` 
-                                      : `<div class="text-sm text-gray-500">Waiting to bid...</div>`}
-                                </div>
-                            `;
-                            teamsContainer.innerHTML += teamHtml;
-                        });
-                        
-                        // Check if current user has highest bid and update UI accordingly
-                        const currentUserTeam = data.competing_teams.find(t => t.id === {{ current_user.team.id }});
-                        const hasHighestBid = currentUserTeam && currentUserTeam.last_bid === data.current_amount;
-                        
-                        const withdrawButton = document.querySelector('button[onclick^="withdrawFromTiebreaker"]');
-                        const withdrawDisabledMessage = document.querySelector('.mt-3.text-sm.text-yellow-700');
-                        
-                        if (hasHighestBid) {
-                            withdrawButton.classList.add('bg-gray-400', 'cursor-not-allowed');
-                            withdrawButton.classList.remove('bg-red-500', 'hover:bg-red-600');
-                            withdrawButton.disabled = true;
-                            
-                            if (!withdrawDisabledMessage) {
-                                const messageHtml = `
-                                    <div class="mt-3 text-sm text-yellow-700 bg-yellow-50 p-3 rounded-lg border border-yellow-200">
-                                        <svg class="inline-block w-4 h-4 mr-1 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        You cannot withdraw while you have the highest bid. Other teams must outbid you first.
-                                    </div>
-                                `;
-                                withdrawButton.parentNode.insertAdjacentHTML('afterend', messageHtml);
-                            }
-                        } else {
-                            withdrawButton.classList.remove('bg-gray-400', 'cursor-not-allowed');
-                            withdrawButton.classList.add('bg-red-500', 'hover:bg-red-600');
-                            withdrawButton.disabled = false;
-                            
-                            if (withdrawDisabledMessage) {
-                                withdrawDisabledMessage.remove();
-                            }
-                        }
-                    }
-                }
-                
-                // Continue checking for updates
-                setTimeout(refreshCompetingTeams, 3000);
-            })
-            .catch(error => {
-                console.error('Error refreshing competing teams:', error);
-                // Continue checking even if there's an error
-                setTimeout(refreshCompetingTeams, 5000);
-            });
-    }
-    
     // Check if tiebreaker is resolved
     function checkTiebreakerStatus() {
         // Check if the tiebreaker is resolved
@@ -359,8 +201,7 @@
         });
     }
     
-    // Start checking tiebreaker status and refresh competing teams
+    // Start checking tiebreaker status
     checkTiebreakerStatus();
-    refreshCompetingTeams();
 </script>
 {% endblock %} 

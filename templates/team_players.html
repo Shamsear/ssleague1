@@ -18,17 +18,9 @@
                 <div class="relative">
                     <select id="positionFilter" class="pl-10 py-2.5 pr-4 bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
                         <option value="all">All Positions</option>
-                        <option value="GK">GK</option>
-                        <option value="CB">CB</option>
-                        <option value="RB">RB</option>
-                        <option value="LB">LB</option>
-                        <option value="DMF">DMF</option>
-                        <option value="CMF">CMF</option>
-                        <option value="RMF">RMF</option>
-                        <option value="LMF">LMF</option>
-                        <option value="AMF">AMF</option>
-                        <option value="SS">SS</option>
-                        <option value="CF">CF</option>
+                        {% for position in config.POSITIONS %}
+                        <option value="{{ position }}">{{ position }}</option>
+                        {% endfor %}
                     </select>
                     <svg class="w-5 h-5 text-gray-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -39,10 +31,8 @@
                 <div class="relative">
                     <select id="positionGroupFilter" class="pl-10 py-2.5 pr-4 bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
                         <option value="all">All Position Groups</option>
-                        {% for position in ['CB', 'DMF', 'CMF', 'AMF', 'CF'] %}
-                            {% for suffix in [1, 2] %}
-                            <option value="{{ position }}-{{ suffix }}">{{ position }}-{{ suffix }}</option>
-                            {% endfor %}
+                        {% for position_group in config.POSITION_GROUPS %}
+                        <option value="{{ position_group }}">{{ position_group }}</option>
                         {% endfor %}
                     </select>
                     <svg class="w-5 h-5 text-gray-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -97,6 +87,7 @@
                                         {% elif player.position == 'DMF' %}bg-indigo-100 text-indigo-800
                                         {% elif player.position == 'CMF' or player.position == 'RMF' or player.position == 'LMF' %}bg-purple-100 text-purple-800
                                         {% elif player.position == 'AMF' %}bg-pink-100 text-pink-800
+                                        {% elif player.position == 'RWF' or player.position == 'LWF' %}bg-pink-100 text-pink-800
                                         {% elif player.position == 'SS' %}bg-orange-100 text-orange-800
                                         {% elif player.position == 'CF' %}bg-red-100 text-red-800
                                         {% else %}bg-gray-100 text-gray-800
@@ -203,6 +194,7 @@
                                         {% elif player.position == 'DMF' %}bg-indigo-100 text-indigo-800
                                         {% elif player.position == 'CMF' or player.position == 'RMF' or player.position == 'LMF' %}bg-purple-100 text-purple-800
                                         {% elif player.position == 'AMF' %}bg-pink-100 text-pink-800
+                                        {% elif player.position == 'RWF' or player.position == 'LWF' %}bg-pink-100 text-pink-800
                                         {% elif player.position == 'SS' %}bg-orange-100 text-orange-800
                                         {% elif player.position == 'CF' %}bg-red-100 text-red-800
                                         {% else %}bg-gray-100 text-gray-800

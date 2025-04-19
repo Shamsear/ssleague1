@@ -34,7 +34,7 @@
                         </svg>
                         User Approvals
                     </h3>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 flex items-center">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 flex items-center pending-users-count">
                         <span class="w-2 h-2 bg-yellow-500 rounded-full mr-1.5 animate-pulse"></span>
                         {{ pending_users|length }} Pending
                     </span>
@@ -61,7 +61,7 @@
                         </svg>
                         Password Resets
                     </h3>
-                    <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 flex items-center">
+                    <span class="px-2.5 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 flex items-center pending-resets-count">
                         <span class="w-2 h-2 bg-yellow-500 rounded-full mr-1.5 animate-pulse"></span>
                         {{ pending_resets|length }} Pending
                     </span>
@@ -452,7 +452,7 @@
                             </div>
                             <div>
                                 <p class="text-xs font-medium text-gray-500 mb-0.5">Balance</p>
-                                <p class="text-base font-bold text-gray-800">£{{ "{:,}".format(team.balance) }}</p>
+                                <p class="text-base font-bold text-gray-800 team-{{ team.id }}-balance">£{{ "{:,}".format(team.balance) }}</p>
                             </div>
                         </div>
                         <div class="rounded-xl p-3 backdrop-blur-sm bg-white/10 flex items-center">
@@ -463,7 +463,7 @@
                             </div>
                             <div>
                                 <p class="text-xs font-medium text-gray-500 mb-0.5">Squad Size</p>
-                                <p class="text-base font-bold text-gray-800">{{ team.players|length }}</p>
+                                <p class="text-base font-bold text-gray-800 team-{{ team.id }}-players">{{ team.players|length }}</p>
                             </div>
                         </div>
                     </div>
@@ -522,3 +522,339 @@
     </div>
 </div>
 {% endblock %}
+
+<script>
+    // Auto-refresh configuration
+    let autoRefreshEnabled = true;
+    let refreshInterval = 30000; // 30 seconds by default
+    let refreshTimer;
+    let isRefreshing = false;
+    let lastRefreshTimestamp = 0;
+    
+    // Notification state
+    let lastPendingUsers = {{ pending_users|length }};
+    let lastPendingResets = {{ pending_resets|length }};
+    let notificationDismissed = false;
+    
+    // DOM elements for status indication
+    let refreshIndicator;
+    
+    // Show refresh indicator
+    function showRefreshIndicator() {
+        if (refreshIndicator) {
+            refreshIndicator.classList.remove('opacity-0');
+        }
+    }
+    
+    // Hide refresh indicator
+    function hideRefreshIndicator() {
+        if (refreshIndicator) {
+            refreshIndicator.classList.add('opacity-0');
+        }
+    }
+    
+    // Create notification system
+    function createNotificationSystem() {
+        // Create notification container if it doesn't exist
+        let container = document.getElementById('notification-container');
+        if (!container) {
+            const header = document.querySelector('header');
+            if (!header) return;
+            
+            container = document.createElement('div');
+            container.id = 'notification-container';
+            container.className = 'mt-4 hidden';
+            container.innerHTML = `
+                <div class="glass rounded-xl p-3 bg-white/80 border border-primary/20 shadow-md flex items-center justify-between">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 text-primary mr-2 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                        </svg>
+                        <span id="notification-message" class="text-sm font-medium"></span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <a id="notification-action" href="#" class="px-3 py-1 bg-primary text-white text-xs font-medium rounded-lg hover:bg-primary-dark transition-colors">
+                            View
+                        </a>
+                        <button onclick="dismissNotification()" class="p-1.5 rounded-lg text-gray-500 hover:bg-gray-100 transition-colors">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Insert after the subtitle
+            const subtitle = header.querySelector('p');
+            if (subtitle) {
+                subtitle.insertAdjacentElement('afterend', container);
+            } else {
+                header.appendChild(container);
+            }
+        }
+    }
+    
+    // Show notification
+    function showNotification(message, actionUrl) {
+        const container = document.getElementById('notification-container');
+        const messageEl = document.getElementById('notification-message');
+        const actionEl = document.getElementById('notification-action');
+        
+        if (!container || !messageEl || !actionEl) return;
+        
+        // Set notification content
+        messageEl.textContent = message;
+        actionEl.href = actionUrl;
+        
+        // Show notification
+        container.classList.remove('hidden');
+        
+        // Play sound for notification (optional)
+        playNotificationSound();
+        
+        // Reset notification dismissed flag
+        notificationDismissed = false;
+    }
+    
+    // Dismiss notification
+    function dismissNotification() {
+        const container = document.getElementById('notification-container');
+        if (container) {
+            container.classList.add('hidden');
+            notificationDismissed = true;
+        }
+    }
+    
+    // Play notification sound
+    function playNotificationSound() {
+        // Create audio element
+        const audio = new Audio();
+        audio.src = "data:audio/mpeg;base64,SUQzBAAAAAABEVRYWFgAAAAtAAADY29tbWVudABCaWdTb3VuZEJhbmsuY29tIC8gTGFTb25vdGhlcXVlLm9yZwBURU5DAAAAHQAAA1N3aXRjaCBQbHVzIMKpIE5DSCBTb2Z0d2FyZQBUSVQyAAAABgAAAzIyMzUAVFNTRQAAAA8AAANMYXZmNTguMTYuMTAwAAAAAAAAAAAAAAD/80DEAAAAA0gAAAAATEFNRTMuMTAwVVVVVVVVVVVVVUxBTUUzLjEwMFVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQsRbAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVf/zQMSkAAADSAAAAABVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV";
+        
+        // Set volume and play
+        audio.volume = 0.5;
+        audio.play().catch(e => {
+            console.log("Audio could not be played:", e);
+        });
+    }
+    
+    // Create refresh status elements
+    function createRefreshControls() {
+        const header = document.querySelector('header');
+        if (!header) return;
+        
+        // Create status indicator
+        refreshIndicator = document.createElement('div');
+        refreshIndicator.className = 'fixed bottom-4 right-4 bg-white/90 text-primary px-3 py-2 rounded-lg shadow-lg text-sm flex items-center gap-2 transition-opacity duration-300 opacity-0 z-50';
+        refreshIndicator.innerHTML = `
+            <svg class="animate-spin h-4 w-4 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span>Refreshing dashboard...</span>
+        `;
+        document.body.appendChild(refreshIndicator);
+        
+        // Create controls
+        const controlsContainer = document.createElement('div');
+        controlsContainer.className = 'flex items-center gap-3 ml-auto';
+        
+        // Create refresh button
+        const refreshButton = document.createElement('button');
+        refreshButton.className = 'px-3 py-1.5 bg-primary/10 text-primary rounded-lg text-sm hover:bg-primary/20 transition-colors flex items-center gap-1.5';
+        refreshButton.innerHTML = `
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh Now
+        `;
+        refreshButton.addEventListener('click', () => fetchDashboardData(true));
+        
+        // Create auto-refresh toggle
+        const toggleContainer = document.createElement('div');
+        toggleContainer.className = 'flex items-center gap-2';
+        
+        const toggleLabel = document.createElement('span');
+        toggleLabel.className = 'text-sm text-gray-600';
+        toggleLabel.textContent = 'Auto-refresh:';
+        
+        const toggleSwitch = document.createElement('button');
+        toggleSwitch.id = 'auto-refresh-toggle';
+        toggleSwitch.className = 'relative inline-flex h-6 w-11 items-center rounded-full bg-primary/30 transition-colors focus:outline-none';
+        toggleSwitch.innerHTML = `
+            <span class="sr-only">Toggle auto-refresh</span>
+            <span class="inline-block h-4 w-4 transform rounded-full bg-white transition-transform translate-x-6"></span>
+        `;
+        toggleSwitch.setAttribute('aria-checked', 'true');
+        toggleSwitch.addEventListener('click', toggleAutoRefresh);
+        
+        const intervalInfo = document.createElement('span');
+        intervalInfo.className = 'text-xs text-gray-500';
+        intervalInfo.textContent = `(${refreshInterval/1000}s)`;
+        
+        toggleContainer.appendChild(toggleLabel);
+        toggleContainer.appendChild(toggleSwitch);
+        toggleContainer.appendChild(intervalInfo);
+        
+        controlsContainer.appendChild(refreshButton);
+        controlsContainer.appendChild(toggleContainer);
+        
+        header.appendChild(controlsContainer);
+    }
+    
+    // Toggle auto-refresh
+    function toggleAutoRefresh() {
+        autoRefreshEnabled = !autoRefreshEnabled;
+        const toggle = document.getElementById('auto-refresh-toggle');
+        
+        if (autoRefreshEnabled) {
+            toggle.classList.add('bg-primary/30');
+            toggle.classList.remove('bg-gray-200');
+            toggle.querySelector('span:last-child').classList.add('translate-x-6');
+            toggle.querySelector('span:last-child').classList.remove('translate-x-1');
+            toggle.setAttribute('aria-checked', 'true');
+            
+            // Restart timer
+            clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => fetchDashboardData(), refreshInterval);
+        } else {
+            toggle.classList.remove('bg-primary/30');
+            toggle.classList.add('bg-gray-200');
+            toggle.querySelector('span:last-child').classList.remove('translate-x-6');
+            toggle.querySelector('span:last-child').classList.add('translate-x-1');
+            toggle.setAttribute('aria-checked', 'false');
+            
+            // Clear timer
+            clearTimeout(refreshTimer);
+        }
+    }
+    
+    // Fetch dashboard data
+    async function fetchDashboardData(forceRefresh = false) {
+        // Prevent multiple simultaneous refresh requests
+        if (isRefreshing && !forceRefresh) return;
+        
+        // Don't refresh too frequently unless forced
+        const now = Date.now();
+        if (!forceRefresh && now - lastRefreshTimestamp < 5000) return;
+        
+        isRefreshing = true;
+        lastRefreshTimestamp = now;
+        showRefreshIndicator();
+        
+        try {
+            // Add cache busting for forced refreshes
+            const cacheBuster = forceRefresh ? `?_=${Date.now()}` : '';
+            const response = await fetch(`/admin/dashboard_update${cacheBuster}`, {
+            method: 'GET',
+            headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Cache-Control': forceRefresh ? 'no-cache, no-store, must-revalidate' : ''
+                }
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                updateDashboardContent(data);
+                
+                // Check for new user access or password reset requests
+                checkForNewRequests(data);
+            }
+        } catch (error) {
+            console.error('Error refreshing dashboard:', error);
+        } finally {
+            isRefreshing = false;
+            hideRefreshIndicator();
+            
+            // Schedule next update if auto-refresh is enabled
+            if (autoRefreshEnabled) {
+                clearTimeout(refreshTimer);
+                refreshTimer = setTimeout(() => fetchDashboardData(), refreshInterval);
+            }
+        }
+    }
+    
+    // Check for new access/password requests
+    function checkForNewRequests(data) {
+        if (!data) return;
+        
+        const pendingUsers = data.pending_users || 0;
+        const pendingResets = data.pending_resets || 0;
+        
+        // Check if there are new pending users
+        if (pendingUsers > lastPendingUsers && !notificationDismissed) {
+            const newCount = pendingUsers - lastPendingUsers;
+            const message = `${newCount} new user${newCount > 1 ? 's' : ''} waiting for approval`;
+            showNotification(message, "/admin/users");
+        }
+        
+        // Check if there are new password reset requests
+        if (pendingResets > lastPendingResets && !notificationDismissed) {
+            const newCount = pendingResets - lastPendingResets;
+            const message = `${newCount} new password reset request${newCount > 1 ? 's' : ''}`;
+            showNotification(message, "/admin/password_requests");
+        }
+        
+        // Update last counts
+        lastPendingUsers = pendingUsers;
+        lastPendingResets = pendingResets;
+    }
+    
+    // Update dashboard content with new data
+    function updateDashboardContent(data) {
+        if (!data) return;
+        
+        // Update pending actions counts
+        updateElement('.pending-users-count', data.pending_users + ' Pending');
+        updateElement('.pending-resets-count', data.pending_resets + ' Pending');
+        
+        // Update active rounds count
+        updateElement('.active-rounds-count', data.active_rounds_count);
+        
+        // Update player statistics
+        updateElement('.eligible-player-count', data.eligible_player_count);
+        updateElement('.total-player-count', data.total_player_count);
+        
+        // Update progress bar if it exists
+        if (data.eligible_player_count !== undefined && data.total_player_count > 0) {
+            const percentage = (data.eligible_player_count / data.total_player_count * 100);
+            const progressBar = document.querySelector('.bg-indigo-600.h-2\\.5.rounded-full');
+            if (progressBar) {
+                progressBar.style.width = `${percentage}%`;
+            }
+        }
+        
+        // Update team data if available
+        if (data.teams_data) {
+            for (const [teamId, teamData] of Object.entries(data.teams_data)) {
+                // Update team balance
+                updateElement(`.team-${teamId}-balance`, `£${teamData.balance.toLocaleString()}`);
+                
+                // Update team player count
+                updateElement(`.team-${teamId}-players`, teamData.player_count);
+            }
+        }
+        
+        console.log("Dashboard refreshed at", new Date().toLocaleTimeString());
+    }
+    
+    // Helper function to update element text if it exists
+    function updateElement(selector, newValue) {
+        const elements = document.querySelectorAll(selector);
+        if (elements.length > 0) {
+            elements.forEach(el => {
+                el.textContent = newValue;
+            });
+        }
+    }
+    
+    // Initialize auto-refresh
+    document.addEventListener('DOMContentLoaded', () => {
+        createRefreshControls();
+        createNotificationSystem();
+        
+        // Start auto-refresh
+        fetchDashboardData();
+    });
+</script>

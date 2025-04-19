@@ -34,8 +34,8 @@
                     </div>
                 </div>
                 <div class="flex items-center">
-                    <span class="inline-flex px-4 py-2 rounded-full {% if bulk_round.is_active %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %} text-sm font-medium">
-                        <span class="w-2 h-2 rounded-full {% if bulk_round.is_active %}bg-green-500 animate-pulse{% else %}bg-blue-500{% endif %} mr-2 inline-block"></span>
+                    <span class="inline-flex px-4 py-2 rounded-full {% if bulk_round.is_active %}bg-green-100 text-green-800{% else %}bg-blue-100 text-blue-800{% endif %} text-sm font-medium whitespace-nowrap">
+                        <span class="w-2 h-2 rounded-full {% if bulk_round.is_active %}bg-green-500 animate-pulse{% else %}bg-blue-500{% endif %} mr-2 inline-block align-middle"></span>
                         {{ 'Active' if bulk_round.is_active else 'Completed' }}
                     </span>
                 </div>
@@ -178,7 +178,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
                 Active Tiebreakers
-                <span class="ml-2 px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium">
+                <span class="ml-2 px-2.5 py-0.5 rounded-full bg-yellow-100 text-yellow-800 text-xs font-medium tiebreakers-count">
                     {{ tiebreakers|length }}
                 </span>
             </h3>
@@ -341,7 +341,7 @@
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                 </svg>
                 Players with Bids
-                <span class="ml-2 px-2.5 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium">
+                <span class="ml-2 px-2.5 py-0.5 rounded-full bg-primary/20 text-primary text-xs font-medium bid-count">
                     {{ bids_by_player|length }}
                 </span>
             </h3>
@@ -500,6 +500,10 @@
                     return;
                 }
                 
+                // Store the server time value (for more accurate counting)
+                window.lastServerTime = data.remaining;
+                window.lastUpdateTime = Date.now();
+                
                 const percent = (data.remaining / {{ bulk_round.duration }}) * 100;
                 
                 // Animate countdown
@@ -522,6 +526,36 @@
                 // Retry after delay
                 setTimeout(updateTimerDisplay, 10000);
             });
+    }
+    
+    // Function to update timer display locally between server updates
+    function updateTimerLocally() {
+        const countdownElement = document.getElementById('countdown');
+        const timerBarElement = document.getElementById('timer-bar');
+        
+        if (!countdownElement || !timerBarElement || !window.lastServerTime) return;
+        
+        // Calculate elapsed time since last server update (in seconds)
+        const elapsedSinceUpdate = (Date.now() - window.lastUpdateTime) / 1000;
+        
+        // Calculate current remaining time
+        const currentRemaining = Math.max(window.lastServerTime - elapsedSinceUpdate, 0);
+        
+        // Update countdown display
+        countdownElement.textContent = formatTime(currentRemaining);
+        
+        // Update progress bar
+        const percent = (currentRemaining / {{ bulk_round.duration }}) * 100;
+        timerBarElement.style.width = `${Math.max(percent, 0)}%`;
+        
+        // Add visual indicators for low time
+        if (currentRemaining < 60) {
+            countdownElement.classList.add('text-red-600', 'animate-pulse');
+            timerBarElement.classList.add('bg-red-500');
+        } else {
+            countdownElement.classList.remove('text-red-600', 'animate-pulse');
+            timerBarElement.classList.remove('bg-red-500');
+        }
     }
     
     // Update the timer
@@ -617,16 +651,90 @@
         });
     }
     
+    // Auto-refresh bulk round data
+    function autoRefreshBulkRoundData() {
+        fetch(`/admin/bulk_round_update/{{ bulk_round.id }}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // If round is no longer active, reload the page
+            if (!data.status.active && {{ 'true' if bulk_round.is_active else 'false' }}) {
+                showLoading('Round status has changed, refreshing page...');
+                setTimeout(() => window.location.reload(), 1000);
+                return;
+            }
+            
+            // Find heading elements with specific text
+            const findHeadingWithText = (text) => {
+                const headings = document.querySelectorAll('h3');
+                for (const heading of headings) {
+                    if (heading.textContent.includes(text)) {
+                        return heading.querySelector('span');
+                    }
+                }
+                return null;
+            };
+            
+            // Update tiebreakers count
+            const tiebreakersCountEl = findHeadingWithText('Active Tiebreakers');
+            if (tiebreakersCountEl && data.tiebreakers) {
+                tiebreakersCountEl.textContent = data.tiebreakers.length;
+            }
+            
+            // Update players with bids count
+            const playersCountEl = findHeadingWithText('Players with Bids');
+            if (playersCountEl && data.player_count) {
+                playersCountEl.textContent = data.player_count;
+            }
+            
+            // Update teams count
+            const teamsCountEl = findHeadingWithText('Bids by Team');
+            if (teamsCountEl && data.team_count) {
+                teamsCountEl.textContent = data.team_count;
+            }
+            
+            // Use a smarter approach that doesn't rely on specific classes
+            // Just reload the page every minute if data has changed
+            if (data.bid_count !== {{ bids_by_player|length }} || 
+                data.player_count !== {{ bids_by_player|length }} || 
+                data.team_count !== {{ bids_by_team|length }}) {
+                showLoading('New data available, refreshing page...');
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing bulk round data:', error);
+        });
+    }
+    
     // Initialize timer display and refresh
     {% if bulk_round.is_active %}
     document.addEventListener('DOMContentLoaded', function() {
+        // Initialize timer with server data
         updateTimerDisplay();
-        // Update timer display every 5 seconds
-        const timerInterval = setInterval(updateTimerDisplay, 5000);
+        
+        // Update from server every 5 seconds
+        const serverUpdateInterval = setInterval(updateTimerDisplay, 5000);
+        
+        // Update locally every 100ms for smooth countdown
+        const localUpdateInterval = setInterval(updateTimerLocally, 100);
+        
+        // Auto-refresh bulk round data every 15 seconds
+        const dataRefreshInterval = setInterval(autoRefreshBulkRoundData, 15000);
         
         // Cleanup interval when page is unloaded
         window.addEventListener('beforeunload', () => {
-            clearInterval(timerInterval);
+            clearInterval(serverUpdateInterval);
+            clearInterval(localUpdateInterval);
+            clearInterval(dataRefreshInterval);
         });
     });
     {% endif %}

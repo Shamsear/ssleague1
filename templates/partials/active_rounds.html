@@ -1,0 +1,86 @@
+{% for round in active_rounds %}
+<div class="glass rounded-xl p-4 sm:p-5 border border-green-200/30 hover:shadow-lg transition-all duration-300 backdrop-blur-sm relative overflow-hidden" data-round-id="{{ round.id }}">
+    <div class="absolute top-0 right-0 bg-green-500 text-white px-3 py-1 text-xs font-medium rounded-bl-lg">
+        Active
+    </div>
+    
+    <div class="flex flex-col gap-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center flex-shrink-0 mr-3">
+                    <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                    </svg>
+                </div>
+                <h3 class="text-base sm:text-lg font-semibold">{{ round.position }} Round #{{ round.id }}</h3>
+            </div>
+            <div class="text-sm font-medium px-4 py-2 rounded-xl bg-white/80 backdrop-blur-sm shadow-sm flex items-center" id="timer-{{ round.id }}">
+                <svg class="w-4 h-4 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span id="timer-remaining-{{ round.id }}" class="font-mono">--:--</span>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="glass rounded-xl p-3 backdrop-blur-sm flex items-center gap-4">
+                <div class="relative flex-1 max-w-[120px]">
+                    <input type="number" id="update-duration-{{ round.id }}" min="30" value="60"
+                        class="w-full py-2.5 px-3 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-base shadow-sm">
+                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">sec</span>
+                </div>
+                <button onclick="updateRoundTimer({{ round.id }})"
+                    class="bg-primary/90 text-white px-4 py-2.5 rounded-xl hover:bg-primary transition-all duration-200 text-sm whitespace-nowrap flex items-center justify-center">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    Add Time
+                </button>
+            </div>
+            
+            <button onclick="finalizeRound({{ round.id }})"
+                class="bg-green-500 text-white px-4 py-3 rounded-xl hover:bg-green-600 transition-all duration-200 font-medium flex items-center justify-center">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                Finalize Round
+            </button>
+        </div>
+    </div>
+
+    {% if round.status == "processing" %}
+    <div class="mt-4 glass rounded-xl border-l-4 border-yellow-400 p-4 backdrop-blur-sm bg-yellow-50/70">
+        <div class="flex items-start">
+            <div class="flex-shrink-0">
+                <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="ml-3">
+                <p class="text-sm text-yellow-700">
+                    <strong>Round in processing.</strong> Resolve all tiebreakers before finalizing this round.
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="text-center py-8 glass rounded-xl border border-gray-100/20 bg-white/5">
+    <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+    </svg>
+    <h3 class="mt-2 text-lg font-medium text-gray-500">No active rounds</h3>
+    <p class="mt-1 text-gray-500">Start a new round using the form above</p>
+    <button onclick="document.getElementById('start-round-button').scrollIntoView({ behavior: 'smooth' })"
+        class="mt-4 px-6 py-2.5 bg-primary/90 text-white rounded-xl hover:bg-primary text-sm transition-all duration-200 shadow-sm">
+        <svg class="w-4 h-4 inline mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+        </svg>
+        Start Round
+    </button>
+</div>
+{% endfor %} 
+ 
+ 
+ 

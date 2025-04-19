@@ -12,6 +12,15 @@
     </div>
 </div>
 
+<!-- Auto-refresh Indicator -->
+<div class="fixed bottom-4 right-4 bg-white/80 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 text-xs text-gray-600 flex items-center z-30">
+    <svg class="w-3 h-3 mr-1.5 animate-spin text-primary" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+    Auto-refreshing
+</div>
+
 <!-- New Round Modal -->
 <div id="new-round-modal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
     <div class="bg-white rounded-2xl p-6 shadow-xl max-w-md w-full mx-4 transform transition-transform duration-300 scale-95">
@@ -454,6 +463,85 @@
         if (event.key === 'Escape') {
             closeModal();
         }
+    });
+    
+    // Auto-refresh bulk rounds data
+    function autoRefreshBulkRoundsData() {
+        fetch('/admin/bulk_rounds_update', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            // Check if the data has changed
+            const activeRoundsCount = {{ active_rounds|length }};
+            const completedRoundsCount = {{ completed_rounds|length }};
+            
+            // If active or completed rounds count has changed, reload the page
+            if (data.active_rounds.length !== activeRoundsCount || 
+                data.completed_rounds.length !== completedRoundsCount) {
+                showLoading('Bulk rounds data has changed, refreshing page...');
+                setTimeout(() => window.location.reload(), 1000);
+                return;
+            }
+            
+            // Check if any active round stats have changed
+            let hasChanges = false;
+            
+            {% for round in active_rounds %}
+            data.active_rounds.forEach(updatedRound => {
+                if (updatedRound.id === {{ round.id }}) {
+                    const stats = updatedRound.stats;
+                    if (stats.total_bids !== {{ round_stats[round.id].total_bids }} ||
+                        stats.direct_assignments !== {{ round_stats[round.id].direct_assignments }} ||
+                        stats.tiebreakers !== {{ round_stats[round.id].tiebreakers }}) {
+                        hasChanges = true;
+                    }
+                }
+            });
+            {% endfor %}
+            
+            // Check if any completed round stats have changed
+            {% for round in completed_rounds %}
+            data.completed_rounds.forEach(updatedRound => {
+                if (updatedRound.id === {{ round.id }}) {
+                    const stats = updatedRound.stats;
+                    if (stats.total_bids !== {{ round_stats[round.id].total_bids }} ||
+                        stats.direct_assignments !== {{ round_stats[round.id].direct_assignments }} ||
+                        stats.tiebreakers !== {{ round_stats[round.id].tiebreakers }} || 
+                        stats.resolved_tiebreakers !== {{ round_stats[round.id].resolved_tiebreakers }} ||
+                        stats.pending_tiebreakers !== {{ round_stats[round.id].pending_tiebreakers }}) {
+                        hasChanges = true;
+                    }
+                }
+            });
+            {% endfor %}
+            
+            if (hasChanges) {
+                showLoading('Bulk rounds data has changed, refreshing page...');
+                setTimeout(() => window.location.reload(), 1000);
+            }
+        })
+        .catch(error => {
+            console.error('Error refreshing bulk rounds data:', error);
+        });
+    }
+    
+    // Initialize auto-refresh
+    document.addEventListener('DOMContentLoaded', function() {
+        // Auto-refresh bulk rounds data every 15 seconds
+        const dataRefreshInterval = setInterval(autoRefreshBulkRoundsData, 15000);
+        
+        // Cleanup interval when page is unloaded
+        window.addEventListener('beforeunload', () => {
+            clearInterval(dataRefreshInterval);
+        });
     });
 </script>
 {% endblock %} 
