@@ -22,16 +22,60 @@ if ('serviceWorker' in navigator) {
   });
 }
 
+// Check and clean up any existing service worker registrations
+async function cleanupExistingServiceWorkers() {
+  if (!('serviceWorker' in navigator)) return false;
+  
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    
+    if (registrations.length > 0) {
+      console.log(`Found ${registrations.length} existing service worker registrations.`);
+      
+      for (let registration of registrations) {
+        console.log(`Unregistering service worker with scope: ${registration.scope}`);
+        await registration.unregister();
+      }
+      
+      console.log('All existing service workers unregistered');
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error cleaning up service workers:', error);
+    return false;
+  }
+}
+
 // Register the service worker
 async function registerServiceWorker() {
   try {
-    const registration = await navigator.serviceWorker.register('/static/js/sw.js', {
+    console.log('Attempting to register service worker at: /static/js/sw.js');
+    
+    // First, attempt to clean up any problematic existing service workers
+    await cleanupExistingServiceWorkers();
+    
+    // Add a version query parameter to force a fresh registration if there are caching issues
+    const swVersion = new Date().getTime();
+    const swUrl = `/static/js/sw.js?v=${swVersion}`;
+    
+    const registration = await navigator.serviceWorker.register(swUrl, {
       scope: '/'
     });
     console.log('Service Worker registered with scope:', registration.scope);
     return registration;
   } catch (error) {
     console.error('Service Worker registration failed:', error);
+    console.error('Error name:', error.name);
+    console.error('Error message:', error.message);
+    console.error('Error stack:', error.stack);
+    
+    // Check if we're not on HTTPS
+    if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+      console.error('Service Worker registration likely failed because the site is not served over HTTPS');
+    }
+    
     return null;
   }
 }
@@ -354,8 +398,22 @@ async function initNotifications() {
   const registration = await registerServiceWorker();
   if (!registration) {
     if (statusElement) {
-      statusElement.innerText = 'Service worker failed to register';
+      // Check protocol to provide a more helpful error message
+      if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+        statusElement.innerText = 'Service worker failed to register - HTTPS required';
+      } else {
+        statusElement.innerText = 'Service worker failed to register';
+      }
       statusElement.className = 'text-red-500';
+      
+      const infoElement = document.getElementById('notification-info');
+      if (infoElement) {
+        if (window.location.protocol !== 'https:' && window.location.hostname !== 'localhost') {
+          infoElement.innerText = 'Service workers require HTTPS except on localhost. Please serve this site over HTTPS.';
+        } else {
+          infoElement.innerText = 'Check browser console for detailed error information.';
+        }
+      }
     }
     return;
   }
