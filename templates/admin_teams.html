@@ -45,10 +45,14 @@
                     <tr class="hover:bg-white/60 transition-colors">
                         <td class="px-5 py-4 whitespace-nowrap">
                             <div class="flex items-center">
-                                <div class="h-8 w-8 flex-shrink-0 bg-primary/10 rounded-md flex items-center justify-center text-primary mr-3">
+                                <div class="h-8 w-8 flex-shrink-0 bg-primary/10 rounded-md flex items-center justify-center text-primary mr-3 overflow-hidden">
+                                    {% if team_data.team.logo_url %}
+                                    <img src="{{ team_data.team.logo_url }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
+                                    {% else %}
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
                                     </svg>
+                                    {% endif %}
                                 </div>
                                 <div class="text-sm font-medium text-gray-800">{{ team_data.team.name }}</div>
                             </div>
@@ -127,7 +131,7 @@
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                                     </svg>
                                 </a>
-                                <button onclick="showEditTeamModal({{ team_data.team.id }}, '{{ team_data.team.name }}', {{ team_data.team.balance }})" 
+                                <button onclick="showEditTeamModal({{ team_data.team.id }}, '{{ team_data.team.name }}', {{ team_data.team.balance }}, '{{ team_data.team.logo_url | default('') }}')" 
                                         class="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200">
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -163,10 +167,14 @@
             <div class="bg-white/30 backdrop-blur-sm rounded-xl shadow-sm p-4 border border-gray-100">
                 <div class="flex justify-between items-start mb-3">
                     <div class="flex items-center">
-                        <div class="h-10 w-10 flex-shrink-0 bg-primary/10 rounded-md flex items-center justify-center text-primary mr-3">
+                        <div class="h-10 w-10 flex-shrink-0 bg-primary/10 rounded-md flex items-center justify-center text-primary mr-3 overflow-hidden">
+                            {% if team_data.team.logo_url %}
+                            <img src="{{ team_data.team.logo_url }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
+                            {% else %}
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
                             </svg>
+                            {% endif %}
                         </div>
                         <div>
                             <h3 class="text-base font-semibold text-gray-800">{{ team_data.team.name }}</h3>
@@ -196,7 +204,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
                         </a>
-                        <button onclick="showEditTeamModal({{ team_data.team.id }}, '{{ team_data.team.name }}', {{ team_data.team.balance }})" 
+                        <button onclick="showEditTeamModal({{ team_data.team.id }}, '{{ team_data.team.name }}', {{ team_data.team.balance }}, '{{ team_data.team.logo_url | default('') }}')" 
                                 class="p-1.5 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 transition-colors duration-200">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -442,7 +450,33 @@
                     </svg>
                 </button>
             </div>
-            <form id="addTeamForm" class="space-y-5 sm:space-y-6">
+            <form id="addTeamForm" class="space-y-5 sm:space-y-6" enctype="multipart/form-data">
+                <!-- Team Logo Upload -->
+                <div class="mb-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Team Logo</label>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                            <div id="logoPreview" class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gray-100/80 backdrop-blur-sm border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+                                <svg id="uploadIcon" class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <img id="previewImg" class="hidden w-full h-full object-cover" src="#" alt="Team logo preview">
+                            </div>
+                        </div>
+                        <div class="flex-grow">
+                            <label for="teamLogo" class="w-full flex flex-col items-center px-4 py-2.5 bg-white/60 text-primary rounded-xl border border-gray-200 cursor-pointer hover:bg-primary/5 transition-colors duration-300 relative">
+                                <svg class="w-5 h-5 mb-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                                <span class="text-sm font-medium text-gray-700">Choose Logo</span>
+                                <span class="text-xs text-gray-500">PNG, JPG (Max 2MB)</span>
+                                <input type="file" id="teamLogo" name="logo" accept="image/*" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1.5">Upload a logo to make your team stand out</p>
+                </div>
+                
                 <div>
                     <label for="teamName" class="block text-sm font-medium text-gray-700 mb-1.5">Team Name</label>
                     <div class="relative">
@@ -485,8 +519,35 @@
                     </svg>
                 </button>
             </div>
-            <form id="editTeamForm" class="space-y-5 sm:space-y-6">
+            <form id="editTeamForm" class="space-y-5 sm:space-y-6" enctype="multipart/form-data">
                 <input type="hidden" id="editTeamId" name="id">
+                
+                <!-- Team Logo Preview and Upload -->
+                <div class="mb-1">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Team Logo</label>
+                    <div class="flex items-center space-x-4">
+                        <div class="flex-shrink-0">
+                            <div id="editLogoPreview" class="w-20 h-20 sm:w-24 sm:h-24 rounded-xl bg-gray-100/80 backdrop-blur-sm border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+                                <svg id="editUploadIcon" class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <img id="editPreviewImg" class="hidden w-full h-full object-cover" src="#" alt="Team logo preview">
+                            </div>
+                        </div>
+                        <div class="flex-grow">
+                            <label for="editTeamLogo" class="w-full flex flex-col items-center px-4 py-2.5 bg-white/60 text-primary rounded-xl border border-gray-200 cursor-pointer hover:bg-primary/5 transition-colors duration-300 relative">
+                                <svg class="w-5 h-5 mb-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                                <span class="text-sm font-medium text-gray-700">Choose Logo</span>
+                                <span class="text-xs text-gray-500">PNG, JPG (Max 2MB)</span>
+                                <input type="file" id="editTeamLogo" name="logo" accept="image/*" class="hidden">
+                            </label>
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-1.5">Upload a logo to make your team stand out</p>
+                </div>
+                
                 <div>
                     <label for="editTeamName" class="block text-sm font-medium text-gray-700 mb-1.5">Team Name</label>
                     <div class="relative">
@@ -590,9 +651,9 @@
             // Add a small delay to ensure it's visible long enough for the user to see it
             overlay.hideTimeout = setTimeout(() => {
                 overlay.classList.add('opacity-0', 'pointer-events-none');
-        }, 300);
+            }, 300);
+        }
     }
-}
 
     // Show refresh indicator
     function showRefreshIndicator() {
@@ -715,16 +776,6 @@
         }, 3000);
     }
 
-    // Function to add a team
-    async function addTeam() {
-        // ... existing code ...
-    }
-
-    // Function to edit a team
-    async function editTeam() {
-        // ... existing code ...
-    }
-
     // Function to delete a team
     async function deleteTeam(teamId) {
         if (!confirm('Are you sure you want to delete this team? This will delete all associated players and bids.')) {
@@ -757,342 +808,416 @@
         }
     }
 
-    // Show Add Team Modal
+    // Modal functions with animations
     function showAddTeamModal() {
-        // ... existing code ...
+        const modal = document.getElementById('addTeamModal');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modal.querySelector('div > div').classList.add('scale-100', 'translate-y-0');
+            modal.querySelector('div > div').classList.remove('scale-95', 'translate-y-4');
+        }, 10);
+        document.getElementById('teamName').focus();
     }
 
-    // Show Edit Team Modal
-    function showEditTeamModal(teamId, teamName, balance) {
-        // ... existing code ...
+    function closeAddTeamModal() {
+        const modal = document.getElementById('addTeamModal');
+        modal.classList.remove('opacity-100');
+        modal.querySelector('div > div').classList.remove('scale-100', 'translate-y-0');
+        modal.querySelector('div > div').classList.add('scale-95', 'translate-y-4');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            document.body.style.overflow = ''; // Restore scrolling
+        }, 200);
     }
 
-    // Initialize on page load
+    function showEditTeamModal(id, name, balance, logoUrl = null) {
+        document.getElementById('editTeamId').value = id;
+        document.getElementById('editTeamName').value = name;
+        document.getElementById('editTeamBalance').value = balance;
+        
+        // Set logo preview if available
+        if (logoUrl) {
+            const previewImg = document.getElementById('editPreviewImg');
+            const uploadIcon = document.getElementById('editUploadIcon');
+            const logoPreview = document.getElementById('editLogoPreview');
+            
+            previewImg.src = logoUrl;
+            previewImg.classList.remove('hidden');
+            uploadIcon.classList.add('hidden');
+            logoPreview.classList.remove('border-dashed', 'border-gray-300');
+            logoPreview.classList.add('border-solid', 'border-primary');
+        } else {
+            // Reset logo preview
+            resetLogoPreview('edit');
+        }
+        
+        const modal = document.getElementById('editTeamModal');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        modal.classList.remove('hidden');
+        setTimeout(() => {
+            modal.classList.add('opacity-100');
+            modal.querySelector('div > div').classList.add('scale-100', 'translate-y-0');
+            modal.querySelector('div > div').classList.remove('scale-95', 'translate-y-4');
+        }, 10);
+        document.getElementById('editTeamName').focus();
+    }
+
+    function closeEditTeamModal() {
+        const modal = document.getElementById('editTeamModal');
+        modal.classList.remove('opacity-100');
+        modal.querySelector('div > div').classList.remove('scale-100', 'translate-y-0');
+        modal.querySelector('div > div').classList.add('scale-95', 'translate-y-4');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            document.body.style.overflow = ''; // Restore scrolling
+        }, 200);
+    }
+
+    // Setup logo file inputs and preview functionality
+    function setupLogoFileInputs() {
+        // Add team logo functionality
+        const teamLogo = document.getElementById('teamLogo');
+        const logoPreview = document.getElementById('logoPreview');
+        const previewImg = document.getElementById('previewImg');
+        const uploadIcon = document.getElementById('uploadIcon');
+        
+        if (teamLogo) {
+            teamLogo.addEventListener('change', function() {
+                handleLogoFileSelect(this, previewImg, uploadIcon, logoPreview);
+            });
+        }
+        
+        // Edit team logo functionality
+        const editTeamLogo = document.getElementById('editTeamLogo');
+        const editLogoPreview = document.getElementById('editLogoPreview');
+        const editPreviewImg = document.getElementById('editPreviewImg');
+        const editUploadIcon = document.getElementById('editUploadIcon');
+        
+        if (editTeamLogo) {
+            editTeamLogo.addEventListener('change', function() {
+                handleLogoFileSelect(this, editPreviewImg, editUploadIcon, editLogoPreview);
+            });
+        }
+    }
+
+    // Handle logo file selection
+    function handleLogoFileSelect(fileInput, previewImgEl, uploadIconEl, previewContainerEl) {
+        const file = fileInput.files[0];
+        
+        if (file) {
+            // Check file size (max 2MB)
+            if (file.size > 2 * 1024 * 1024) {
+                showToast('Logo file is too large. Maximum size is 2MB.', 'error');
+                fileInput.value = '';
+                return;
+            }
+            
+            // Check file type
+            if (!file.type.match('image.*')) {
+                showToast('Please select an image file.', 'error');
+                fileInput.value = '';
+                return;
+            }
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                // Show image preview
+                previewImgEl.src = e.target.result;
+                previewImgEl.classList.remove('hidden');
+                uploadIconEl.classList.add('hidden');
+                
+                // Add a subtle animation
+                previewContainerEl.classList.add('animate-logo-appear');
+                setTimeout(() => {
+                    previewContainerEl.classList.remove('animate-logo-appear');
+                }, 400);
+            };
+            
+            reader.readAsDataURL(file);
+            
+            // Change the border to show a "selected" state
+            previewContainerEl.classList.remove('border-dashed', 'border-gray-300');
+            previewContainerEl.classList.add('border-solid', 'border-primary');
+        } else {
+            resetLogoPreview(fileInput.id.includes('edit') ? 'edit' : '');
+        }
+    }
+
+    // Reset logo preview to default state
+    function resetLogoPreview(prefix = '') {
+        const previewImg = document.getElementById(`${prefix}PreviewImg`);
+        const uploadIcon = document.getElementById(`${prefix}UploadIcon`);
+        const logoPreview = document.getElementById(`${prefix}LogoPreview`);
+        
+        if (previewImg && uploadIcon && logoPreview) {
+            previewImg.classList.add('hidden');
+            uploadIcon.classList.remove('hidden');
+            logoPreview.classList.add('border-dashed', 'border-gray-300');
+            logoPreview.classList.remove('border-solid', 'border-primary');
+        }
+    }
+
+    // Team details toggle with smooth animations
+    function showTeamDetails(teamIndex) {
+        // Hide all other team details sections with animation
+        document.querySelectorAll('.team-details-section:not(.hidden)').forEach(section => {
+            section.classList.add('animate-fade-out');
+            setTimeout(() => {
+                section.classList.add('hidden');
+                section.classList.remove('animate-fade-out');
+            }, 150);
+        });
+        
+        // Show selected team details with animation
+        const detailsSection = document.getElementById(`team-details-${teamIndex}`);
+        detailsSection.classList.remove('hidden');
+        detailsSection.classList.add('animate-fade-in');
+        
+        // Scroll to team details
+        setTimeout(() => {
+            detailsSection.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'start'  // Ensures top alignment on mobile
+            });
+            detailsSection.classList.remove('animate-fade-in');
+        }, 150);
+    }
+
+    function hideTeamDetails(teamIndex) {
+        const detailsSection = document.getElementById(`team-details-${teamIndex}`);
+        detailsSection.classList.add('animate-fade-out');
+        setTimeout(() => {
+            detailsSection.classList.add('hidden');
+            detailsSection.classList.remove('animate-fade-out');
+        }, 150);
+    }
+
+    // Position players toggle with slide animation
+    function togglePositionPlayers(positionId) {
+        console.log('Toggling position players for:', positionId);
+        const playersSection = document.getElementById(`players-${positionId}`);
+        
+        if (!playersSection) {
+            console.error(`Element with ID players-${positionId} not found`);
+            return;
+        }
+        
+        if (playersSection.classList.contains('hidden')) {
+            console.log('Opening position players section');
+            playersSection.classList.remove('hidden');
+            playersSection.classList.add('animate-slide-down');
+            setTimeout(() => {
+                playersSection.classList.remove('animate-slide-down');
+            }, 300);
+        } else {
+            console.log('Closing position players section');
+            playersSection.classList.add('animate-slide-up');
+            setTimeout(() => {
+                playersSection.classList.add('hidden');
+                playersSection.classList.remove('animate-slide-up');
+            }, 300);
+        }
+    }
+
+    // Form submissions with improved feedback
     document.addEventListener('DOMContentLoaded', function() {
         // Make sure loading overlay is hidden on page load
         hideLoading();
         
         // Initialize toggle button
-        document.getElementById('toggle-refresh').addEventListener('click', toggleAutoRefresh);
+        const toggleRefreshBtn = document.getElementById('toggle-refresh');
+        if (toggleRefreshBtn) {
+            toggleRefreshBtn.addEventListener('click', toggleAutoRefresh);
+        }
         
         // Start auto-refresh
         startAutoRefresh();
-});
-// Modal functions with animations
-function showAddTeamModal() {
-    const modal = document.getElementById('addTeamModal');
-    document.body.style.overflow = 'hidden'; // Prevent background scrolling
-    modal.classList.remove('hidden');
-    setTimeout(() => {
-        modal.classList.add('opacity-100');
-        modal.querySelector('div > div').classList.add('scale-100', 'translate-y-0');
-        modal.querySelector('div > div').classList.remove('scale-95', 'translate-y-4');
-    }, 10);
-    document.getElementById('teamName').focus();
-}
-
-function closeAddTeamModal() {
-    const modal = document.getElementById('addTeamModal');
-    modal.classList.remove('opacity-100');
-    modal.querySelector('div > div').classList.remove('scale-100', 'translate-y-0');
-    modal.querySelector('div > div').classList.add('scale-95', 'translate-y-4');
-    setTimeout(() => {
-        modal.classList.add('hidden');
-        document.body.style.overflow = ''; // Restore scrolling
-    }, 200);
-}
-
-function showEditTeamModal(id, name, balance) {
-    document.getElementById('editTeamId').value = id;
-    document.getElementById('editTeamName').value = name;
-    document.getElementById('editTeamBalance').value = balance;
-    
-    const modal = document.getElementById('editTeamModal');
-    document.body.style.overflow = 'hidden'; // Prevent background scrolling
-    modal.classList.remove('hidden');
-    setTimeout(() => {
-        modal.classList.add('opacity-100');
-        modal.querySelector('div > div').classList.add('scale-100', 'translate-y-0');
-        modal.querySelector('div > div').classList.remove('scale-95', 'translate-y-4');
-    }, 10);
-    document.getElementById('editTeamName').focus();
-}
-
-function closeEditTeamModal() {
-    const modal = document.getElementById('editTeamModal');
-    modal.classList.remove('opacity-100');
-    modal.querySelector('div > div').classList.remove('scale-100', 'translate-y-0');
-    modal.querySelector('div > div').classList.add('scale-95', 'translate-y-4');
-    setTimeout(() => {
-        modal.classList.add('hidden');
-        document.body.style.overflow = ''; // Restore scrolling
-    }, 200);
-}
-
-// Team details toggle with smooth animations
-function showTeamDetails(teamIndex) {
-    // Hide all other team details sections with animation
-    document.querySelectorAll('.team-details-section:not(.hidden)').forEach(section => {
-        section.classList.add('animate-fade-out');
-        setTimeout(() => {
-            section.classList.add('hidden');
-            section.classList.remove('animate-fade-out');
-        }, 150);
-    });
-    
-    // Show selected team details with animation
-    const detailsSection = document.getElementById(`team-details-${teamIndex}`);
-    detailsSection.classList.remove('hidden');
-    detailsSection.classList.add('animate-fade-in');
-    
-    // Scroll to team details
-    setTimeout(() => {
-        detailsSection.scrollIntoView({ 
-            behavior: 'smooth', 
-            block: 'start'  // Ensures top alignment on mobile
+        
+        // Initialize logo file inputs
+        setupLogoFileInputs();
+        
+        // Initialize modals with proper scale
+        document.querySelectorAll('#addTeamModal > div > div, #editTeamModal > div > div').forEach(modal => {
+            modal.classList.add('scale-95', 'translate-y-4');
         });
-        detailsSection.classList.remove('animate-fade-in');
-    }, 150);
-}
-
-function hideTeamDetails(teamIndex) {
-    const detailsSection = document.getElementById(`team-details-${teamIndex}`);
-    detailsSection.classList.add('animate-fade-out');
-    setTimeout(() => {
-        detailsSection.classList.add('hidden');
-        detailsSection.classList.remove('animate-fade-out');
-    }, 150);
-}
-
-// Position players toggle with slide animation
-function togglePositionPlayers(positionId) {
-    console.log('Toggling position players for:', positionId);
-    const playersSection = document.getElementById(`players-${positionId}`);
-    
-    if (!playersSection) {
-        console.error(`Element with ID players-${positionId} not found`);
-        return;
-    }
-    
-    if (playersSection.classList.contains('hidden')) {
-        console.log('Opening position players section');
-        playersSection.classList.remove('hidden');
-        playersSection.classList.add('animate-slide-down');
-        setTimeout(() => {
-            playersSection.classList.remove('animate-slide-down');
-        }, 300);
-    } else {
-        console.log('Closing position players section');
-        playersSection.classList.add('animate-slide-up');
-        setTimeout(() => {
-            playersSection.classList.add('hidden');
-            playersSection.classList.remove('animate-slide-up');
-        }, 300);
-    }
-}
-
-// Form submissions with improved feedback
-document.getElementById('addTeamForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const submitBtn = this.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Adding Team...';
-    
-    const name = document.getElementById('teamName').value;
-    const balance = document.getElementById('teamBalance').value;
-    
-    fetch('/admin/add_team', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            name: name,
-            balance: parseInt(balance)
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        } else {
-            location.reload();
+        
+        // Add form submit handlers
+        const addTeamForm = document.getElementById('addTeamForm');
+        if (addTeamForm) {
+            addTeamForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Adding Team...';
+                
+                const formData = new FormData(this);
+                
+                fetch('/admin/add_team', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showToast(data.error, 'error');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    } else {
+                        showToast('Team added successfully', 'success');
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('An error occurred while adding the team', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while adding the team');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-    });
-});
-
-document.getElementById('editTeamForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const submitBtn = this.querySelector('button[type="submit"]');
-    const originalText = submitBtn.innerHTML;
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Updating Team...';
-    
-    const id = document.getElementById('editTeamId').value;
-    const name = document.getElementById('editTeamName').value;
-    const balance = document.getElementById('editTeamBalance').value;
-    
-    fetch(`/admin/edit_team/${id}`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            name: name,
-            balance: parseInt(balance)
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.error) {
-            alert(data.error);
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = originalText;
-        } else {
-            location.reload();
+        
+        const editTeamForm = document.getElementById('editTeamForm');
+        if (editTeamForm) {
+            editTeamForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const submitBtn = this.querySelector('button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Updating Team...';
+                
+                const id = document.getElementById('editTeamId').value;
+                const formData = new FormData(this);
+                
+                fetch(`/admin/edit_team/${id}`, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) {
+                        showToast(data.error, 'error');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    } else {
+                        showToast('Team updated successfully', 'success');
+                        location.reload();
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('An error occurred while updating the team', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                });
+            });
         }
-    })
-    .catch(error => {
-        console.error('Error:', error);
-        alert('An error occurred while updating the team');
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = originalText;
-    });
-});
-
-// Delete team with confirmation
-function deleteTeam(id) {
-    if (confirm('Are you sure you want to delete this team? This action cannot be undone.')) {
-        fetch(`/admin/delete_team/${id}`, {
-            method: 'POST'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.error) {
-                alert(data.error);
-            } else {
-                location.reload();
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while deleting the team');
-        });
-    }
-}
-
-// Add animation classes
-document.addEventListener('DOMContentLoaded', function() {
-    // Add required CSS if not already present
-    if (!document.getElementById('animation-styles')) {
-        const style = document.createElement('style');
-        style.id = 'animation-styles';
-        style.textContent = `
-            .animate-fade-in {
-                animation: fadeIn 0.2s ease-in-out forwards;
-            }
-            .animate-fade-out {
-                animation: fadeOut 0.2s ease-in-out forwards;
-            }
-            .animate-slide-down {
-                animation: slideDown 0.3s ease-in-out forwards;
-                overflow: hidden;
-                transform-origin: top;
-            }
-            .animate-slide-up {
-                animation: slideUp 0.3s ease-in-out forwards;
-                overflow: hidden;
-                transform-origin: top;
-            }
-            
-            /* Modal animations */
-            #addTeamModal, #editTeamModal {
-                opacity: 0;
-                transition: opacity 0.2s ease-in-out;
-            }
-            #addTeamModal > div > div, #editTeamModal > div > div {
-                transition: all 0.25s ease-in-out;
-                transform: scale(0.95) translateY(4px);
-            }
-            #addTeamModal.opacity-100, #editTeamModal.opacity-100 {
-                opacity: 1;
-            }
-            #addTeamModal .scale-100, #editTeamModal .scale-100 {
-                transform: scale(1) translateY(0);
-            }
-            
-            /* Position players sections */
-            .position-players-section {
-                display: none;
-            }
-            .position-players-section:not(.hidden) {
-                display: block;
-            }
-            
-            @keyframes fadeIn {
-                from { opacity: 0; }
-                to { opacity: 1; }
-            }
-            @keyframes fadeOut {
-                from { opacity: 1; }
-                to { opacity: 0; }
-            }
-            @keyframes slideDown {
-                from { 
-                    opacity: 0; 
-                    transform: translateY(-10px); 
-                    max-height: 0;
+        
+        // Add required CSS if not already present
+        if (!document.getElementById('animation-styles')) {
+            const style = document.createElement('style');
+            style.id = 'animation-styles';
+            style.textContent = `
+                .animate-fade-in {
+                    animation: fadeIn 0.2s ease-in-out forwards;
                 }
-                to { 
-                    opacity: 1; 
-                    transform: translateY(0); 
-                    max-height: 2000px;
+                .animate-fade-out {
+                    animation: fadeOut 0.2s ease-in-out forwards;
                 }
-            }
-            @keyframes slideUp {
-                from { 
-                    opacity: 1; 
-                    transform: translateY(0); 
-                    max-height: 2000px;
+                .animate-slide-down {
+                    animation: slideDown 0.3s ease-in-out forwards;
+                    overflow: hidden;
+                    transform-origin: top;
                 }
-                to { 
-                    opacity: 0; 
-                    transform: translateY(-10px); 
-                    max-height: 0;
+                .animate-slide-up {
+                    animation: slideUp 0.3s ease-in-out forwards;
+                    overflow: hidden;
+                    transform-origin: top;
                 }
-            }
-            
-            /* For enhanced mobile experience */
-            @media (max-width: 640px) {
+                
+                /* Logo animation */
+                @keyframes logoAppear {
+                    0% { transform: scale(0.8); opacity: 0.7; }
+                    50% { transform: scale(1.05); opacity: 1; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                
+                .animate-logo-appear {
+                    animation: logoAppear 0.4s ease-out forwards;
+                }
+                
+                /* Modal animations */
+                #addTeamModal, #editTeamModal {
+                    opacity: 0;
+                    transition: opacity 0.2s ease-in-out;
+                }
+                #addTeamModal > div > div, #editTeamModal > div > div {
+                    transition: all 0.25s ease-in-out;
+                    transform: scale(0.95) translateY(4px);
+                }
+                #addTeamModal.opacity-100, #editTeamModal.opacity-100 {
+                    opacity: 1;
+                }
+                #addTeamModal .scale-100, #editTeamModal .scale-100 {
+                    transform: scale(1) translateY(0);
+                }
+                
+                /* Position players sections */
                 .position-players-section {
-                    transition: all 0.3s ease;
+                    display: none;
                 }
-                .animate-fade-in, .animate-fade-out {
-                    transition: opacity 0.2s ease;
+                .position-players-section:not(.hidden) {
+                    display: block;
                 }
-            }
-        `;
-        document.head.appendChild(style);
-    }
-    
-    // Initialize modals with proper scale
-    document.querySelectorAll('#addTeamModal > div > div, #editTeamModal > div > div').forEach(modal => {
-        modal.classList.add('scale-95', 'translate-y-4');
+                
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes fadeOut {
+                    from { opacity: 1; }
+                    to { opacity: 0; }
+                }
+                @keyframes slideDown {
+                    from { 
+                        opacity: 0; 
+                        transform: translateY(-10px); 
+                        max-height: 0;
+                    }
+                    to { 
+                        opacity: 1; 
+                        transform: translateY(0); 
+                        max-height: 2000px;
+                    }
+                }
+                @keyframes slideUp {
+                    from { 
+                        opacity: 1; 
+                        transform: translateY(0); 
+                        max-height: 2000px;
+                    }
+                    to { 
+                        opacity: 0; 
+                        transform: translateY(-10px); 
+                        max-height: 0;
+                    }
+                }
+                
+                /* For enhanced mobile experience */
+                @media (max-width: 640px) {
+                    .position-players-section {
+                        transition: all 0.3s ease;
+                    }
+                    .animate-fade-in, .animate-fade-out {
+                        transition: opacity 0.2s ease;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
     });
-    
-    // Add click event listeners for debugging
-    document.querySelectorAll('[onclick*="togglePositionPlayers"]').forEach(button => {
-        console.log('Found position toggle button:', button);
-    });
-});
 </script>
 {% endblock %} 

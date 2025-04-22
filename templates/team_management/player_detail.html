@@ -1,0 +1,495 @@
+{% extends "base.html" %}
+
+{% block title %}{{ player.name }} - Player Details{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 sm:px-6 py-6 sm:py-8">
+    <div class="glass rounded-3xl p-4 sm:p-6 md:p-8 max-w-5xl mx-auto hover:shadow-lg transition-all duration-300">
+        <!-- Header with Back Button -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between mb-6 sm:mb-8 gap-4">
+            <a href="{{ url_for('team_management.dashboard') }}" class="flex items-center text-gray-600 hover:text-primary transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span>Back to Dashboard</span>
+            </a>
+            
+            <div class="flex items-center">
+                <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Player ID: {{ player.id }}</span>
+            </div>
+        </div>
+        
+        <!-- Two-column layout for player info and statistics -->
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
+            <!-- Left Column - Player Info -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Player Card -->
+                <div class="bg-white/60 rounded-2xl p-4 sm:p-6 shadow-md border border-white/20">
+                    <!-- Player Image -->
+                    <div class="relative w-32 h-32 sm:w-40 sm:h-40 mx-auto mb-4 rounded-xl overflow-hidden shadow-md">
+                        {% if player.photo_url %}
+                            <img src="{{ player.photo_url }}" 
+                                 alt="{{ player.name }}" 
+                                 class="object-cover w-full h-full"
+                                 onerror="handleImageError(this)">
+                        {% else %}
+                            <div class="bg-primary/10 w-full h-full flex items-center justify-center">
+                                <span class="text-4xl sm:text-5xl font-bold text-primary">{{ player.name[0] }}</span>
+                            </div>
+                        {% endif %}
+                        
+                        <!-- POTM Badge if applicable -->
+                        {% if player.is_potm %}
+                        <div class="absolute top-0 left-0 bg-amber-500 text-white text-xs font-bold py-1 px-2 rounded-br-lg">
+                            POTM
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Player Basic Info -->
+                    <div class="text-center">
+                        <h1 class="text-2xl font-bold text-dark mb-1">{{ player.name }}</h1>
+                        <div class="flex items-center justify-center mb-4">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium 
+                                {% if player.position == 'Forward' %}bg-red-100 text-red-800
+                                {% elif player.position == 'Midfielder' %}bg-blue-100 text-blue-800
+                                {% elif player.position == 'Defender' %}bg-green-100 text-green-800
+                                {% elif player.position == 'Goalkeeper' %}bg-purple-100 text-purple-800
+                                {% else %}bg-gray-100 text-gray-800
+                                {% endif %}">
+                                {{ player.position }}
+                            </span>
+                            
+                            {% if player.team %}
+                            <span class="ml-2 text-xs text-gray-500">{{ player.team }}</span>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Player Category -->
+                        <div class="mb-4">
+                            <span class="px-3 py-1.5 rounded-lg text-sm font-medium
+                                {% if player.category.lower() == 'red' %}bg-red-100 text-red-800 border border-red-200
+                                {% elif player.category.lower() == 'black' %}bg-gray-800 text-white border border-gray-700
+                                {% elif player.category.lower() == 'blue' %}bg-blue-100 text-blue-800 border border-blue-200
+                                {% elif player.category.lower() == 'orange' %}bg-orange-100 text-orange-800 border border-orange-200
+                                {% elif player.category.lower() == 'white' %}bg-gray-100 text-gray-800 border border-gray-200
+                                {% else %}bg-gray-100 text-gray-800 border border-gray-200{% endif %}">
+                                Category: {{ player.category }}
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Player Details -->
+                    <div class="space-y-3 text-sm border-t border-gray-200 pt-4">
+                        {% if player.nationality %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Nationality:</span>
+                            <span class="font-medium text-gray-700">{{ player.nationality }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if player.age %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Age:</span>
+                            <span class="font-medium text-gray-700">{{ player.age }}</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if player.height %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Height:</span>
+                            <span class="font-medium text-gray-700">{{ player.height }} cm</span>
+                        </div>
+                        {% endif %}
+                        
+                        {% if player.weight %}
+                        <div class="flex justify-between items-center">
+                            <span class="text-gray-500">Weight:</span>
+                            <span class="font-medium text-gray-700">{{ player.weight }} kg</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Overall Record Card -->
+                <div class="glass rounded-2xl p-6 shadow-md border border-white/20 bg-white/60 hover:bg-white/70 transition-all duration-300">
+                    <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                        </svg>
+                        Overall Record
+                    </h3>
+                    
+                    <!-- Win/Draw/Loss Record -->
+                    <div class="grid grid-cols-3 gap-2 mb-4">
+                        <div class="glass rounded-xl p-3 bg-green-50/60 text-center">
+                            <p class="text-xs text-green-700 font-medium mb-1">WINS</p>
+                            <p class="text-2xl font-bold text-green-800">{{ player.wins|default(0) }}</p>
+                        </div>
+                        
+                        <div class="glass rounded-xl p-3 bg-yellow-50/60 text-center">
+                            <p class="text-xs text-yellow-700 font-medium mb-1">DRAWS</p>
+                            <p class="text-2xl font-bold text-yellow-800">{{ player.draws|default(0) }}</p>
+                        </div>
+                        
+                        <div class="glass rounded-xl p-3 bg-red-50/60 text-center">
+                            <p class="text-xs text-red-700 font-medium mb-1">LOSSES</p>
+                            <p class="text-2xl font-bold text-red-800">{{ player.losses|default(0) }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Goal Stats -->
+                    <div class="mt-4 space-y-3">
+                        <div class="flex justify-between items-center px-3 py-2 bg-white/50 rounded-lg">
+                            <span class="text-sm text-gray-600">Goals Scored (GS):</span>
+                            <span class="text-sm font-bold text-primary">{{ player.goals_scored|default(0) }}</span>
+                        </div>
+                        
+                        <div class="flex justify-between items-center px-3 py-2 bg-white/50 rounded-lg">
+                            <span class="text-sm text-gray-600">Goals Conceded (GC):</span>
+                            <span class="text-sm font-bold text-red-600">{{ player.goals_conceded|default(0) }}</span>
+                        </div>
+                        
+                        <div class="flex justify-between items-center px-3 py-2 bg-white/50 rounded-lg">
+                            <span class="text-sm text-gray-600">Goal Difference (GD):</span>
+                            <span class="text-sm font-bold 
+                                {% if player.goals_conceded > 0 %}text-green-600
+                                {% elif player.goals_conceded < 0 %}text-red-600
+                                {% else %}text-gray-600{% endif %}">
+                                {{ player.goals_conceded - player.goals_scored|default(0) }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- POTM Awards -->
+                {% if player.potm_awards and player.potm_awards|length > 0 %}
+                <div class="glass rounded-2xl p-6 shadow-md border border-white/20 bg-white/60 hover:bg-white/70 transition-all duration-300">
+                    <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        </svg>
+                        Player of the Month
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        {% for award in player.potm_awards %}
+                        <div class="glass rounded-xl p-3 bg-amber-50/60 flex items-center">
+                            <div class="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center mr-3">
+                                <svg class="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15c1.93 0 3.5-1.57 3.5-3.5S13.93 8 12 8s-3.5 1.57-3.5 3.5S10.07 15 12 15z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M13.75 6.375L12 3l-1.75 3.375M11 19l-2 3h6l-2-3M18.5 10.5c0 .97-.25 1.88-.7 2.67l2.2 2.83M6.2 16l2.2-2.83c-.45-.79-.7-1.7-.7-2.67M3 16.5h3m12 0h3" />
+                                </svg>
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-amber-800">{{ award.month }}</p>
+                                <p class="text-xs text-amber-600">{{ award.year }}</p>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Right Column - Stats -->
+            <div class="lg:col-span-3 space-y-6">
+                <!-- Overall Stats -->
+                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
+                    <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                        </svg>
+                        Overall Statistics
+                    </h3>
+                    
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
+                        <!-- Summary statistics cards -->
+                        <div class="glass-card rounded-xl bg-white/30 p-3 text-center transform hover:scale-105 transition-all duration-300">
+                            <p class="text-xs text-gray-500 mb-1">Matches</p>
+                            <p class="text-2xl font-bold text-dark">{{ player.played|default(0) }}</p>
+                        </div>
+                        
+                        <div class="glass-card rounded-xl bg-white/30 p-3 text-center transform hover:scale-105 transition-all duration-300">
+                            <p class="text-xs text-gray-500 mb-1">Goals</p>
+                            <p class="text-2xl font-bold text-primary">{{ player.goals_scored|default(0) }}</p>
+                        </div>
+                        
+                        <div class="glass-card rounded-xl bg-white/30 p-3 text-center transform hover:scale-105 transition-all duration-300">
+                            <p class="text-xs text-gray-500 mb-1">Win Rate</p>
+                            <p class="text-2xl font-bold text-green-600">
+                                {% if player.played > 0 %}
+                                    {{ ((player.wins|default(0) / player.played) * 100)|round|int }}%
+                                {% else %}
+                                    0%
+                                {% endif %}
+                            </p>
+                        </div>
+                        
+                        <div class="glass-card rounded-xl bg-white/30 p-3 text-center transform hover:scale-105 transition-all duration-300">
+                            <p class="text-xs text-gray-500 mb-1">Clean Sheets</p>
+                            <p class="text-2xl font-bold text-blue-600">{{ player.clean_sheets|default(0) }}</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Performance Metrics -->
+                    <div class="mt-6">
+                        <h4 class="text-sm font-medium text-gray-600 mb-3">Performance Metrics</h4>
+                        
+                        <!-- Goals per Game -->
+                        <div class="mb-4">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs text-gray-500">Goals per Game</span>
+                                <span class="text-xs font-medium text-gray-700">
+                                    {% if player.played > 0 %}
+                                        {{ (player.goals_scored|default(0) / player.played)|round(2) }}
+                                    {% else %}
+                                        0
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                {% if player.played > 0 %}
+                                    {% set percent = (player.goals_scored|default(0) / player.played) * 50 %}
+                                    {% if percent > 100 %}
+                                        <div class="h-2 bg-primary rounded-full" style="width: 100%"></div>
+                                    {% else %}
+                                        <div class="h-2 bg-primary rounded-full" style="width: {{ percent|round|int }}%"></div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="h-2 bg-primary rounded-full" style="width: 0%"></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Win Percentage -->
+                        <div class="mb-4">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="text-xs text-gray-500">Win Percentage</span>
+                                <span class="text-xs font-medium text-gray-700">
+                                    {% if player.played > 0 %}
+                                        {{ ((player.wins|default(0) / player.played) * 100)|round|int }}%
+                                    {% else %}
+                                        0%
+                                    {% endif %}
+                                </span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                {% if player.played > 0 %}
+                                    {% set percent = (player.wins|default(0) / player.played) * 100 %}
+                                    {% if percent > 100 %}
+                                        <div class="h-2 bg-green-500 rounded-full" style="width: 100%"></div>
+                                    {% else %}
+                                        <div class="h-2 bg-green-500 rounded-full" style="width: {{ percent|round|int }}%"></div>
+                                    {% endif %}
+                                {% else %}
+                                    <div class="h-2 bg-green-500 rounded-full" style="width: 0%"></div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Weekly Stats -->
+                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20">
+                    <h3 class="text-lg font-semibold text-dark mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Weekly Performance
+                    </h3>
+                    
+                    {% if player.weekly_stats and player.weekly_stats|length > 0 %}
+                    <div class="space-y-4">
+                        {% for week in player.weekly_stats %}
+                        <div class="glass rounded-xl p-4 bg-white/40 hover:bg-white/50 transition-all duration-300">
+                            <div class="flex justify-between items-center mb-3">
+                                <h4 class="text-sm font-semibold text-gray-700">Week {{ week.week_number }}</h4>
+                                <span class="text-xs px-2 py-1 rounded-full 
+                                    {% if week.result == 'W' %}bg-green-100 text-green-800
+                                    {% elif week.result == 'D' %}bg-yellow-100 text-yellow-800
+                                    {% elif week.result == 'L' %}bg-red-100 text-red-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {{ week.result|default('-') }}
+                                </span>
+                            </div>
+                            
+                            <div class="grid grid-cols-3 gap-2 text-center">
+                                <div class="bg-white/50 rounded-lg p-2">
+                                    <p class="text-xs text-gray-500 mb-1">GS</p>
+                                    <p class="text-lg font-bold text-green-600">{{ week.goals_scored|default(0) }}</p>
+                                </div>
+                                
+                                <div class="bg-white/50 rounded-lg p-2">
+                                    <p class="text-xs text-gray-500 mb-1">GC</p>
+                                    <p class="text-lg font-bold text-red-600">{{ week.goals_conceded|default(0) }}</p>
+                                </div>
+                                
+                                <div class="bg-white/50 rounded-lg p-2">
+                                    <p class="text-xs text-gray-500 mb-1">GD</p>
+                                    <p class="text-lg font-bold 
+                                        {% if week.goals_scored - week.goals_conceded > 0 %}text-green-600
+                                        {% elif week.goals_scored - week.goals_conceded < 0 %}text-red-600
+                                        {% else %}text-gray-600{% endif %}">
+                                        {{ week.goals_scored - week.goals_conceded }}
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-2 gap-2 text-center mt-2">
+                                <div class="bg-white/50 rounded-lg p-2">
+                                    <p class="text-xs text-gray-500 mb-1">POTM</p>
+                                    <p class="text-lg font-bold text-amber-600">{{ week.potm_count|default(0) }}</p>
+                                </div>
+                                
+                                <div class="bg-white/50 rounded-lg p-2">
+                                    <p class="text-xs text-gray-500 mb-1">Points</p>
+                                    <p class="text-lg font-bold text-blue-600">{{ week.points|default(0) }}</p>
+                                </div>
+                            </div>
+                            
+                            {% if week.notes %}
+                            <div class="mt-3 text-xs text-gray-600 bg-white/50 p-2 rounded-lg">
+                                {{ week.notes }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-8">
+                        <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p class="text-gray-500">No weekly statistics available yet</p>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <!-- Match History -->
+                {% if match_history and match_history|length > 0 %}
+                <div class="bg-white shadow-lg rounded-lg overflow-hidden dark:bg-gray-800 mt-6">
+                    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
+                        <h3 class="text-lg font-semibold text-gray-800 dark:text-white">Match History</h3>
+                    </div>
+                    
+                    <div class="p-4 sm:p-6 -mx-4 sm:mx-0 overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead class="bg-gray-50 dark:bg-gray-800">
+                                <tr>
+                                    <th scope="col" class="px-4 py-2 text-xs font-medium text-left text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                        Match
+                                    </th>
+                                    <th scope="col" class="px-4 py-2 text-xs font-medium text-left text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                        Result
+                                    </th>
+                                    <th scope="col" class="px-4 py-2 text-xs font-medium text-center text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                        GS
+                                    </th>
+                                    <th scope="col" class="px-4 py-2 text-xs font-medium text-center text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                        GC
+                                    </th>
+                                    <th scope="col" class="px-4 py-2 text-xs font-medium text-center text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                        GD
+                                    </th>
+                                    <th scope="col" class="px-4 py-2 text-xs font-medium text-center text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                        POTM
+                                    </th>
+                                    <th scope="col" class="px-4 py-2 text-xs font-medium text-center text-gray-500 uppercase tracking-wider dark:text-gray-400">
+                                        Points
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
+                                {% for match in match_history %}
+                                <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-800 dark:text-gray-200">
+                                        {% if match.opponent %}
+                                            vs {{ match.opponent }}
+                                        {% else %}
+                                            Match {{ match.match_number }}
+                                        {% endif %}
+                                    </td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm font-medium 
+                                        {% if match.result == 'W' %}text-green-600 
+                                        {% elif match.result == 'L' %}text-red-600
+                                        {% else %}text-amber-500{% endif %}">
+                                        {{ match.result }}
+                                    </td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-center text-green-600 font-medium">
+                                        {{ match.goals_scored|default(0) }}
+                                    </td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-center text-red-600 font-medium">
+                                        {{ match.goals_conceded|default(0) }}
+                                    </td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-center font-medium
+                                        {% if match.goals_scored - match.goals_conceded > 0 %}text-green-600 
+                                        {% elif match.goals_scored - match.goals_conceded < 0 %}text-red-600
+                                        {% else %}text-gray-600{% endif %}">
+                                        {{ match.goals_scored - match.goals_conceded }}
+                                    </td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-center text-amber-600 font-medium">
+                                        {% if match.is_potm %}✓{% else %}—{% endif %}
+                                    </td>
+                                    <td class="px-4 py-2 whitespace-nowrap text-sm text-center text-blue-600 font-medium">
+                                        {{ match.points|default(0) }}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% else %}
+                <div class="bg-white/60 rounded-2xl p-6 shadow-md border border-white/20 text-center">
+                    <div class="py-8">
+                        <svg class="w-16 h-16 text-gray-300 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <h3 class="text-lg font-semibold text-gray-700 mb-2">No Match History</h3>
+                        <p class="text-sm text-gray-500 max-w-md mx-auto">This player hasn't participated in any matches yet. Check back later for their match history and performance statistics.</p>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function handleImageError(img) {
+        img.onerror = null;
+        img.src = "{{ url_for('static', filename='images/player_placeholder.png') }}";
+        img.classList.add('bg-primary/10');
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+        // Animate progress bars
+        setTimeout(function() {
+            const progressBars = document.querySelectorAll('.bg-gray-200 .h-2');
+            progressBars.forEach(function(bar) {
+                bar.classList.add('transition-all', 'duration-1000', 'ease-out');
+            });
+        }, 100);
+        
+        // Add hover effects to cards
+        const cards = document.querySelectorAll('.glass, .bg-white/60');
+        cards.forEach(function(card) {
+            card.classList.add('transition-all', 'duration-300', 'hover:shadow-lg', 'hover:bg-white/70');
+        });
+        
+        // Subtle entrance animation for sections
+        const sections = document.querySelectorAll('.lg\\:col-span-3 > div');
+        sections.forEach(function(section, index) {
+            section.style.opacity = '0';
+            section.style.transform = 'translateY(20px)';
+            section.style.transition = 'opacity 0.4s ease-out, transform 0.4s ease-out';
+            
+            setTimeout(function() {
+                section.style.opacity = '1';
+                section.style.transform = 'translateY(0)';
+            }, 100 + (index * 150));
+        });
+    });
+</script>
+{% endblock %} 

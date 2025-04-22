@@ -263,8 +263,51 @@
             .mobile-spacer {
                 height: 80px;
             }
+            
+            /* Mobile dropdown menu */
+            .dropdown-menu {
+                transition: all 0.2s ease;
+                transform-origin: bottom center;
+                z-index: 60;
+                animation: dropdownFadeIn 0.2s ease-out forwards;
+            }
+            
+            @keyframes dropdownFadeIn {
+                from { opacity: 0; transform: translateY(8px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            
+            /* Active state for dropdown button */
+            .dropdown button.active {
+                color: var(--color-primary, #0066FF);
+            }
+            
+            /* Ensure dropdown opens on tap for mobile */
+            .mobile-nav .dropdown {
+                position: static;
+            }
+            
+            .mobile-nav .dropdown-menu {
+                min-width: 160px;
+                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            }
+            
+            /* Ensure compact spacing for nav items */
+            .mobile-nav .flex.justify-around > a,
+            .mobile-nav .flex.justify-around > div {
+                padding: 0.5rem 0.25rem;
+                min-width: 60px;
+            }
+            
+            /* Touch-friendly target sizes */
+            .mobile-nav svg {
+                width: 1.25rem;
+                height: 1.25rem;
+            }
         }
     </style>
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
 </head>
 <body class="vision-bg text-dark min-h-screen flex flex-col logo-bg">
     <!-- Top Navigation for larger screens -->
@@ -348,32 +391,35 @@
                     </a>
                     
                     {% if current_user.is_admin %}
-                        <a href="{{ url_for('admin_players') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_players' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <!-- Admin Navigation -->
+                        <div class="dropdown relative group">
+                            <button class="flex flex-col items-center p-2 text-gray-400 group-hover:text-primary">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                                </svg>
+                                <span class="text-xs mt-1">Menu</span>
+                            </button>
+                            <div class="dropdown-menu hidden group-hover:block absolute bottom-full mb-2 left-0 bg-white rounded-xl shadow-lg p-2 w-32 border border-gray-100">
+                                <a href="{{ url_for('admin_players') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'admin_players' %}bg-gray-100{% endif %}">
+                                    Players
+                                </a>
+                                <a href="{{ url_for('admin_teams') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'admin_teams' %}bg-gray-100{% endif %}">
+                                    Teams
+                                </a>
+                                <a href="{{ url_for('admin_rounds') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'admin_rounds' %}bg-gray-100{% endif %}">
+                                    Rounds
+                                </a>
+                                <a href="{{ url_for('admin_users') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'admin_users' %}bg-gray-100{% endif %}">
+                                    Users
+                                </a>
+                            </div>
+                        </div>
+
+                        <a href="{{ url_for('team_management.dashboard') }}" class="flex flex-col items-center p-2 {% if request.endpoint and request.endpoint.startswith('team_management.') %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                             </svg>
-                            <span class="text-xs mt-1">Players</span>
-                        </a>
-                        
-                        <a href="{{ url_for('admin_teams') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_teams' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                            </svg>
-                            <span class="text-xs mt-1">Teams</span>
-                        </a>
-                        
-                        <a href="{{ url_for('admin_rounds') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_rounds' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            <span class="text-xs mt-1">Rounds</span>
-                        </a>
-                        
-                        <a href="{{ url_for('admin_users') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_users' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
-                            </svg>
-                            <span class="text-xs mt-1">Users</span>
+                            <span class="text-xs mt-1">Team</span>
                         </a>
                         
                         <a href="{{ url_for('admin_auction_settings') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_auction_settings' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
@@ -384,18 +430,19 @@
                             <span class="text-xs mt-1">Settings</span>
                         </a>
                     {% else %}
+                        <!-- Team User Navigation -->
                         <a href="{{ url_for('team_players') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_players' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                             </svg>
-                            <span class="text-xs mt-1">My Players</span>
+                            <span class="text-xs mt-1">Players</span>
                         </a>
                         
-                        <a href="{{ url_for('team_bids') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_bids' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                        <a href="{{ url_for('team_management.team_leaderboard') }}" class="flex flex-col items-center p-2 {% if request.endpoint and request.endpoint.startswith('team_management.') %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
                             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                             </svg>
-                            <span class="text-xs mt-1">Bids</span>
+                            <span class="text-xs mt-1">Tables</span>
                         </a>
                         
                         {% if active_rounds %}
@@ -406,20 +453,30 @@
                                 <span class="text-xs mt-1">Active</span>
                             </a>
                         {% else %}
-                            <a href="{{ url_for('team_players_data') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_players_data' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
+                            <a href="{{ url_for('team_bids') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_bids' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
                                 <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
-                                <span class="text-xs mt-1">Stats</span>
+                                <span class="text-xs mt-1">Bids</span>
                             </a>
                         {% endif %}
                         
-                        <a href="{{ url_for('all_teams') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'all_teams' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2M7 7h10" />
-                            </svg>
-                            <span class="text-xs mt-1">Teams</span>
-                        </a>
+                        <div class="dropdown relative group">
+                            <button class="flex flex-col items-center p-2 text-gray-400 group-hover:text-primary">
+                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
+                                </svg>
+                                <span class="text-xs mt-1">More</span>
+                            </button>
+                            <div class="dropdown-menu hidden group-hover:block absolute bottom-full mb-2 right-0 bg-white rounded-xl shadow-lg p-2 w-32 border border-gray-100">
+                                <a href="{{ url_for('all_teams') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'all_teams' %}bg-gray-100{% endif %}">
+                                    All Teams
+                                </a>
+                                <a href="{{ url_for('team_players_data') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'team_players_data' %}bg-gray-100{% endif %}">
+                                    Players Data
+                                </a>
+                            </div>
+                        </div>
                     {% endif %}
                     
                     <a href="{{ url_for('logout') }}" class="flex flex-col items-center p-2 text-gray-400 hover:text-accent">
@@ -471,6 +528,50 @@
                 } else {
                     backToTopButton.classList.remove('translate-y-0', 'opacity-100');
                     backToTopButton.classList.add('translate-y-20', 'opacity-0');
+                }
+            });
+            
+            // Handle mobile navigation dropdowns
+            const dropdownToggles = document.querySelectorAll('.dropdown button');
+            
+            dropdownToggles.forEach(toggle => {
+                toggle.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const dropdown = this.closest('.dropdown');
+                    const menu = dropdown.querySelector('.dropdown-menu');
+                    
+                    // Check if this menu is already open
+                    const isMenuOpen = !menu.classList.contains('hidden');
+                    
+                    // Toggle this dropdown
+                    if (isMenuOpen) {
+                        menu.classList.add('hidden');
+                        this.classList.remove('active');
+                    } else {
+                        menu.classList.remove('hidden');
+                        this.classList.add('active');
+                        
+                        // Close other dropdowns
+                        document.querySelectorAll('.dropdown-menu').forEach(otherMenu => {
+                            if (otherMenu !== menu && !otherMenu.classList.contains('hidden')) {
+                                otherMenu.classList.add('hidden');
+                                otherMenu.closest('.dropdown').querySelector('button').classList.remove('active');
+                            }
+                        });
+                    }
+                });
+            });
+            
+            // Close dropdowns when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.dropdown')) {
+                    document.querySelectorAll('.dropdown-menu').forEach(menu => {
+                        menu.classList.add('hidden');
+                        const button = menu.closest('.dropdown').querySelector('button');
+                        if (button) button.classList.remove('active');
+                    });
                 }
             });
             

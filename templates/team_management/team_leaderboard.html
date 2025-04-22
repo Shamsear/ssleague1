@@ -1,0 +1,506 @@
+{% extends "base.html" %}
+
+{% block title %}Team Leaderboard{% endblock %}
+
+{% block content %}
+<!-- Loading overlay -->
+<div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-md z-50 flex items-center justify-center transition-opacity duration-700">
+    <div class="text-center">
+        <div class="relative h-16 w-16 mx-auto mb-4">
+            <div class="absolute top-0 left-0 h-full w-full rounded-full border-4 border-primary/20 animate-ping"></div>
+            <svg class="animate-spin h-16 w-16 text-primary mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+        </div>
+        <p class="text-gray-700 font-medium mb-1">Loading leaderboard</p>
+        <p class="text-xs text-gray-500">Getting the latest team standings...</p>
+    </div>
+</div>
+
+<!-- Pull-to-refresh indicator (hidden by default) -->
+<div id="pull-refresh-indicator" class="fixed top-0 left-0 right-0 flex justify-center items-center h-16 bg-white/80 backdrop-blur-sm z-40 transform -translate-y-full transition-transform duration-300">
+    <div class="flex items-center">
+        <svg id="refresh-icon" class="h-5 w-5 text-primary mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        <span id="pull-text" class="text-sm font-medium text-gray-600">Pull down to refresh</span>
+    </div>
+</div>
+
+<div id="content-container" class="container mx-auto space-y-6 px-4 py-4 sm:py-6 opacity-0 transition-opacity duration-700">
+    <div class="mb-6 bg-white/40 backdrop-blur-sm rounded-xl p-4 sm:p-6 border border-white/20 shadow-sm">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-bold gradient-text">Team Leaderboard</h1>
+                <p class="text-sm text-gray-600 mt-1">Track team performance and rankings throughout the season</p>
+            </div>
+            <div class="flex flex-wrap gap-3 mt-2 sm:mt-0">
+                <a href="{{ url_for('team_management.dashboard') }}" class="inline-flex items-center justify-center text-primary hover:text-primary-dark transition-colors px-3 py-2 rounded-lg hover:bg-white/50">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                    Dashboard
+            </a>
+                <a href="{{ url_for('team_management.player_leaderboard') }}" class="inline-flex items-center justify-center px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors shadow-sm">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                    Player Leaderboard
+            </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Glass-morphism inspired card for Vision OS -->
+    <div class="glass-card backdrop-blur-lg shadow-sm rounded-2xl overflow-hidden border border-white/20">
+        <!-- Mobile-friendly card layout -->
+        <div class="p-4">
+            <!-- Column headers - only visible on larger screens -->
+            <div class="hidden sm:grid sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 text-xs font-medium text-gray-600 uppercase mb-3 px-2">
+                <div>Rank</div>
+                <div>Team</div>
+                <div class="hidden sm:block">Played</div>
+                <div class="hidden sm:block">Won</div>
+                <div class="hidden sm:block">Drawn</div>
+                <div class="hidden sm:block">Lost</div>
+                <div class="hidden md:block">GF</div>
+                <div class="hidden md:block">GA</div>
+                <div class="hidden md:block">GD</div>
+                <div>Points</div>
+            </div>
+            
+            <!-- Teams list -->
+            <div class="space-y-3">
+                    {% for stats in team_stats %}
+                <div class="glass-card bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10 hover:border-white/30 transition-all duration-300 ease-in-out{% if current_user.team and current_user.team.id == stats.team.id %} bg-primary/10 hover:bg-primary/20{% endif %} active:bg-white/60 cursor-pointer" 
+                     onclick="window.location.href='{{ url_for('team_management.team_detail', team_name=stats.team.name) }}'"
+                     style="transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;">
+                    
+                    <!-- Grid layout for team info -->
+                    <div class="flex items-center">
+                        <!-- Rank -->
+                        <div class="w-12 mr-2">
+                            <div class="text-sm font-semibold 
+                                {% if loop.index == 1 %}text-amber-600 text-base
+                                {% elif loop.index == 2 %}text-slate-500
+                                {% elif loop.index == 3 %}text-amber-800
+                                {% else %}text-gray-700{% endif %} relative z-10 flex items-center justify-center
+                                {% if loop.index <= 3 %}w-7 h-7 rounded-full mx-auto 
+                                    {% if loop.index == 1 %}bg-amber-100 border border-amber-200
+                                    {% elif loop.index == 2 %}bg-gray-100 border border-gray-200
+                                    {% elif loop.index == 3 %}bg-amber-50 border border-amber-100
+                                    {% endif %}
+                                {% endif %}">
+                                {{ loop.index }}
+                            </div>
+                        </div>
+                        
+                        <!-- Team info -->
+                        <div class="flex-1">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-9 w-9 rounded-full bg-gradient-to-br from-primary/80 to-indigo-500/80 text-white flex items-center justify-center shadow-sm backdrop-blur-sm border border-white/20 mr-3">
+                                    <span class="font-medium">{{ stats.team.name[:1] }}</span>
+                                </div>
+                                <div>
+                                    <div class="text-sm font-medium text-gray-700">{{ stats.team.name }}</div>
+                                    <!-- Mobile stats summary -->
+                                    <div class="flex flex-wrap gap-1 mt-1 sm:hidden">
+                                        <span class="inline-block px-1.5 py-0.5 bg-white/40 rounded-md backdrop-blur-sm text-xs">P: {{ stats.played }}</span>
+                                        <span class="inline-block px-1.5 py-0.5 bg-green-50/40 rounded-md backdrop-blur-sm text-xs">W: {{ stats.wins }}</span>
+                                        <span class="inline-block px-1.5 py-0.5 bg-gray-50/40 rounded-md backdrop-blur-sm text-xs">D: {{ stats.draws }}</span>
+                                        <span class="inline-block px-1.5 py-0.5 bg-red-50/40 rounded-md backdrop-blur-sm text-xs">L: {{ stats.losses }}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Points -->
+                        <div class="ml-auto flex items-center">
+                            <div class="text-sm font-bold text-gray-700 bg-white/50 backdrop-blur-sm rounded-full px-3 py-1 inline-block shadow-sm border border-white/20">
+                                {{ stats.points }}
+                                <svg class="w-4 h-4 ml-0.5 text-gray-400 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                </svg>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Additional stats - visible on larger screens -->
+                    <div class="hidden sm:grid sm:grid-cols-5 md:grid-cols-7 gap-2 mt-2 px-1">
+                        <div class="col-span-2"></div> <!-- Empty space for alignment -->
+                            <div class="text-sm text-gray-700">{{ stats.played }}</div>
+                            <div class="text-sm text-gray-700">{{ stats.wins }}</div>
+                            <div class="text-sm text-gray-700">{{ stats.draws }}</div>
+                            <div class="text-sm text-gray-700">{{ stats.losses }}</div>
+                        <div class="hidden md:block text-sm text-gray-700">{{ stats.goals_for }}</div>
+                        <div class="hidden md:block text-sm text-gray-700">{{ stats.goals_against }}</div>
+                        <div class="hidden md:block text-sm font-medium {% if stats.goal_difference > 0 %}text-green-600{% elif stats.goal_difference < 0 %}text-red-600{% else %}text-gray-500{% endif %}">
+                                {{ stats.goal_difference }}
+                            </div>
+                    </div>
+                </div>
+                    {% else %}
+                <div class="px-6 py-8 whitespace-nowrap text-center">
+                            <div class="flex flex-col items-center p-6 bg-white/30 backdrop-blur-sm rounded-xl max-w-md mx-auto border border-white/20">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 mb-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                </svg>
+                                <p class="text-gray-700 font-medium mb-1">No Leaderboard Data Yet</p>
+                                <p class="text-sm text-gray-500">Team rankings will appear here once matches are completed.</p>
+                            </div>
+                </div>
+                    {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Mobile-friendly Legend -->
+    <div class="glass-card backdrop-blur-lg shadow-sm rounded-2xl p-5 border border-white/20">
+        <h3 class="text-base font-medium text-gray-700 mb-4 flex items-center">
+            <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            Legend & Key Information
+        </h3>
+        
+        <!-- Key information tabs -->
+        <div class="mb-5 flex border-b border-gray-200/30">
+            <button class="px-4 py-2 text-sm font-medium text-primary border-b-2 border-primary" id="tab-legend">Legend</button>
+            <button class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" id="tab-scoring">Scoring System</button>
+            <button class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-gray-700" id="tab-info">Standings Info</button>
+        </div>
+        
+        <!-- Legend tab content -->
+        <div id="content-legend" class="tab-content">
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-y-4 gap-x-4 text-sm">
+                <div class="flex items-center hover:bg-white/30 p-2 rounded-lg transition-all">
+                    <div class="w-7 h-7 flex-shrink-0 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center mr-2">
+                        <span class="text-xs font-medium text-primary">T</span>
+                    </div>
+                    <div>
+                        <span class="text-gray-700 font-medium">Your team</span>
+                        <p class="text-xs text-gray-500">Highlighted row</p>
+                    </div>
+                </div>
+                <div class="flex items-center hover:bg-white/30 p-2 rounded-lg transition-all">
+                    <div class="w-7 h-7 flex-shrink-0 rounded-full bg-white/40 flex items-center justify-center mr-2 text-xs font-medium text-gray-600 border border-white/20 shadow-sm">GF</div>
+                    <div>
+                        <span class="text-gray-700 font-medium">Goals For</span>
+                        <p class="text-xs text-gray-500">Total scored</p>
+                    </div>
+                </div>
+                <div class="flex items-center hover:bg-white/30 p-2 rounded-lg transition-all">
+                    <div class="w-7 h-7 flex-shrink-0 rounded-full bg-white/40 flex items-center justify-center mr-2 text-xs font-medium text-gray-600 border border-white/20 shadow-sm">GA</div>
+                    <div>
+                        <span class="text-gray-700 font-medium">Goals Against</span>
+                        <p class="text-xs text-gray-500">Total conceded</p>
+                    </div>
+                </div>
+                <div class="flex items-center hover:bg-white/30 p-2 rounded-lg transition-all">
+                    <div class="w-7 h-7 flex-shrink-0 rounded-full bg-white/40 flex items-center justify-center mr-2 text-xs font-medium text-gray-600 border border-white/20 shadow-sm">GD</div>
+                    <div>
+                        <span class="text-gray-700 font-medium">Goal Difference</span>
+                        <p class="text-xs text-gray-500">GF minus GA</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="flex flex-col sm:flex-row gap-4 mt-4 pt-4 border-t border-gray-200/30">
+                <div class="flex items-center p-2 bg-white/20 rounded-lg">
+                    <div class="w-6 h-6 rounded-full bg-amber-100 border border-amber-200 flex items-center justify-center mr-2 text-amber-600 font-medium">1</div>
+                    <span class="text-sm text-gray-700">League Champion</span>
+                </div>
+                <div class="flex items-center p-2 bg-white/20 rounded-lg">
+                    <div class="w-6 h-6 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center mr-2 text-slate-500 font-medium">2</div>
+                    <span class="text-sm text-gray-700">Runner-up</span>
+                </div>
+                <div class="flex items-center p-2 bg-white/20 rounded-lg">
+                    <div class="w-6 h-6 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center mr-2 text-amber-800 font-medium">3</div>
+                    <span class="text-sm text-gray-700">Third Place</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scoring System tab content (hidden by default) -->
+        <div id="content-scoring" class="tab-content hidden">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="p-3 bg-white/20 rounded-lg text-center">
+                    <div class="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-2">
+                        <span class="font-medium text-green-700">W</span>
+                    </div>
+                    <p class="font-medium text-gray-700">Win = 3 points</p>
+                </div>
+                <div class="p-3 bg-white/20 rounded-lg text-center">
+                    <div class="w-8 h-8 rounded-full bg-yellow-50 flex items-center justify-center mx-auto mb-2">
+                        <span class="font-medium text-yellow-700">D</span>
+                    </div>
+                    <p class="font-medium text-gray-700">Draw = 1 point</p>
+                </div>
+                <div class="p-3 bg-white/20 rounded-lg text-center">
+                    <div class="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-2">
+                        <span class="font-medium text-red-700">L</span>
+                    </div>
+                    <p class="font-medium text-gray-700">Loss = 0 points</p>
+                </div>
+            </div>
+            <div class="mt-4 p-3 bg-white/20 rounded-lg">
+                <p class="text-sm text-gray-600">Teams are ranked by total points. In case of a tie, the following criteria are used in order:</p>
+                <ol class="mt-2 pl-5 list-decimal text-sm text-gray-600">
+                    <li class="mb-1">Goal difference (GD)</li>
+                    <li class="mb-1">Goals scored (GF)</li>
+                    <li>Head-to-head results</li>
+                </ol>
+            </div>
+        </div>
+        
+        <!-- Standings Info tab content (hidden by default) -->
+        <div id="content-info" class="tab-content hidden">
+            <div class="p-4 bg-white/20 rounded-lg text-sm text-gray-600">
+                <p class="mb-3">The standings are updated after each match day. All teams play the same number of matches in a complete season.</p>
+                <p>Click or tap on any team row to view more detailed team statistics.</p>
+            </div>
+            <div class="mt-4 px-4 py-3 bg-primary/10 rounded-lg border border-primary/20">
+            <div class="flex items-center">
+                    <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <p class="text-sm font-medium text-gray-700">Last updated: <span class="text-primary">Today at 6:30 PM</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Vision OS-inspired supplementary information -->
+    <div class="mt-4 text-center text-sm text-gray-500">
+        <p class="flex items-center justify-center">
+            <svg class="w-4 h-4 mr-1.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Click or tap on a team to view detailed stats
+        </p>
+    </div>
+</div>
+
+<script>
+    // Loading animation
+    document.addEventListener('DOMContentLoaded', function() {
+        // Hide loading overlay and show content with a fade effect
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const contentContainer = document.getElementById('content-container');
+        
+        // Use a short timeout to ensure the transition effect works properly
+        setTimeout(() => {
+            loadingOverlay.style.opacity = '0';
+            contentContainer.style.opacity = '1';
+            
+            // After the transition completes, remove the overlay from the DOM
+            setTimeout(() => {
+                loadingOverlay.style.display = 'none';
+            }, 700); // Match this timing with the CSS transition duration
+        }, 800); // Slight delay to ensure page elements are loaded
+        
+        // Detect if the device is touch-enabled
+        const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        
+        // Add a class to the body to help with touch-specific styling
+        if (isTouchDevice) {
+            document.body.classList.add('touch-device');
+            
+            // Set up pull-to-refresh functionality for touch devices
+            setupPullToRefresh();
+        }
+        
+        // Make team rows interactive
+        const teamRows = document.querySelectorAll('tbody tr[class*="hover:bg-white"]');
+        
+        teamRows.forEach(row => {
+            // Add cursor pointer to indicate clickability
+            row.classList.add('cursor-pointer');
+            
+            // Add subtle hover animation - but only for non-touch devices
+            if (!isTouchDevice) {
+                row.addEventListener('mouseenter', function() {
+                    this.style.transform = 'translateY(-2px)';
+                    this.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)';
+                });
+                
+                row.addEventListener('mouseleave', function() {
+                    this.style.transform = 'translateY(0)';
+                    this.style.boxShadow = 'none';
+                });
+            } else {
+                // Add a subtle indicator for touch devices
+                const pointsCell = row.querySelector('td:last-child');
+                if (pointsCell) {
+                    // Add a subtle right chevron after the points to indicate it's clickable
+                    const chevronIcon = document.createElement('span');
+                    chevronIcon.innerHTML = '<svg class="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>';
+                    chevronIcon.className = 'inline-block ml-2 opacity-70';
+                    
+                    const pointsElement = pointsCell.querySelector('.font-bold');
+                    if (pointsElement) {
+                        pointsElement.parentNode.appendChild(chevronIcon);
+                    }
+                }
+            }
+            
+            // Add click handler - redirect to team detail page
+            row.addEventListener('click', function() {
+                // Extract team ID from the row data attribute (assuming each row has a data-team-id attribute)
+                // If you don't have team IDs in the HTML, you can use team name as a URL parameter
+                const teamName = this.querySelector('.flex-shrink-0 + div .font-medium').textContent.trim();
+                
+                // Add a visual feedback on click
+                this.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
+                
+                // Redirect to team detail page
+                window.location.href = `{{ url_for('team_management.team_detail', team_name='') }}${encodeURIComponent(teamName)}`;
+            });
+        });
+        
+        // Legend tab functionality
+        const tabs = {
+            legend: document.getElementById('tab-legend'),
+            scoring: document.getElementById('tab-scoring'),
+            info: document.getElementById('tab-info')
+        };
+        
+        const contents = {
+            legend: document.getElementById('content-legend'),
+            scoring: document.getElementById('content-scoring'),
+            info: document.getElementById('content-info')
+        };
+        
+        function switchTab(tabName) {
+            // Hide all content sections
+            Object.values(contents).forEach(content => {
+                content.classList.add('hidden');
+            });
+            
+            // Reset all tab buttons
+            Object.values(tabs).forEach(tab => {
+                tab.classList.remove('text-primary', 'border-b-2', 'border-primary');
+                tab.classList.add('text-gray-500');
+            });
+            
+            // Show selected content and style the selected tab
+            contents[tabName].classList.remove('hidden');
+            tabs[tabName].classList.add('text-primary', 'border-b-2', 'border-primary');
+            tabs[tabName].classList.remove('text-gray-500');
+        }
+        
+        // Set up tab click event listeners
+        tabs.legend.addEventListener('click', () => switchTab('legend'));
+        tabs.scoring.addEventListener('click', () => switchTab('scoring'));
+        tabs.info.addEventListener('click', () => switchTab('info'));
+    });
+    
+    // Pull-to-refresh functionality
+    function setupPullToRefresh() {
+        let startY = 0;
+        let pullDistance = 0;
+        const maxPullDistance = 80;
+        const refreshThreshold = 60;
+        const indicator = document.getElementById('pull-refresh-indicator');
+        const pullText = document.getElementById('pull-text');
+        const refreshIcon = document.getElementById('refresh-icon');
+        let isPulling = false;
+        
+        document.addEventListener('touchstart', function(e) {
+            // Only allow pull-to-refresh if we're at the top of the page
+            if (window.scrollY === 0) {
+                startY = e.touches[0].clientY;
+                isPulling = true;
+            }
+        });
+        
+        document.addEventListener('touchmove', function(e) {
+            if (!isPulling) return;
+            
+            pullDistance = e.touches[0].clientY - startY;
+            
+            // Only show indicator when pulling down
+            if (pullDistance > 0) {
+                // Calculate how far to show the indicator (with diminishing returns)
+                const translateY = Math.min(pullDistance * 0.5, maxPullDistance);
+                indicator.style.transform = `translateY(${translateY - 64}px)`;
+                
+                // Update text and icon based on pull distance
+                if (pullDistance > refreshThreshold) {
+                    pullText.textContent = 'Release to refresh';
+                    refreshIcon.classList.add('animate-spin');
+                } else {
+                    pullText.textContent = 'Pull down to refresh';
+                    refreshIcon.classList.remove('animate-spin');
+                }
+                
+                // Prevent regular scrolling
+                e.preventDefault();
+            }
+        });
+        
+        document.addEventListener('touchend', function() {
+            if (!isPulling) return;
+            
+            if (pullDistance > refreshThreshold) {
+                // User pulled enough to trigger refresh
+                indicator.style.transform = 'translateY(0)';
+                pullText.textContent = 'Refreshing...';
+                refreshIcon.classList.add('animate-spin');
+                
+                // Simulate refreshing data
+                setTimeout(() => {
+                    // Hide the indicator
+                    indicator.style.transform = 'translateY(-100%)';
+                    
+                    // Reset state after animation finishes
+                    setTimeout(() => {
+                        pullText.textContent = 'Pull down to refresh';
+                        refreshIcon.classList.remove('animate-spin');
+                        
+                        // Show a toast message indicating refresh is complete
+                        showToast('Leaderboard updated');
+                    }, 300);
+                }, 1500);
+            } else {
+                // Not pulled enough, reset the indicator
+                indicator.style.transform = 'translateY(-100%)';
+            }
+            
+            // Reset state
+            isPulling = false;
+            pullDistance = 0;
+        });
+    }
+    
+    // Simple toast notification function
+    function showToast(message) {
+        // Create toast element
+        const toast = document.createElement('div');
+        toast.className = 'fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-medium z-50 flex items-center opacity-0 transition-opacity duration-300';
+        toast.innerHTML = `
+            <svg class="w-5 h-5 mr-2 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+            ${message}
+        `;
+        
+        // Add to DOM
+        document.body.appendChild(toast);
+        
+        // Trigger animation
+        setTimeout(() => {
+            toast.style.opacity = '1';
+        }, 10);
+        
+        // Remove after delay
+        setTimeout(() => {
+            toast.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(toast);
+            }, 300);
+        }, 3000);
+    }
+</script>
+{% endblock %} 

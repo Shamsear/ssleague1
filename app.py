@@ -1,6 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory, session, make_response
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest, PushSubscription, AuctionSettings, BulkBidTiebreaker, BulkBidRound, BulkBid, TeamBulkTiebreaker
+from models import TeamMember, Category, Match, PlayerMatchup, TeamStats, PlayerStats
 from config import Config
 from werkzeug.security import generate_password_hash
 import json
@@ -14,9 +15,13 @@ import os
 import base64
 from sqlalchemy import func
 import time
+from team_management_routes import team_management
 
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Register blueprints
+app.register_blueprint(team_management, url_prefix='/team_management')
 
 # VAPID keys configuration
 # In production, these should be stored securely and generated only once

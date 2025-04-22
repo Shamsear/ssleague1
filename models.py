@@ -28,6 +28,112 @@ class Team(db.Model):
     balance = db.Column(db.Integer, default=15000)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
     players = db.relationship('Player', backref='team', lazy=True)
+    team_members = db.relationship('TeamMember', backref='team', lazy=True)
+    home_matches = db.relationship('Match', foreign_keys='Match.home_team_id', backref='home_team', lazy=True)
+    away_matches = db.relationship('Match', foreign_keys='Match.away_team_id', backref='away_team', lazy=True)
+    team_stats = db.relationship('TeamStats', backref='team', uselist=False, lazy=True)
+
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    color = db.Column(db.String(50), nullable=False)  # red, black, blue, white
+    priority = db.Column(db.Integer, default=0)  # 1=red (highest), 2=black, 3=blue, 4=white (lowest)
+    team_members = db.relationship('TeamMember', backref='category', lazy=True)
+    
+    # Define point values for matches between different categories
+    # Win points
+    points_same_category = db.Column(db.Integer, default=8)  # e.g., red vs red = 8 points
+    points_one_level_diff = db.Column(db.Integer, default=7)  # e.g., red vs black = 7 points
+    points_two_level_diff = db.Column(db.Integer, default=6)  # e.g., red vs blue = 6 points
+    points_three_level_diff = db.Column(db.Integer, default=5)  # e.g., red vs white = 5 points
+    
+    # Draw points
+    draw_same_category = db.Column(db.Integer, default=4)  # e.g., red vs red = 4 points for draw
+    draw_one_level_diff = db.Column(db.Integer, default=3)  # e.g., red vs black = 3 points for draw
+    draw_two_level_diff = db.Column(db.Integer, default=3)  # e.g., red vs blue = 3 points for draw
+    draw_three_level_diff = db.Column(db.Integer, default=2)  # e.g., red vs white = 2 points for draw
+    
+    # Loss points
+    loss_same_category = db.Column(db.Integer, default=1)  # e.g., red vs red = 1 point for loss
+    loss_one_level_diff = db.Column(db.Integer, default=1)  # e.g., red vs black = 1 point for loss
+    loss_two_level_diff = db.Column(db.Integer, default=1)  # e.g., red vs blue = 1 point for loss
+    loss_three_level_diff = db.Column(db.Integer, default=0)  # e.g., red vs white = 0 points for loss
+
+class TeamMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
+    photo_url = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    player_stats = db.relationship('PlayerStats', backref='team_member', uselist=False, lazy=True)
+    
+    # Relationships for player matchups
+    home_matchups = db.relationship('PlayerMatchup', foreign_keys='PlayerMatchup.home_player_id', backref='home_player', lazy=True)
+    away_matchups = db.relationship('PlayerMatchup', foreign_keys='PlayerMatchup.away_player_id', backref='away_player', lazy=True)
+
+class Match(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    home_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    away_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    home_score = db.Column(db.Integer, default=0)
+    away_score = db.Column(db.Integer, default=0)
+    match_date = db.Column(db.DateTime, default=datetime.utcnow)
+    round_number = db.Column(db.Integer, nullable=False)
+    match_number = db.Column(db.Integer, nullable=False)
+    is_completed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    potm_id = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=True)
+    
+    # Relationship with player matchups
+    player_matchups = db.relationship('PlayerMatchup', backref='match', lazy=True, cascade="all, delete-orphan")
+    # Player of the Match relationship
+    potm = db.relationship('TeamMember', foreign_keys=[potm_id], backref='potm_matches')
+
+class PlayerMatchup(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    match_id = db.Column(db.Integer, db.ForeignKey('match.id'), nullable=False)
+    home_player_id = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=False)
+    away_player_id = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=False)
+    home_goals = db.Column(db.Integer, default=0)
+    away_goals = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def calculate_result(self):
+        """Calculate match result from goals"""
+        if self.home_goals > self.away_goals:
+            return "win", "loss"  # home win, away loss
+        elif self.home_goals < self.away_goals:
+            return "loss", "win"  # home loss, away win
+        else:
+            return "draw", "draw"  # draw for both
+
+class TeamStats(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    played = db.Column(db.Integer, default=0)
+    wins = db.Column(db.Integer, default=0)
+    draws = db.Column(db.Integer, default=0)
+    losses = db.Column(db.Integer, default=0)
+    goals_for = db.Column(db.Integer, default=0)
+    goals_against = db.Column(db.Integer, default=0)
+    points = db.Column(db.Integer, default=0)
+    
+    @property
+    def goal_difference(self):
+        return self.goals_for - self.goals_against
+
+class PlayerStats(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_member_id = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=False)
+    played = db.Column(db.Integer, default=0)
+    wins = db.Column(db.Integer, default=0)
+    draws = db.Column(db.Integer, default=0)
+    losses = db.Column(db.Integer, default=0)
+    goals_scored = db.Column(db.Integer, default=0)
+    goals_conceded = db.Column(db.Integer, default=0)
+    clean_sheets = db.Column(db.Integer, default=0)
+    points = db.Column(db.Integer, default=0)
 
 class Player(db.Model):
     id = db.Column(db.Integer, primary_key=True)
