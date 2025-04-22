@@ -1,0 +1,660 @@
+{% extends "base.html" %}
+
+{% block title %}Player Selection - Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-3 sm:px-4 py-3 sm:py-6">
+    <div class="glass rounded-3xl p-3 sm:p-6 mb-6 backdrop-blur-md">
+        <!-- Header Section -->
+        <div class="flex flex-col gap-4 mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div class="flex items-center">
+                    <a href="{{ url_for('dashboard') }}" class="inline-flex items-center justify-center p-2 mr-3 rounded-xl bg-white/60 text-gray-700 hover:bg-white/80 transition-all duration-200 backdrop-blur-sm border border-gray-200/50 shadow-sm">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                    </a>
+                    <div>
+                        <h2 class="text-2xl font-bold text-dark gradient-text">Player Selection</h2>
+                        <p class="text-sm text-gray-600 mt-1">Manage which players will appear in auction rounds</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center mt-3 sm:mt-0">
+                    <a href="{{ url_for('admin_export_player_selection') }}" class="px-4 py-2.5 bg-white text-primary border border-primary/20 rounded-lg text-sm font-medium hover:bg-white/90 transition-all duration-300 flex items-center shadow-sm hover:shadow">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                        </svg>
+                        Export Selection
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Player Selection Overview -->
+        <div class="glass p-5 rounded-xl bg-white/40 backdrop-blur-sm border border-white/10 shadow-sm mb-6">
+            <div class="flex flex-col sm:flex-row justify-between gap-4 mb-5">
+                <div>
+                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Player Selection Status</h3>
+                    <p class="text-sm text-gray-600">Selected players will appear in auction rounds and bulk auction rounds</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button id="selectAllBtn" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors flex items-center shadow-sm">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Select All
+                    </button>
+                    <button id="deselectAllBtn" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors flex items-center shadow-sm">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Deselect All
+                    </button>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {% for position in config.POSITIONS %}
+                <div class="glass p-4 rounded-xl bg-white/50 backdrop-blur-sm hover:shadow-md transition-all duration-300 border border-white/20">
+                    <div class="flex items-center mb-3">
+                        <span class="w-3 h-3 rounded-full {{ {'GK': 'bg-yellow-400', 'DEF': 'bg-blue-400', 'MID': 'bg-green-400', 'FWD': 'bg-red-400'}.get(position, 'bg-gray-400') }} mr-2"></span>
+                        <h4 class="text-sm font-medium text-gray-800">{{ position }} Players</h4>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="text-xs flex items-center bg-gray-100/70 px-2 py-1 rounded-md">
+                            <span id="{{ position }}-selected-count" class="font-medium">{{ position_stats[position].selected }}</span>
+                            <span class="mx-1 text-gray-400">/</span>
+                            <span>{{ position_stats[position].total }}</span>
+                            <span class="ml-1 text-gray-500">selected</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="togglePositionSelection('{{ position }}', true)" class="text-xs px-2 py-1 text-green-600 hover:text-white hover:bg-green-600 rounded transition-colors duration-200 flex items-center">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                All
+                            </button>
+                            <button onclick="togglePositionSelection('{{ position }}', false)" class="text-xs px-2 py-1 text-red-600 hover:text-white hover:bg-red-600 rounded transition-colors duration-200 flex items-center">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                None
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Player Selection Tabs -->
+        <div class="glass p-5 rounded-xl bg-white/30 backdrop-blur-sm border border-white/10 shadow-sm">
+            <div class="flex flex-col sm:flex-row justify-between gap-4 mb-4">
+                <h3 class="text-lg font-semibold text-gray-800 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Player Selection
+                </h3>
+                <div class="relative w-full sm:w-64">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </span>
+                    <input type="text" id="playerSearch" placeholder="Search players..." 
+                           class="pl-10 w-full py-2.5 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
+                </div>
+            </div>
+            
+            <!-- Position Tabs -->
+            <div class="mb-4 overflow-x-auto scrollbar-thin">
+                <div class="inline-flex space-x-1 min-w-full pb-2">
+                    <button class="px-4 py-2.5 text-sm font-medium text-white bg-primary rounded-lg active" 
+                            id="all-tab" data-tabs-target="#all" type="button" role="tab" aria-controls="all" aria-selected="true">
+                        All Positions
+                    </button>
+                    {% for position in config.POSITIONS %}
+                    <button class="px-4 py-2.5 text-sm font-medium text-gray-600 hover:text-gray-800 hover:bg-white/60 bg-white/30 rounded-lg transition-colors duration-200" 
+                            id="{{ position }}-tab" data-tabs-target="#{{ position }}" type="button" role="tab" aria-controls="{{ position }}" aria-selected="false">
+                        {{ position }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Tab Content -->
+            <div id="positionTabContent" class="bg-white/30 rounded-xl overflow-hidden border border-white/20">
+                <div class="p-1" id="all" role="tabpanel" aria-labelledby="all-tab">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-white/60">
+                                <tr>
+                                    <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                                    <th class="px-4 py-3.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Include in Auction</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white/20 divide-y divide-gray-200/70">
+                                {% for player in all_players %}
+                                <tr class="hover:bg-white/60 transition-colors duration-200 player-row" data-name="{{ player.name|lower }}" data-position="{{ player.position }}">
+                                    <td class="px-4 py-3.5 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            {% if player.team_id %}
+                                            <span class="w-2 h-2 rounded-full bg-green-500 mr-2 flex-shrink-0"></span>
+                                            {% else %}
+                                            <span class="w-2 h-2 rounded-full bg-gray-300 mr-2 flex-shrink-0"></span>
+                                            {% endif %}
+                                            <div class="text-sm font-medium text-gray-900">{{ player.name }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3.5 whitespace-nowrap">
+                                        <span class="px-2.5 py-1 text-xs rounded-full {{ {'GK': 'bg-yellow-100 text-yellow-800', 'DEF': 'bg-blue-100 text-blue-800', 'MID': 'bg-green-100 text-green-800', 'FWD': 'bg-red-100 text-red-800'}.get(player.position, 'bg-gray-100 text-gray-800') }} font-medium">
+                                            {{ player.position }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3.5 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <div class="text-sm text-gray-900 font-medium">{{ player.overall_rating }}</div>
+                                            <div class="w-16 h-1.5 bg-gray-200 rounded-full ml-2">
+                                                <div class="h-1.5 rounded-full 
+                                                    {% if player.overall_rating >= 85 %}
+                                                        bg-green-500
+                                                    {% elif player.overall_rating >= 75 %}
+                                                        bg-blue-500
+                                                    {% elif player.overall_rating >= 65 %}
+                                                        bg-yellow-500
+                                                    {% else %}
+                                                        bg-red-500
+                                                    {% endif %}"
+                                                    style="width: {{ player.overall_rating }}%;"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3.5 whitespace-nowrap text-center">
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" class="sr-only peer player-toggle" 
+                                                   data-player-id="{{ player.id }}"
+                                                   data-position="{{ player.position }}"
+                                                   {% if player.is_auction_eligible %}checked{% endif %}>
+                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                        </label>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                {% for position in config.POSITIONS %}
+                <div class="hidden p-1" id="{{ position }}" role="tabpanel" aria-labelledby="{{ position }}-tab">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-white/60">
+                                <tr>
+                                    <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                    <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                                    <th class="px-4 py-3.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Include in Auction</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white/20 divide-y divide-gray-200/70">
+                                {% for player in players_by_position[position] %}
+                                <tr class="hover:bg-white/60 transition-colors duration-200 player-row" data-name="{{ player.name|lower }}">
+                                    <td class="px-4 py-3.5 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            {% if player.team_id %}
+                                            <span class="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 text-green-800 flex items-center justify-center mr-3 text-xs font-medium">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                                </svg>
+                                            </span>
+                                            {% else %}
+                                            <span class="flex-shrink-0 w-8 h-8 rounded-full bg-gray-100 text-gray-400 flex items-center justify-center mr-3 text-xs font-medium">
+                                                {{ player.name[:2].upper() }}
+                                            </span>
+                                            {% endif %}
+                                            <div class="text-sm font-medium text-gray-900">{{ player.name }}</div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3.5 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <span class="text-sm font-medium 
+                                                {% if player.overall_rating >= 85 %}
+                                                    text-green-600
+                                                {% elif player.overall_rating >= 75 %}
+                                                    text-blue-600
+                                                {% elif player.overall_rating >= 65 %}
+                                                    text-yellow-600
+                                                {% else %}
+                                                    text-gray-600
+                                                {% endif %}">
+                                                {{ player.overall_rating }}
+                                            </span>
+                                            <div class="w-16 h-1.5 bg-gray-200 rounded-full ml-2">
+                                                <div class="h-1.5 rounded-full 
+                                                    {% if player.overall_rating >= 85 %}
+                                                        bg-green-500
+                                                    {% elif player.overall_rating >= 75 %}
+                                                        bg-blue-500
+                                                    {% elif player.overall_rating >= 65 %}
+                                                        bg-yellow-500
+                                                    {% else %}
+                                                        bg-red-500
+                                                    {% endif %}"
+                                                    style="width: {{ player.overall_rating }}%;"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3.5 whitespace-nowrap text-center">
+                                        <label class="relative inline-flex items-center cursor-pointer">
+                                            <input type="checkbox" class="sr-only peer player-toggle" 
+                                                   data-player-id="{{ player.id }}"
+                                                   data-position="{{ player.position }}"
+                                                   {% if player.is_auction_eligible %}checked{% endif %}>
+                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                        </label>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Empty state for no search results -->
+            <div id="emptySearch" class="hidden py-12 text-center">
+                <svg class="w-12 h-12 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-gray-900">No players found</h3>
+                <p class="mt-1 text-sm text-gray-500">Try adjusting your search term</p>
+                <button id="clearSearch" class="mt-4 px-4 py-2 bg-white text-primary rounded-lg text-sm">Clear Search</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Tab Navigation
+    const tabs = document.querySelectorAll('[data-tabs-target]');
+    const tabContents = document.querySelectorAll('[role="tabpanel"]');
+    
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const target = document.querySelector(tab.dataset.tabsTarget);
+            
+            tabContents.forEach(tc => tc.classList.add('hidden'));
+            tabs.forEach(t => {
+                t.classList.remove('active', 'text-white', 'bg-primary');
+                t.classList.add('text-gray-600', 'bg-white/30');
+            });
+            
+            target.classList.remove('hidden');
+            tab.classList.add('active', 'text-white', 'bg-primary');
+            tab.classList.remove('text-gray-600', 'bg-white/30');
+        });
+    });
+    
+    // Player toggles
+    const playerToggles = document.querySelectorAll('.player-toggle');
+    
+    // Track if we're in a bulk operation to prevent individual AJAX calls
+    let bulkOperationInProgress = false;
+    
+    playerToggles.forEach(toggle => {
+        toggle.addEventListener('change', function() {
+            // Skip individual processing during bulk operations
+            if (bulkOperationInProgress) return;
+            
+            const playerId = this.dataset.playerId;
+            const isChecked = this.checked;
+            const position = this.dataset.position;
+            
+            // Provide visual feedback immediately
+            if (isChecked) {
+                this.parentElement.querySelector('div').classList.add('animate__animated', 'animate__pulse');
+                setTimeout(() => {
+                    this.parentElement.querySelector('div').classList.remove('animate__animated', 'animate__pulse');
+                }, 500);
+            }
+            
+            // Update other toggles for the same player
+            document.querySelectorAll(`.player-toggle[data-player-id="${playerId}"]`).forEach(t => {
+                t.checked = isChecked;
+            });
+            
+            // Update position counters
+            updatePositionCounter(position);
+            
+            // Send AJAX request to update player eligibility
+            updatePlayerEligibility(playerId, isChecked);
+        });
+    });
+    
+    // Function to update player eligibility via AJAX
+    function updatePlayerEligibility(playerId, isChecked) {
+        return fetch('/admin/update_player_eligibility', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                player_id: playerId,
+                is_eligible: isChecked
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                return true;
+            } else {
+                showToast('Error: ' + data.error, 'error');
+                return false;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Error updating player eligibility', 'error');
+            return false;
+        });
+    }
+    
+    // Function to bulk update player eligibility
+    function bulkUpdatePlayerEligibility(playerIds, isChecked) {
+        // Show loading toast
+        showToast('Updating player eligibility...', 'info');
+        
+        // Process players in batches to avoid overwhelming the server
+        const batchSize = 20;
+        const batches = [];
+        
+        // Create batches of player IDs
+        for (let i = 0; i < playerIds.length; i += batchSize) {
+            batches.push(playerIds.slice(i, i + batchSize));
+        }
+        
+        // Process batches sequentially
+        return batches.reduce((promise, batch, index) => {
+            return promise.then(() => {
+                // Update progress toast for large batches
+                if (batches.length > 1) {
+                    showToast(`Processing batch ${index + 1}/${batches.length}...`, 'info');
+                }
+                
+                // Create promises for each player in the batch
+                const batchPromises = batch.map(playerId => 
+                    updatePlayerEligibility(playerId, isChecked)
+                );
+                
+                // Wait for all promises in the batch to complete
+                return Promise.all(batchPromises);
+            });
+        }, Promise.resolve());
+    }
+    
+    // Search functionality
+    const searchInput = document.getElementById('playerSearch');
+    const emptySearch = document.getElementById('emptySearch');
+    
+    searchInput.addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        const playerRows = document.querySelectorAll('.player-row');
+        let matchCount = 0;
+        
+        playerRows.forEach(row => {
+            const playerName = row.dataset.name;
+            if (playerName.includes(searchTerm)) {
+                row.classList.remove('hidden');
+                matchCount++;
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+        
+        // Show/hide empty state
+        if (matchCount === 0 && searchTerm !== '') {
+            emptySearch.classList.remove('hidden');
+        } else {
+            emptySearch.classList.add('hidden');
+        }
+    });
+    
+    // Clear search button
+    document.getElementById('clearSearch')?.addEventListener('click', function() {
+        searchInput.value = '';
+        document.querySelectorAll('.player-row').forEach(row => {
+            row.classList.remove('hidden');
+        });
+        emptySearch.classList.add('hidden');
+    });
+    
+    // Select/Deselect All buttons (optimized)
+    document.getElementById('selectAllBtn').addEventListener('click', function() {
+        // Disable the button to prevent multiple clicks
+        this.disabled = true;
+        this.classList.add('opacity-50');
+        
+        // Start bulk operation
+        bulkOperationInProgress = true;
+        
+        try {
+            // First, update UI (checkbox states) without triggering change events
+            const playerIds = [];
+            playerToggles.forEach(toggle => {
+                toggle.checked = true;
+                playerIds.push(toggle.dataset.playerId);
+            });
+            
+            // Get unique player IDs (since same player can appear in multiple tabs)
+            const uniquePlayerIds = [...new Set(playerIds)];
+            
+            // Update all position counters
+            updateAllPositionCounters();
+            
+            // Then send bulk AJAX request
+            bulkUpdatePlayerEligibility(uniquePlayerIds, true)
+                .then(() => {
+                    showToast('All players selected successfully', 'success');
+                })
+                .catch(error => {
+                    console.error('Error in bulk selection:', error);
+                    showToast('Error selecting all players', 'error');
+                })
+                .finally(() => {
+                    bulkOperationInProgress = false;
+                    this.disabled = false;
+                    this.classList.remove('opacity-50');
+                });
+        } catch (err) {
+            console.error(err);
+            bulkOperationInProgress = false;
+            this.disabled = false;
+            this.classList.remove('opacity-50');
+            showToast('An error occurred', 'error');
+        }
+    });
+    
+    document.getElementById('deselectAllBtn').addEventListener('click', function() {
+        // Disable the button to prevent multiple clicks
+        this.disabled = true;
+        this.classList.add('opacity-50');
+        
+        // Start bulk operation
+        bulkOperationInProgress = true;
+        
+        try {
+            // First, update UI (checkbox states) without triggering change events
+            const playerIds = [];
+            playerToggles.forEach(toggle => {
+                toggle.checked = false;
+                playerIds.push(toggle.dataset.playerId);
+            });
+            
+            // Get unique player IDs (since same player can appear in multiple tabs)
+            const uniquePlayerIds = [...new Set(playerIds)];
+            
+            // Update all position counters
+            updateAllPositionCounters();
+            
+            // Then send bulk AJAX request
+            bulkUpdatePlayerEligibility(uniquePlayerIds, false)
+                .then(() => {
+                    showToast('All players deselected successfully', 'success');
+                })
+                .catch(error => {
+                    console.error('Error in bulk deselection:', error);
+                    showToast('Error deselecting all players', 'error');
+                })
+                .finally(() => {
+                    bulkOperationInProgress = false;
+                    this.disabled = false;
+                    this.classList.remove('opacity-50');
+                });
+        } catch (err) {
+            console.error(err);
+            bulkOperationInProgress = false;
+            this.disabled = false;
+            this.classList.remove('opacity-50');
+            showToast('An error occurred', 'error');
+        }
+    });
+    
+    // Function to update position counters
+    function updatePositionCounter(position) {
+        // Since players appear in both the "All" tab and their position-specific tab,
+        // we need to be careful not to double-count them.
+        // Get only the toggles in the position-specific tab to avoid duplicates
+        const positionTab = document.getElementById(position);
+        const allTogglesForPosition = positionTab.querySelectorAll(`.player-toggle[data-position="${position}"]`);
+        const selectedCount = Array.from(allTogglesForPosition).filter(t => t.checked).length;
+        const countElement = document.getElementById(`${position}-selected-count`);
+        
+        if (countElement) {
+            // Get the total from the display text (format: "X / Y selected")
+            const totalText = countElement.parentElement.textContent;
+            const totalMatch = totalText.match(/\/\s*(\d+)\s*selected/);
+            const total = totalMatch ? parseInt(totalMatch[1], 10) : selectedCount;
+            
+            // Ensure selected count doesn't exceed total
+            const displayCount = Math.min(selectedCount, total);
+            countElement.textContent = displayCount;
+        }
+    }
+    
+    // Function to update all position counters
+    function updateAllPositionCounters() {
+        // Get all unique positions from player toggles
+        const positions = new Set();
+        playerToggles.forEach(toggle => {
+            if (toggle.dataset.position) {
+                positions.add(toggle.dataset.position);
+            }
+        });
+        
+        // Update counter for each position
+        positions.forEach(position => {
+            updatePositionCounter(position);
+        });
+    }
+    
+    // Function to toggle selection for a specific position (optimized)
+    window.togglePositionSelection = function(position, isSelected) {
+        // Start bulk operation
+        bulkOperationInProgress = true;
+        
+        try {
+            const toggles = document.querySelectorAll(`.player-toggle[data-position="${position}"]`);
+            const playerIds = [];
+            
+            // First update UI without triggering change events
+            toggles.forEach(toggle => {
+                toggle.checked = isSelected;
+                playerIds.push(toggle.dataset.playerId);
+            });
+            
+            // Get unique player IDs
+            const uniquePlayerIds = [...new Set(playerIds)];
+            
+            // Update position counters
+            updatePositionCounter(position);
+            
+            // Then send bulk AJAX request
+            bulkUpdatePlayerEligibility(uniquePlayerIds, isSelected)
+                .then(() => {
+                    showToast(`${position} players ${isSelected ? 'selected' : 'deselected'} successfully`, 'success');
+                })
+                .catch(error => {
+                    console.error(`Error in bulk ${isSelected ? 'selection' : 'deselection'}:`, error);
+                    showToast(`Error ${isSelected ? 'selecting' : 'deselecting'} ${position} players`, 'error');
+                })
+                .finally(() => {
+                    bulkOperationInProgress = false;
+                });
+        } catch (err) {
+            console.error(err);
+            bulkOperationInProgress = false;
+            showToast('An error occurred', 'error');
+        }
+    };
+    
+    // Enhanced Toast notification
+    function showToast(message, type = 'success') {
+        // Create toast if it doesn't exist
+        if (!document.getElementById('toast')) {
+            const toast = document.createElement('div');
+            toast.id = 'toast';
+            toast.className = 'fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
+            toast.innerHTML = `
+                <div id="toast-icon" class="mr-2"></div>
+                <span id="toast-message"></span>
+            `;
+            document.body.appendChild(toast);
+        }
+        
+        const toast = document.getElementById('toast');
+        const toastIcon = document.getElementById('toast-icon');
+        document.getElementById('toast-message').textContent = message;
+        
+        // Set icon and background based on type
+        let iconSvg = '';
+        switch(type) {
+            case 'success':
+                toast.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
+                iconSvg = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>';
+                break;
+            case 'error':
+                toast.className = 'fixed bottom-4 right-4 bg-red-600 text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
+                iconSvg = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>';
+                break;
+            case 'info':
+                toast.className = 'fixed bottom-4 right-4 bg-blue-600 text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
+                iconSvg = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+                break;
+            default:
+                toast.className = 'fixed bottom-4 right-4 bg-primary text-white px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 translate-y-20 opacity-0 flex items-center z-50';
+                iconSvg = '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
+        }
+        toastIcon.innerHTML = iconSvg;
+        
+        // Show toast
+        toast.classList.remove('translate-y-20', 'opacity-0');
+        
+        // Clear any existing hide timeout
+        if (toast.hideTimeout) {
+            clearTimeout(toast.hideTimeout);
+        }
+        
+        // Hide toast after 3 seconds
+        toast.hideTimeout = setTimeout(() => {
+            toast.classList.add('translate-y-20', 'opacity-0');
+        }, 3000);
+    }
+});
+</script>
+{% endblock %}

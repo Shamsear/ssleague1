@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+
+{% block title %}Matches{% endblock %}
+
+{% block content %}
+<!-- Vision OS inspired container with subtle background effect -->
+<div class="container mx-auto px-4 py-8">
+    <!-- Header with improved visual design -->
+    <div class="flex flex-col sm:flex-row justify-between items-center mb-8">
+        <div class="mb-4 sm:mb-0">
+            <h1 class="text-4xl font-bold gradient-text text-center sm:text-left">Matches</h1>
+            <p class="text-gray-500 mt-1">View and manage upcoming and completed matches</p>
+            <a href="{{ url_for('team_management.dashboard') }}" class="inline-flex items-center mt-2 text-primary hover:text-primary-dark">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Dashboard
+            </a>
+        </div>
+        {% if current_user.is_admin %}
+        <a href="{{ url_for('team_management.new_match') }}" class="bg-primary hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-300 shadow-md hover:shadow-lg transform hover:-translate-y-0.5">
+            <i class="fas fa-plus mr-2"></i> Create Match
+        </a>
+        {% endif %}
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="mb-6 p-4 rounded-xl {% if category == 'success' %}bg-green-100/90 text-green-700 border border-green-200{% elif category == 'danger' %}bg-red-100/90 text-red-700 border border-red-200{% else %}bg-blue-100/90 text-blue-700 border border-blue-200{% endif %} backdrop-blur-sm shadow-sm">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Filter Controls with Vision OS styling -->
+    <div class="mb-8 bg-white/90 backdrop-blur-md shadow-xl rounded-2xl p-6 border border-gray-100">
+        <h2 class="text-lg font-medium text-gray-800 mb-4">Filter Matches</h2>
+        <div class="flex flex-col md:flex-row md:items-end space-y-4 md:space-y-0 md:space-x-4">
+            <div class="flex-1">
+                <label for="round-filter" class="block text-sm font-medium text-gray-700 mb-1">Round</label>
+                <select id="round-filter" class="block w-full rounded-xl border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white/80">
+                    <option value="">All Rounds</option>
+                    <!-- Generate options dynamically based on existing rounds -->
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const rounds = new Set();
+                            document.querySelectorAll('[data-round]').forEach(el => {
+                                rounds.add(el.getAttribute('data-round'));
+                            });
+                            
+                            const filter = document.getElementById('round-filter');
+                            Array.from(rounds).sort((a, b) => parseInt(a) - parseInt(b)).forEach(round => {
+                                const option = document.createElement('option');
+                                option.value = round;
+                                option.textContent = `Round ${round}`;
+                                filter.appendChild(option);
+                            });
+                        });
+                    </script>
+                </select>
+            </div>
+            <div class="flex-1">
+                <label for="team-filter" class="block text-sm font-medium text-gray-700 mb-1">Team</label>
+                <select id="team-filter" class="block w-full rounded-xl border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white/80">
+                    <option value="">All Teams</option>
+                    <!-- Generate options dynamically based on teams in matches -->
+                    <script>
+                        document.addEventListener('DOMContentLoaded', function() {
+                            const teams = new Map();
+                            document.querySelectorAll('[data-home-team]').forEach(el => {
+                                const id = el.getAttribute('data-home-team-id');
+                                const name = el.getAttribute('data-home-team');
+                                teams.set(id, name);
+                            });
+                            document.querySelectorAll('[data-away-team]').forEach(el => {
+                                const id = el.getAttribute('data-away-team-id');
+                                const name = el.getAttribute('data-away-team');
+                                teams.set(id, name);
+                            });
+                            
+                            const filter = document.getElementById('team-filter');
+                            Array.from(teams.entries())
+                                .sort((a, b) => a[1].localeCompare(b[1]))
+                                .forEach(([id, name]) => {
+                                    const option = document.createElement('option');
+                                    option.value = id;
+                                    option.textContent = name;
+                                    filter.appendChild(option);
+                                });
+                        });
+                    </script>
+                </select>
+            </div>
+            <div class="flex-1">
+                <label for="status-filter" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select id="status-filter" class="block w-full rounded-xl border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 bg-white/80">
+                    <option value="">All Matches</option>
+                    <option value="completed">Completed</option>
+                    <option value="upcoming">Upcoming</option>
+                </select>
+            </div>
+            <div class="flex-none md:self-end">
+                <button id="reset-filters" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl transition-all duration-300">
+                    Reset
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Visual guidance for users (Vision OS hint) -->
+    <div class="text-center mb-6 text-sm text-gray-500">
+        <p>Tap or hover over a match card to see details and actions</p>
+    </div>
+
+    <!-- Matches Grid with Vision OS-inspired cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for match in matches %}
+        <div class="bg-white/90 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden match-card border border-gray-100 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+            data-round="{{ match.round_number }}"
+            data-home-team="{{ match.home_team.name }}" 
+            data-home-team-id="{{ match.home_team_id }}"
+            data-away-team="{{ match.away_team.name }}"
+            data-away-team-id="{{ match.away_team_id }}"
+            data-status="{{ 'completed' if match.is_completed else 'upcoming' }}">
+            <!-- Match date ribbon for better scanning -->
+            <div class="bg-gradient-to-r from-indigo-500/10 to-purple-500/10 text-gray-700 text-xs py-1 px-4 text-center font-medium">
+                {{ match.match_date.strftime('%A, %d %B %Y') }}
+            </div>
+            <div class="px-6 py-5">
+                <div class="flex justify-between items-center mb-4">
+                    <div class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
+                        Round {{ match.round_number }} • Match {{ match.match_number }}
+                    </div>
+                    <div class="text-xs font-medium rounded-full px-3 py-1 {% if match.is_completed %}bg-green-100 text-green-700{% else %}bg-blue-100 text-blue-700{% endif %}">
+                        {% if match.is_completed %}Completed{% else %}Upcoming{% endif %}
+                    </div>
+                </div>
+                
+                <div class="flex items-center justify-between py-3 px-2">
+                    <div class="flex flex-col items-center space-y-2">
+                        <div class="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 text-white rounded-full flex items-center justify-center shadow-sm">
+                            <span class="font-medium">{{ match.home_team.name[:1] }}</span>
+                        </div>
+                        <span class="font-medium text-center">{{ match.home_team.name }}</span>
+                    </div>
+                    <div class="text-2xl font-bold px-4 py-2 {% if match.is_completed %}bg-gray-100/80 rounded-lg{% endif %}">
+                        {% if match.is_completed %}
+                        <span class="{% if match.home_score > match.away_score %}text-green-600{% elif match.home_score < match.away_score %}text-gray-500{% else %}text-blue-600{% endif %}">{{ match.home_score }}</span>
+                        <span class="text-gray-400 mx-1">-</span>
+                        <span class="{% if match.away_score > match.home_score %}text-green-600{% elif match.away_score < match.home_score %}text-gray-500{% else %}text-blue-600{% endif %}">{{ match.away_score }}</span>
+                        {% else %}
+                        <span class="text-gray-500">vs</span>
+                        {% endif %}
+                    </div>
+                    <div class="flex flex-col items-center space-y-2">
+                        <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-600 text-white rounded-full flex items-center justify-center shadow-sm">
+                            <span class="font-medium">{{ match.away_team.name[:1] }}</span>
+                        </div>
+                        <span class="font-medium text-center">{{ match.away_team.name }}</span>
+                    </div>
+                </div>
+                
+                <div class="mt-5 flex justify-center">
+                    <a href="{{ url_for('team_management.match_detail', id=match.id) }}" 
+                        class="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-xl text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 shadow-sm transition-all duration-300">
+                        View Match Details
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="col-span-1 md:col-span-2 lg:col-span-3 bg-white/90 backdrop-blur-md shadow-lg rounded-2xl p-8 text-center border border-gray-100">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <p class="text-gray-500 mb-2">No matches found.</p>
+            {% if current_user.is_admin %}
+            <a href="{{ url_for('team_management.new_match') }}" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-blue-700 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 mt-2">
+                <i class="fas fa-plus mr-2"></i> Create a Match
+            </a>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- No matches message (hidden by default, shown via JS when filters return no results) -->
+    <div id="no-matches-message" class="hidden mt-6 bg-white/90 backdrop-blur-md shadow-lg rounded-2xl p-6 text-center border border-gray-100">
+        <p class="text-gray-500 mb-2">No matches match your filter criteria.</p>
+        <button id="clear-filters" class="mt-2 px-4 py-2 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-xl transition-all duration-300">
+            Clear all filters
+        </button>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const roundFilter = document.getElementById('round-filter');
+        const teamFilter = document.getElementById('team-filter');
+        const statusFilter = document.getElementById('status-filter');
+        const resetButton = document.getElementById('reset-filters');
+        const clearFiltersButton = document.getElementById('clear-filters');
+        const matchCards = document.querySelectorAll('.match-card');
+        const noMatchesMessage = document.getElementById('no-matches-message');
+        
+        function filterMatches() {
+            const roundValue = roundFilter.value;
+            const teamValue = teamFilter.value;
+            const statusValue = statusFilter.value;
+            
+            let visibleCount = 0;
+            
+            matchCards.forEach(card => {
+                const roundMatch = !roundValue || card.getAttribute('data-round') === roundValue;
+                const teamMatch = !teamValue || 
+                                 card.getAttribute('data-home-team-id') === teamValue || 
+                                 card.getAttribute('data-away-team-id') === teamValue;
+                const statusMatch = !statusValue || card.getAttribute('data-status') === statusValue;
+                
+                if (roundMatch && teamMatch && statusMatch) {
+                    card.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+            
+            // Show or hide the "no matches" message based on filter results
+            if (noMatchesMessage) {
+                if (visibleCount === 0 && (roundValue || teamValue || statusValue)) {
+                    noMatchesMessage.classList.remove('hidden');
+                } else {
+                    noMatchesMessage.classList.add('hidden');
+                }
+            }
+        }
+        
+        // Reset all filters
+        function resetAllFilters() {
+            roundFilter.value = '';
+            teamFilter.value = '';
+            statusFilter.value = '';
+            filterMatches();
+        }
+        
+        if (resetButton) {
+            resetButton.addEventListener('click', resetAllFilters);
+        }
+        
+        if (clearFiltersButton) {
+            clearFiltersButton.addEventListener('click', resetAllFilters);
+        }
+        
+        roundFilter.addEventListener('change', filterMatches);
+        teamFilter.addEventListener('change', filterMatches);
+        statusFilter.addEventListener('change', filterMatches);
+    });
+</script>
+{% endblock %} 

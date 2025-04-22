@@ -1,0 +1,123 @@
+{% for round in rounds|sort(attribute='id', reverse=true) %}
+{% if not round.is_active %}
+<div class="glass rounded-xl p-4 sm:p-5 border border-blue-100/30 transform transition-all duration-300 hover:shadow-lg backdrop-blur-sm">
+    <div class="flex flex-col gap-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+            <div class="flex items-center">
+                <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 mr-3">
+                    <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-base sm:text-lg font-semibold">{{ round.position }} Round #{{ round.id }}</h3>
+                    <p class="text-xs text-gray-500 mt-1">{{ round.start_time.strftime('%Y-%m-%d %H:%M') }}</p>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span class="text-xs text-blue-600 bg-blue-50 px-3 py-1.5 rounded-lg flex items-center">
+                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    {{ round.players|selectattr('team_id')|list|length }} players allocated
+                </span>
+                <span class="text-xs text-primary bg-primary/10 px-3 py-1.5 rounded-lg flex items-center">
+                    <svg class="w-3.5 h-3.5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {{ round.status|capitalize }}
+                </span>
+            </div>
+        </div>
+        
+        <!-- Player allocations preview -->
+        <div class="bg-white/30 p-3 rounded-xl backdrop-blur-sm">
+            <div class="flex justify-between items-center mb-3">
+                <h4 class="font-medium text-gray-700 flex items-center">
+                    <svg class="w-4 h-4 mr-1.5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                    </svg>
+                    Player Allocations
+                </h4>
+                <span class="text-xs text-gray-500">Showing first 5</span>
+            </div>
+            
+            <div class="space-y-2">
+                {% set allocated_players = round.players|selectattr('team_id')|list %}
+                {% if allocated_players %}
+                    {% for player in allocated_players[:5] %}
+                    <div class="glass rounded-lg p-2.5 backdrop-blur-sm border border-gray-100/30 hover:shadow-sm transition-all duration-200">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-2 mr-2">
+                                <div class="w-8 h-8 rounded-full bg-{{ {'GK': 'yellow', 'DEF': 'blue', 'MID': 'green', 'FWD': 'red'}.get(player.position, 'gray') }}-100 flex items-center justify-center text-{{ {'GK': 'yellow', 'DEF': 'blue', 'MID': 'green', 'FWD': 'red'}.get(player.position, 'gray') }}-500 text-xs font-bold">
+                                    {{ player.position[0] }}
+                                </div>
+                                <div class="truncate">
+                                    <div class="text-sm font-medium">{{ player.name }}</div>
+                                    <div class="text-xs text-gray-500">{{ player.position }}</div>
+                                </div>
+                            </div>
+                            <div class="flex flex-col items-end text-right">
+                                <div class="text-xs px-2 py-0.5 bg-primary/10 rounded-lg text-primary">{{ player.team.name }}</div>
+                                <div class="text-sm font-bold mt-1 text-gray-800">
+                                    {% for bid in player.bids %}
+                                        {% if bid.team_id == player.team_id %}
+                                            £{{ "{:,}".format(bid.amount) }}
+                                        {% endif %}
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if allocated_players|length > 5 %}
+                    <div class="text-center py-2">
+                        <a href="{{ url_for('admin_round_detail', round_id=round.id) }}" class="text-primary text-sm inline-flex items-center hover:underline">
+                            <span>See all {{ allocated_players|length }} allocations</span>
+                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                        </a>
+                    </div>
+                    {% endif %}
+                {% else %}
+                    <div class="text-center py-4 glass rounded-lg bg-white/30 text-sm text-gray-500 italic">
+                        No players were allocated in this round
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="flex flex-wrap justify-end gap-2 mt-1">
+            <a href="{{ url_for('admin_round_detail', round_id=round.id) }}" 
+                class="inline-flex items-center px-4 py-2.5 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 transition-colors text-sm shadow-sm">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                </svg>
+                View Details
+            </a>
+            <button onclick="deleteRound({{ round.id }})" 
+                class="inline-flex items-center px-4 py-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500/20 transition-colors text-sm shadow-sm">
+                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                Delete
+            </button>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% else %}
+<div class="text-center py-8 glass rounded-xl bg-white/10 backdrop-blur-sm border border-gray-100/20">
+    <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+    </svg>
+    <h3 class="mt-2 text-lg font-medium text-gray-500">No completed rounds yet</h3>
+    <p class="mt-1 text-gray-500">Past rounds will appear here once they're finalized</p>
+</div>
+{% endfor %} 
+ 
+ 
+ 

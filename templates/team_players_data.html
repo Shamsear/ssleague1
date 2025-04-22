@@ -1,0 +1,460 @@
+{% extends "base.html" %}
+
+{% block title %}All Players Database - Football Auction{% endblock %}
+
+{% block content %}
+<div class="container mx-auto space-y-6 px-4 py-4 sm:py-6">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 class="text-2xl font-bold gradient-text">Players Database</h1>
+        <div class="flex flex-col sm:flex-row w-full sm:w-auto space-y-3 sm:space-y-0 sm:space-x-4">
+            <div class="relative w-full sm:w-auto">
+                <form action="{{ url_for('team_players_data') }}" method="get" class="flex flex-col sm:flex-row gap-2">
+                    <div class="relative w-full">
+                        <input type="text" id="searchPlayer" name="q" value="{{ search_query or '' }}" placeholder="Search players..." class="w-full sm:w-64 pl-10 py-2 pr-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                        <svg class="w-5 h-5 text-gray-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <select id="positionFilter" name="position" class="w-full sm:w-auto py-2 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                        <option value="">All Positions</option>
+                        {% for position in config.POSITIONS %}
+                        <option value="{{ position }}" {% if current_position == position %}selected{% endif %}>{{ position }}</option>
+                        {% endfor %}
+                    </select>
+                    <select id="playingStyleFilter" name="playing_style" class="w-full sm:w-auto py-2 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                        <option value="">All Playing Styles</option>
+                        {% for style in config.PLAYING_STYLES %}
+                        <option value="{{ style }}" {% if current_playing_style == style %}selected{% endif %}>{{ style }}</option>
+                        {% endfor %}
+                    </select>
+                    <button type="submit" class="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all duration-300">
+                        Filter
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Show Starred Players Toggle -->
+    <div class="mt-4 mb-6">
+        <div class="flex items-center space-x-2">
+            <input type="checkbox" id="showStarredOnly" class="w-4 h-4 text-primary focus:ring-primary border-gray-300 rounded">
+            <label for="showStarredOnly" class="text-sm font-medium text-gray-700">Show Only Starred Players</label>
+        </div>
+    </div>
+
+    <!-- Mobile Card View -->
+    <div class="grid grid-cols-1 gap-4 md:hidden">
+        {% for player in players %}
+        <div class="player-row bg-white/20 backdrop-blur-lg p-4 rounded-2xl shadow-sm border border-white/20 hover:bg-white/30 transition-all duration-200" data-player-id="{{ player.id }}" data-starred="{% if player.id in starred_player_ids %}true{% else %}false{% endif %}">
+            <div class="flex items-start justify-between">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0 mr-3">
+                        <div class="relative">
+                            {% if player.player_id %}
+                                <img class="h-14 w-14 rounded-full object-cover border-2 {% if player.overall_rating >= 85 %}border-purple-500{% elif player.overall_rating >= 80 %}border-indigo-500{% elif player.overall_rating >= 75 %}border-blue-500{% elif player.overall_rating >= 70 %}border-green-500{% else %}border-gray-500{% endif %}" 
+                                     src="{{ url_for('static', filename='images/player_photos/' + player.player_id|string + '.png') }}" 
+                                     alt="{{ player.name }}"
+                                     onerror="this.onerror=null; this.src='{{ url_for('static', filename='img/default_player.png') }}';">
+                            {% else %}
+                                <img class="h-14 w-14 rounded-full object-cover border-2 {% if player.overall_rating >= 85 %}border-purple-500{% elif player.overall_rating >= 80 %}border-indigo-500{% elif player.overall_rating >= 75 %}border-blue-500{% elif player.overall_rating >= 70 %}border-green-500{% else %}border-gray-500{% endif %}" 
+                                     src="{{ url_for('static', filename='img/default_player.png') }}" 
+                                     alt="{{ player.name }}">
+                            {% endif %}
+                            <div class="absolute -bottom-1 -right-1 h-6 w-6 flex items-center justify-center rounded-full bg-gray-800 text-white text-xs font-bold">{{ player.overall_rating }}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-semibold text-gray-800">{{ player.name }}</h3>
+                        <div class="flex items-center space-x-2">
+                            <span class="px-2 py-1 text-xs rounded-full {% if player.position == 'CF' %}bg-red-100 text-red-800{% elif player.position == 'AMF' %}bg-orange-100 text-orange-800{% elif player.position == 'CMF' %}bg-yellow-100 text-yellow-800{% elif player.position == 'DMF' %}bg-green-100 text-green-800{% elif player.position == 'LB' or player.position == 'RB' %}bg-blue-100 text-blue-800{% elif player.position == 'CB' %}bg-indigo-100 text-indigo-800{% elif player.position == 'GK' %}bg-purple-100 text-purple-800{% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ player.position }}
+                            </span>
+                            <span class="text-xs text-gray-500">{{ player.playing_style or "None" }}</span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="toggleStarPlayer({{ player.id }}, event)" class="text-gray-400 hover:text-yellow-500 {% if player.id in starred_player_ids %}text-yellow-500{% endif %} transition-colors duration-200">
+                    <svg class="w-6 h-6" fill="{% if player.id in starred_player_ids %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="mt-3 grid grid-cols-3 gap-2">
+                {% if player.position == 'GK' %}
+                <!-- Goalkeeper attributes -->
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">GK Awareness</span>
+                    <span class="block text-sm font-medium {% if player.gk_awareness >= 85 %}text-purple-600{% elif player.gk_awareness >= 80 %}text-indigo-600{% elif player.gk_awareness >= 75 %}text-blue-600{% elif player.gk_awareness >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.gk_awareness }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">GK Reflexes</span>
+                    <span class="block text-sm font-medium {% if player.gk_reflexes >= 85 %}text-purple-600{% elif player.gk_reflexes >= 80 %}text-indigo-600{% elif player.gk_reflexes >= 75 %}text-blue-600{% elif player.gk_reflexes >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.gk_reflexes }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">GK Catching</span>
+                    <span class="block text-sm font-medium {% if player.gk_catching >= 85 %}text-purple-600{% elif player.gk_catching >= 80 %}text-indigo-600{% elif player.gk_catching >= 75 %}text-blue-600{% elif player.gk_catching >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.gk_catching }}</span>
+                </div>
+                
+                {% elif player.position in ['CB', 'RB', 'LB'] %}
+                <!-- Defender attributes -->
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Defensive Aware</span>
+                    <span class="block text-sm font-medium {% if player.defensive_awareness >= 85 %}text-purple-600{% elif player.defensive_awareness >= 80 %}text-indigo-600{% elif player.defensive_awareness >= 75 %}text-blue-600{% elif player.defensive_awareness >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.defensive_awareness }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Tackling</span>
+                    <span class="block text-sm font-medium {% if player.tackling >= 85 %}text-purple-600{% elif player.tackling >= 80 %}text-indigo-600{% elif player.tackling >= 75 %}text-blue-600{% elif player.tackling >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.tackling }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Speed</span>
+                    <span class="block text-sm font-medium {% if player.speed >= 85 %}text-purple-600{% elif player.speed >= 80 %}text-indigo-600{% elif player.speed >= 75 %}text-blue-600{% elif player.speed >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.speed }}</span>
+                </div>
+
+                {% elif player.position in ['CMF', 'DMF', 'RMF', 'LMF'] %}
+                <!-- Midfielder attributes -->
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Ball Control</span>
+                    <span class="block text-sm font-medium {% if player.ball_control >= 85 %}text-purple-600{% elif player.ball_control >= 80 %}text-indigo-600{% elif player.ball_control >= 75 %}text-blue-600{% elif player.ball_control >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.ball_control }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Low Pass</span>
+                    <span class="block text-sm font-medium {% if player.low_pass >= 85 %}text-purple-600{% elif player.low_pass >= 80 %}text-indigo-600{% elif player.low_pass >= 75 %}text-blue-600{% elif player.low_pass >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.low_pass }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Stamina</span>
+                    <span class="block text-sm font-medium {% if player.stamina >= 85 %}text-purple-600{% elif player.stamina >= 80 %}text-indigo-600{% elif player.stamina >= 75 %}text-blue-600{% elif player.stamina >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.stamina }}</span>
+                </div>
+
+                {% elif player.position in ['AMF', 'SS', 'CF'] %}
+                <!-- Forward attributes -->
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Finishing</span>
+                    <span class="block text-sm font-medium {% if player.finishing >= 85 %}text-purple-600{% elif player.finishing >= 80 %}text-indigo-600{% elif player.finishing >= 75 %}text-blue-600{% elif player.finishing >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.finishing }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Speed</span>
+                    <span class="block text-sm font-medium {% if player.speed >= 85 %}text-purple-600{% elif player.speed >= 80 %}text-indigo-600{% elif player.speed >= 75 %}text-blue-600{% elif player.speed >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.speed }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Dribbling</span>
+                    <span class="block text-sm font-medium {% if player.dribbling >= 85 %}text-purple-600{% elif player.dribbling >= 80 %}text-indigo-600{% elif player.dribbling >= 75 %}text-blue-600{% elif player.dribbling >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.dribbling }}</span>
+                </div>
+                
+                {% else %}
+                <!-- Default attributes -->
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Speed</span>
+                    <span class="block text-sm font-medium {% if player.speed >= 85 %}text-purple-600{% elif player.speed >= 80 %}text-indigo-600{% elif player.speed >= 75 %}text-blue-600{% elif player.speed >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.speed }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Acceleration</span>
+                    <span class="block text-sm font-medium {% if player.acceleration >= 85 %}text-purple-600{% elif player.acceleration >= 80 %}text-indigo-600{% elif player.acceleration >= 75 %}text-blue-600{% elif player.acceleration >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.acceleration }}</span>
+                </div>
+                <div class="text-center">
+                    <span class="block text-xs text-gray-500">Ball Control</span>
+                    <span class="block text-sm font-medium {% if player.ball_control >= 85 %}text-purple-600{% elif player.ball_control >= 80 %}text-indigo-600{% elif player.ball_control >= 75 %}text-blue-600{% elif player.ball_control >= 70 %}text-green-600{% else %}text-gray-600{% endif %}">{{ player.ball_control }}</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="mt-3">
+                <button onclick="window.location.href='{{ url_for('player_detail', player_id=player.id) }}'" class="w-full py-2 px-4 bg-indigo-600/90 hover:bg-indigo-700/90 backdrop-blur-sm text-white text-sm rounded-lg transition-colors duration-200">
+                    View Details
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Players Data Table -->
+    <div class="glass-card p-4 sm:p-6 rounded-2xl hidden md:block">
+        <div class="mb-4 text-sm text-gray-500">
+            <p>Browse the database of auction-eligible players. Use the search and filter options to find specific players.</p>
+        </div>
+        <div class="overflow-x-auto rounded-xl shadow-sm">
+            <table class="min-w-full divide-y divide-gray-200/30">
+                <thead class="bg-white/30 backdrop-blur-md shadow-sm border-b border-white/20">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Star</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Style</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Overall</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Speed</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Acceleration</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Ball Control</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Dribbling</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Low Pass</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Lofted Pass</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Finishing</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white/20 backdrop-blur-sm divide-y divide-gray-200/30">
+                    {% for player in players %}
+                    <tr class="player-row hover:bg-white/40 transition-all duration-200" data-player-id="{{ player.id }}" data-starred="{% if player.id in starred_player_ids %}true{% else %}false{% endif %}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <button onclick="toggleStarPlayer({{ player.id }}, event)" class="text-gray-400 hover:text-yellow-500 {% if player.id in starred_player_ids %}text-yellow-500{% endif %} transition-colors duration-200">
+                                <svg class="w-5 h-5" fill="{% if player.id in starred_player_ids %}currentColor{% else %}none{% endif %}" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                </svg>
+                            </button>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-10 w-10 rounded-full overflow-hidden border border-white/20 shadow-sm flex items-center justify-center">
+                                    {% if player.player_id %}
+                                        <img src="{{ url_for('static', filename='images/player_photos/' + player.player_id|string + '.png') }}"
+                                             alt="{{ player.name }}"
+                                             class="h-full w-full object-cover"
+                                             onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'text-sm font-medium text-primary\'>{{ player.name[0] }}</span>'; this.parentElement.classList.add('bg-primary/10');">
+                                    {% else %}
+                                        <span class="text-sm font-medium text-primary">{{ player.name[0] }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="ml-3">
+                                    <div class="text-sm font-medium text-gray-700">{{ player.name }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.position }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.playing_style or "None" }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs rounded-full 
+                                {% if player.overall_rating >= 85 %}bg-green-100 text-green-800
+                                {% elif player.overall_rating >= 75 %}bg-blue-100 text-blue-800
+                                {% elif player.overall_rating >= 65 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                {{ player.overall_rating }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.speed }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.acceleration }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.ball_control }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.dribbling }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.low_pass }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.lofted_pass }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm text-gray-700">{{ player.finishing }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{{ url_for('player_detail', player_id=player.id) }}" 
+                                    class="text-primary hover:text-primary-dark transition-colors duration-200">
+                                View Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    {% if players_pagination.pages > 1 %}
+    <div class="mt-6 flex justify-center">
+        <nav class="flex items-center space-x-1">
+            <!-- Previous page -->
+            {% if players_pagination.has_prev %}
+            <a href="{{ url_for('team_players_data', page=players_pagination.prev_num, position=current_position, playing_style=current_playing_style, q=search_query) }}" 
+               class="px-3 py-2 rounded-md bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </a>
+            {% else %}
+            <span class="px-3 py-2 rounded-md bg-white/30 text-gray-400 cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </span>
+            {% endif %}
+            
+            <!-- Page numbers -->
+            {% for page_num in range(1, players_pagination.pages + 1) %}
+                {% if page_num == players_pagination.page %}
+                <span class="px-3 py-2 rounded-md bg-primary text-white">
+                    {{ page_num }}
+                </span>
+                {% elif page_num <= 3 or page_num >= players_pagination.pages - 2 or 
+                       (page_num >= players_pagination.page - 1 and page_num <= players_pagination.page + 1) %}
+                <a href="{{ url_for('team_players_data', page=page_num, position=current_position, playing_style=current_playing_style, q=search_query) }}" 
+                   class="px-3 py-2 rounded-md bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
+                    {{ page_num }}
+                </a>
+                {% elif (page_num == 4 and players_pagination.page > 4) or 
+                        (page_num == players_pagination.pages - 3 and players_pagination.page < players_pagination.pages - 3) %}
+                <span class="px-2 py-2 text-gray-500">
+                    ...
+                </span>
+                {% endif %}
+            {% endfor %}
+            
+            <!-- Next page -->
+            {% if players_pagination.has_next %}
+            <a href="{{ url_for('team_players_data', page=players_pagination.next_num, position=current_position, playing_style=current_playing_style, q=search_query) }}" 
+               class="px-3 py-2 rounded-md bg-white/60 text-gray-600 hover:bg-primary/10 hover:text-primary transition-colors">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+            {% else %}
+            <span class="px-3 py-2 rounded-md bg-white/30 text-gray-400 cursor-not-allowed">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </span>
+            {% endif %}
+        </nav>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+// Search and filter functionality with server-side search
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('searchPlayer');
+    const searchForm = searchInput.closest('form');
+    const positionFilter = document.getElementById('positionFilter');
+    const playingStyleFilter = document.getElementById('playingStyleFilter');
+    const showStarredOnlyCheckbox = document.getElementById('showStarredOnly');
+    
+    // Debounce function to delay search
+    let typingTimer;
+    const TYPING_DELAY = 500; // ms delay after typing stops
+    
+    // Real search that submits the form
+    function performSearch() {
+        searchForm.submit();
+    }
+    
+    // Listen for input in the search field
+    searchInput.addEventListener('input', function() {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(performSearch, TYPING_DELAY);
+    });
+    
+    // Position filter changes should immediately search
+    positionFilter.addEventListener('change', function() {
+        searchForm.submit();
+    });
+    
+    // Playing style filter changes should immediately search
+    playingStyleFilter.addEventListener('change', function() {
+        searchForm.submit();
+    });
+    
+    // Cancel timer if user is still typing
+    searchInput.addEventListener('keydown', function() {
+        clearTimeout(typingTimer);
+    });
+    
+    // Show only starred checkbox
+    showStarredOnlyCheckbox.addEventListener('change', filterStarredPlayers);
+    
+    // Mobile starred checkbox synchronization
+    const showStarredOnlyMobileCheckbox = document.getElementById('showStarredOnlyMobile');
+    if (showStarredOnlyMobileCheckbox) {
+        showStarredOnlyMobileCheckbox.addEventListener('change', function() {
+            // Keep both checkboxes in sync
+            showStarredOnlyCheckbox.checked = this.checked;
+            filterStarredPlayers();
+        });
+        
+        showStarredOnlyCheckbox.addEventListener('change', function() {
+            showStarredOnlyMobileCheckbox.checked = this.checked;
+        });
+    }
+});
+
+// Star/unstar functionality
+function toggleStarPlayer(playerId, event) {
+    event.stopPropagation(); // Prevent row click/modal open
+    
+    const playerRows = document.querySelectorAll(`.player-row[data-player-id="${playerId}"]`);
+    const isCurrentlyStarred = playerRows[0].getAttribute('data-starred') === 'true';
+    
+    // Determine which endpoint to call
+    const endpoint = isCurrentlyStarred ? `/api/unstar_player/${playerId}` : `/api/star_player/${playerId}`;
+    
+    // Make the API call
+    fetch(endpoint, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Update all instances of this player in the DOM
+        playerRows.forEach(row => {
+            const newStarredStatus = !isCurrentlyStarred;
+            row.setAttribute('data-starred', newStarredStatus);
+            
+            // Update the star button
+            const starButton = row.querySelector('button[onclick^="toggleStarPlayer"]');
+            if (starButton) {
+                const starIcon = starButton.querySelector('svg');
+                if (newStarredStatus) {
+                    starButton.classList.add('text-yellow-500');
+                    starButton.classList.remove('text-gray-400');
+                    starIcon.setAttribute('fill', 'currentColor');
+                } else {
+                    starButton.classList.remove('text-yellow-500');
+                    starButton.classList.add('text-gray-400');
+                    starIcon.setAttribute('fill', 'none');
+                }
+            }
+        });
+        
+        // Apply filtered view if necessary
+        if (document.getElementById('showStarredOnly').checked) {
+            filterStarredPlayers();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Failed to update starred status. Please try again.');
+    });
+}
+
+// Filter to show only starred players
+function filterStarredPlayers() {
+    const showOnlyStarred = document.getElementById('showStarredOnly').checked;
+    const playerRows = document.querySelectorAll('.player-row');
+    
+    playerRows.forEach(row => {
+        const isStarred = row.getAttribute('data-starred') === 'true';
+        if (showOnlyStarred && !isStarred) {
+            row.classList.add('hidden');
+        } else {
+            row.classList.remove('hidden');
+        }
+    });
+}
+</script>
+{% endblock %}
