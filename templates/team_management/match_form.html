@@ -249,6 +249,59 @@
             } else {
                 awayIndicator.classList.add('hidden');
             }
+            
+            // Filter the dropdown options
+            filterTeamOptions();
+        }
+        
+        // Function to filter team options
+        function filterTeamOptions() {
+            const homeTeamId = homeTeamSelect.value;
+            const awayTeamId = awayTeamSelect.value;
+            
+            // Get all options
+            const homeOptions = Array.from(homeTeamSelect.options);
+            const awayOptions = Array.from(awayTeamSelect.options);
+            
+            // Reset options first (keep the first "Select" option)
+            while (homeTeamSelect.options.length > 1) {
+                homeTeamSelect.remove(homeTeamSelect.options.length - 1);
+            }
+            
+            while (awayTeamSelect.options.length > 1) {
+                awayTeamSelect.remove(awayTeamSelect.options.length - 1);
+            }
+            
+            // Get the list of all teams
+            const teams = [];
+            {% for team in teams %}
+            teams.push({
+                id: "{{ team.id }}",
+                name: "{{ team.name }}"
+            });
+            {% endfor %}
+            
+            // Rebuild home team options, excluding the selected away team
+            teams.forEach(team => {
+                if (team.id !== awayTeamId) {
+                    const option = document.createElement('option');
+                    option.value = team.id;
+                    option.textContent = team.name;
+                    option.selected = team.id === homeTeamId;
+                    homeTeamSelect.appendChild(option);
+                }
+            });
+            
+            // Rebuild away team options, excluding the selected home team
+            teams.forEach(team => {
+                if (team.id !== homeTeamId) {
+                    const option = document.createElement('option');
+                    option.value = team.id;
+                    option.textContent = team.name;
+                    option.selected = team.id === awayTeamId;
+                    awayTeamSelect.appendChild(option);
+                }
+            });
         }
         
         // Enhanced validation with visual feedback
@@ -272,6 +325,10 @@
                 this.value = '';
                 return false;
             }
+            
+            // Update the other dropdown to filter out the selected team
+            filterTeamOptions();
+            
             return true;
         }
         
@@ -369,6 +426,9 @@
         if (homeTeamSelect.value || awayTeamSelect.value) {
             updateTeamIndicators();
         }
+        
+        // Initialize the team filtering on page load
+        filterTeamOptions();
     });
 </script>
 {% endblock %}

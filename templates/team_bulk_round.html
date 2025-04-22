@@ -226,12 +226,25 @@
     
     // Update countdown timer
     function updateBulkTimer() {
+        console.log("Updating bulk timer...");
         document.querySelectorAll('.countdown').forEach(function(element) {
             const roundId = element.dataset.roundId;
-            fetch(`/check_bulk_round_status/${roundId}`)
+            console.log(`Fetching timer for bulk round ${roundId}...`);
+            
+            fetch(`/check_bulk_round_status/${roundId}?_=${Date.now()}`, {
+                cache: 'no-store', // Prevent caching
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            })
                 .then(response => response.json())
                 .then(data => {
+                    console.log(`Bulk round ${roundId} data:`, data);
+                    
                     if (!data.active) {
+                        console.log("Bulk round ended, reloading page");
                         window.location.reload();
                         return;
                     }
@@ -239,16 +252,72 @@
                     const minutes = Math.floor(data.remaining / 60);
                     const seconds = Math.floor(data.remaining % 60);
                     
-                    document.getElementById(`minutes_${roundId}`).textContent = minutes.toString().padStart(2, '0');
-                    document.getElementById(`seconds_${roundId}`).textContent = seconds.toString().padStart(2, '0');
+                    console.log(`Updating bulk timer: ${minutes}:${seconds.toString().padStart(2, '0')}`);
+                    
+                    const minutesElement = document.getElementById(`minutes_${roundId}`);
+                    const secondsElement = document.getElementById(`seconds_${roundId}`);
+                    
+                    if (minutesElement && secondsElement) {
+                        minutesElement.textContent = minutes.toString().padStart(2, '0');
+                        secondsElement.textContent = seconds.toString().padStart(2, '0');
+                    } else {
+                        console.warn(`Timer elements not found for bulk round ${roundId}`);
+                    }
                 })
                 .catch(error => console.error('Error updating timer:', error));
         });
     }
     
+    // Function to force timer refresh
+    function forceTimerRefresh() {
+        console.log("Forcing bulk timer refresh...");
+        document.querySelectorAll('.countdown').forEach(function(element) {
+            const roundId = element.dataset.roundId;
+            const url = `/check_bulk_round_status/${roundId}?_=${Date.now()}`;
+            
+            // Add random query parameter and cache headers to bypass cache
+            fetch(url, {
+                cache: 'reload', // Force network request
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log("Force refresh response:", data);
+                // Update timer with this fresh data
+                if (data.active && data.remaining !== undefined) {
+                    const minutes = Math.floor(data.remaining / 60);
+                    const seconds = Math.floor(data.remaining % 60);
+                    
+                    const minutesElement = document.getElementById(`minutes_${roundId}`);
+                    const secondsElement = document.getElementById(`seconds_${roundId}`);
+                    
+                    if (minutesElement && secondsElement) {
+                        minutesElement.textContent = minutes.toString().padStart(2, '0');
+                        secondsElement.textContent = seconds.toString().padStart(2, '0');
+                    }
+                }
+            })
+            .catch(error => console.error("Error in force refresh:", error));
+        });
+    }
+    
     // Initialize timer
-    updateBulkTimer();
-    setInterval(updateBulkTimer, 5000);
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM loaded, initializing bulk timer...");
+        
+        // Force refresh immediately
+        forceTimerRefresh();
+        
+        // Then initialize regular updates
+        updateBulkTimer();
+        console.log("Setting up timer interval...");
+        const timerInterval = setInterval(updateBulkTimer, 1000);
+        console.log("Timer interval set:", timerInterval);
+    });
     
     // Place bulk bid
     function placeBulkBid(playerId, roundId) {

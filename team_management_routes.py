@@ -22,35 +22,53 @@ def dashboard():
 
 # Helper function to get the match points based on player categories
 def calculate_match_points(home_category, away_category, result='win'):
-    difference = abs(home_category.priority - away_category.priority)
+    # If names are passed instead of Category objects, get the actual Category objects
+    if isinstance(home_category, str):
+        home_category_obj = Category.query.filter(func.lower(Category.name) == home_category).first()
+        if not home_category_obj:
+            # Default points if category not found
+            return 3 if result == 'win' else 1 if result == 'draw' else 0
+    else:
+        home_category_obj = home_category
+        
+    if isinstance(away_category, str):
+        away_category_obj = Category.query.filter(func.lower(Category.name) == away_category).first()
+        if not away_category_obj:
+            # Default points if category not found
+            return 3 if result == 'win' else 1 if result == 'draw' else 0
+    else:
+        away_category_obj = away_category
+    
+    # Now calculate points using the Category objects
+    difference = abs(home_category_obj.priority - away_category_obj.priority)
     
     if result == 'win':
         if difference == 0:
-            return home_category.points_same_category
+            return home_category_obj.points_same_category
         elif difference == 1:
-            return home_category.points_one_level_diff
+            return home_category_obj.points_one_level_diff
         elif difference == 2:
-            return home_category.points_two_level_diff
+            return home_category_obj.points_two_level_diff
         else:
-            return home_category.points_three_level_diff
+            return home_category_obj.points_three_level_diff
     elif result == 'draw':
         if difference == 0:
-            return home_category.draw_same_category
+            return home_category_obj.draw_same_category
         elif difference == 1:
-            return home_category.draw_one_level_diff
+            return home_category_obj.draw_one_level_diff
         elif difference == 2:
-            return home_category.draw_two_level_diff
+            return home_category_obj.draw_two_level_diff
         else:
-            return home_category.draw_three_level_diff
+            return home_category_obj.draw_three_level_diff
     elif result == 'loss':
         if difference == 0:
-            return home_category.loss_same_category
+            return home_category_obj.loss_same_category
         elif difference == 1:
-            return home_category.loss_one_level_diff
+            return home_category_obj.loss_one_level_diff
         elif difference == 2:
-            return home_category.loss_two_level_diff
+            return home_category_obj.loss_two_level_diff
         else:
-            return home_category.loss_three_level_diff
+            return home_category_obj.loss_three_level_diff
     else:
         return 0
 
@@ -1621,16 +1639,34 @@ def player_leaderboard():
             else:
                 result = "draw"
             
+            # Calculate points for each matchup
+            points = 0
+            if result == "win":
+                # Calculate points based on categories
+                points = calculate_match_points(
+                    player.category.name.lower(), 
+                    opponent.category.name.lower(), 
+                    'win'
+                )
+            elif result == "draw":
+                points = calculate_match_points(
+                    player.category.name.lower(), 
+                    opponent.category.name.lower(), 
+                    'draw'
+                )
+            
             match_history.append({
                 'match_date': match.match_date,
                 'round': match.round_number,
+                'match_number': match.match_number,
                 'opponent': opponent.name,
                 'opponent_team': opponent.team.name,
                 'opponent_category': opponent.category.name,
                 'player_goals': player_goals,
                 'opponent_goals': opponent_goals,
                 'result': result,
-                'is_potm': match.potm_id == player_id
+                'is_potm': match.potm_id == player_id,
+                'points': points
             })
         
         # Calculate additional stats

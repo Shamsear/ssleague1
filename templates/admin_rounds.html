@@ -777,29 +777,87 @@ function formatTime(seconds) {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
-// Initialize timers for all active rounds
+// Function to force a timer refresh by clearing cache
+function forceTimerRefresh() {
+    console.log("Forcing timer refresh for all active rounds...");
+    
+    // Find all round timers and force refresh them
+    document.querySelectorAll('[data-round-id]').forEach(function(element) {
+        const roundId = element.getAttribute('data-round-id');
+        if (roundId) {
+            console.log(`Force refreshing timer for round ${roundId}`);
+            const url = `/check_round_status/${roundId}?_=${Date.now()}`;
+            
+            // Add random query parameter to bypass cache
+            fetch(url, {
+                cache: 'reload', // Force network request
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(`Force refresh response for round ${roundId}:`, data);
+                // Update timer with this fresh data
+                if (data.active && data.remaining !== undefined) {
+                    const timerElement = document.getElementById(`timer-remaining-${roundId}`);
+                    if (timerElement) {
+                        timerElement.textContent = formatTime(data.remaining);
+                    }
+                }
+            })
+            .catch(error => console.error(`Error forcing refresh for round ${roundId}:`, error));
+        }
+    });
+}
+
+// Initialize timers for active rounds
 function initializeTimers() {
-    {% for round in active_rounds %}
-    initTimer({{ round.id }});
-    {% endfor %}
+    console.log("Initializing timers for all active rounds...");
+    
+    // First force refresh all timers
+    forceTimerRefresh();
+    
+    // Then start regular timer updates
+    document.querySelectorAll('[data-round-id]').forEach(el => {
+        const roundId = el.getAttribute('data-round-id');
+        if (roundId) {
+            // Initialize timer for this round
+            initTimer(parseInt(roundId));
+        }
+    });
 }
 
 // Initialize timer for a specific round
 async function initTimer(roundId) {
     try {
+        console.log(`Initializing timer for round ${roundId}...`);
+        
         // Immediately show a placeholder while we fetch the initial time
         const timerElement = document.getElementById(`timer-remaining-${roundId}`);
         if (timerElement) {
             timerElement.textContent = "Loading...";
         }
         
-        // Fetch initial time from server right away
-        const initialResponse = await fetch(`/check_round_status/${roundId}`);
+        // Fetch initial time from server right away with cache prevention
+        console.log(`Fetching initial time for round ${roundId}...`);
+        const initialResponse = await fetch(`/check_round_status/${roundId}?_=${Date.now()}`, {
+            cache: 'no-store', // Prevent caching
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        });
         const initialData = await initialResponse.json();
+        console.log(`Initial data for round ${roundId}:`, initialData);
         
         // Update timer with initial value immediately
         if (timerElement && initialData.active) {
             timerElement.textContent = formatTime(initialData.remaining);
+            console.log(`Updated initial timer for round ${roundId}: ${formatTime(initialData.remaining)}`);
             
             // Set visual indicators based on remaining time
             const timerContainer = document.getElementById(`timer-${roundId}`);
@@ -816,11 +874,20 @@ async function initTimer(roundId) {
         
         const checkStatus = async () => {
             try {
-                const response = await fetch(`/check_round_status/${roundId}`);
+                console.log(`Checking status update for round ${roundId}...`);
+                const response = await fetch(`/check_round_status/${roundId}?_=${Date.now()}`, {
+                    cache: 'no-store', // Prevent caching
+                    headers: {
+                        'Cache-Control': 'no-cache, no-store, must-revalidate',
+                        'Pragma': 'no-cache',
+                        'Expires': '0'
+                    }
+                });
                 const data = await response.json();
                 
                 if (!data.active) {
                     // Round is no longer active, update content instead of full reload
+                    console.log(`Round ${roundId} is no longer active, updating content...`);
                     await fetchUpdates(true);
                     hideLoading(); // Ensure loading is hidden
                     return;
@@ -849,7 +916,7 @@ async function initTimer(roundId) {
                 // Check again in 1 second
                 setTimeout(checkStatus, 1000);
             } catch (error) {
-                console.error('Error checking round status:', error);
+                console.error(`Error checking round ${roundId} status:`, error);
                 hideLoading(); // Ensure loading is hidden on error
                 // Retry after a delay
                 setTimeout(checkStatus, 5000);

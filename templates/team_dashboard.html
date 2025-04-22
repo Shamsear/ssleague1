@@ -1267,6 +1267,12 @@ function showToast(message, type = 'info') {
 
 // Initialize timers for all active rounds
 function initializeTimers() {
+    console.log('Initializing all timers...');
+    
+    // Force immediate refresh all timers first
+    forceTimerRefresh();
+    
+    // Then start regular timer updates
     const activeRounds = document.querySelectorAll('[data-round-id]');
     activeRounds.forEach(round => {
         const roundId = round.dataset.roundId;
@@ -1276,11 +1282,63 @@ function initializeTimers() {
     });
 }
 
+// Function to force a timer refresh by clearing cache
+function forceTimerRefresh() {
+    console.log("Forcing timer refresh for all timers...");
+    
+    // Find all round timers and force refresh them
+    document.querySelectorAll('[data-round-id]').forEach(function(element) {
+        const roundId = element.dataset.roundId;
+        if (roundId) {
+            console.log(`Force refreshing timer for round ${roundId}`);
+            const url = `/check_round_status/${roundId}?_=${Date.now()}`;
+            
+            // Add random query parameter to bypass cache
+            fetch(url, {
+                cache: 'reload', // Force network request
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                console.log(`Force refresh response for round ${roundId}:`, data);
+                // Update timer with this fresh data
+                if (data.active && data.remaining !== undefined) {
+                    const minutes = Math.floor(data.remaining / 60);
+                    const seconds = Math.floor(data.remaining % 60);
+                    
+                    const timerElement = document.getElementById(`timer-remaining-${roundId}`);
+                    if (timerElement) {
+                        timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    }
+                }
+            })
+            .catch(error => console.error(`Error forcing refresh for round ${roundId}:`, error));
+        }
+    });
+}
+
 async function initTimer(roundId) {
     try {
+        console.log(`Initializing timer for round ${roundId}...`);
+        
         const checkStatus = async () => {
-            const response = await fetch(`/check_round_status/${roundId}`);
+            console.log(`Checking status for round ${roundId}...`);
+            
+            // Add timestamp and cache prevention headers
+            const response = await fetch(`/check_round_status/${roundId}?_=${Date.now()}`, {
+                cache: 'no-store', // Prevent caching
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
             const data = await response.json();
+            console.log(`Round ${roundId} data:`, data);
             
             if (!data.active) {
                 // Round is no longer active, show notification and reload
@@ -1294,6 +1352,8 @@ async function initTimer(roundId) {
             const minutes = Math.floor(remainingSeconds / 60);
             const seconds = remainingSeconds % 60;
             const timerElement = document.getElementById(`timer-remaining-${roundId}`);
+            
+            console.log(`Updating timer for round ${roundId}: ${minutes}:${seconds.toString().padStart(2, '0')}`);
             
             if (timerElement) {
                 timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
@@ -1310,6 +1370,8 @@ async function initTimer(roundId) {
                     timerContainer.className = 'text-sm font-medium bg-green-100 px-4 py-2 rounded-full';
                     timerElement.className = 'text-green-600 font-mono';
                 }
+            } else {
+                console.warn(`Timer element not found for round ${roundId}`);
             }
             
             // Check again in 1 second

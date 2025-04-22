@@ -338,11 +338,33 @@
 <script>
     // Update countdown timers
     function updateTimers() {
+        console.log("Updating timers...");
         document.querySelectorAll('.countdown').forEach(function(element) {
             const roundId = element.dataset.roundId;
-            fetch(`/check_round_status/${roundId}`)
-                .then(response => response.json())
+            console.log(`Fetching timer for round ${roundId}...`);
+            
+            // Add timestamp to URL to prevent caching
+            const timestamp = new Date().getTime();
+            fetch(`/check_round_status/${roundId}?_=${timestamp}`, {
+                method: 'GET',
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Network response error: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    console.log(`Round ${roundId} data:`, data);
+                    
                     if (!data.active) {
                         // Handle different scenarios when round is no longer active
                         if (data.redirect_to) {
@@ -376,6 +398,8 @@
                         const minutesElement = document.getElementById(`minutes_${roundId}`);
                         const secondsElement = document.getElementById(`seconds_${roundId}`);
                         
+                        console.log(`Updating timer: ${minutes}:${seconds.toString().padStart(2, '0')}`);
+                        
                         if (minutesElement && secondsElement) {
                             minutesElement.textContent = minutes.toString().padStart(2, '0');
                             secondsElement.textContent = seconds.toString().padStart(2, '0');
@@ -400,6 +424,8 @@
                                     timerElement.classList.remove('text-orange-500', 'text-red-600', 'animate-pulse');
                                 }
                             }
+                        } else {
+                            console.warn(`Timer elements not found for round ${roundId}`);
                         }
                     }
                 })
@@ -412,8 +438,26 @@
         // Update bulk round timer if exists
         document.querySelectorAll('.bulk-countdown').forEach(function(element) {
             const roundId = element.dataset.roundId;
-            fetch(`/check_bulk_round_status/${roundId}`)
-                .then(response => response.json())
+            
+            // Add timestamp to URL to prevent caching
+            const timestamp = new Date().getTime();
+            fetch(`/check_bulk_round_status/${roundId}?_=${timestamp}`, {
+                method: 'GET',
+                cache: 'no-store',
+                credentials: 'same-origin',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Network response error: ${response.status}`);
+                    }
+                    return response.json();
+                })
                 .then(data => {
                     if (!data.active) {
                         // Enhanced handling for bulk round completion
@@ -559,10 +603,20 @@
     
     // Initialize everything when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
+        console.log("DOM loaded, initializing timers...");
+        
+        // Force reload timer data immediately
+        forceTimerRefresh();
+        
         // Initialize timers
         updateTimers();
+        
         // Update timers more frequently for a smoother experience
-        setInterval(updateTimers, 1000);
+        console.log("Setting up timer interval...");
+        const timerInterval = setInterval(updateTimers, 1000);
+        
+        // Log interval ID for debugging
+        console.log("Timer interval set:", timerInterval);
         
         // Setup bid forms
         setupBidForms();
@@ -575,5 +629,95 @@
             });
         });
     });
+
+    // Function to force a timer refresh by clearing cache
+    function forceTimerRefresh() {
+        console.log("Forcing timer refresh...");
+        
+        // Clear browser cache for timer endpoints
+        document.querySelectorAll('.countdown').forEach(function(element) {
+            const roundId = element.dataset.roundId;
+            const timestamp = Date.now();
+            const url = `/check_round_status/${roundId}?_=${timestamp}`;
+            
+            // Add random query parameter to bypass cache
+            fetch(url, {
+                method: 'GET',
+                cache: 'no-cache',
+                credentials: 'same-origin',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Network response error: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Force refresh response:", data);
+                // Update timer with this fresh data
+                if (data.active && data.remaining !== undefined) {
+                    const minutes = Math.floor(data.remaining / 60);
+                    const seconds = Math.floor(data.remaining % 60);
+                    
+                    const minutesElement = document.getElementById(`minutes_${roundId}`);
+                    const secondsElement = document.getElementById(`seconds_${roundId}`);
+                    
+                    if (minutesElement && secondsElement) {
+                        minutesElement.textContent = minutes.toString().padStart(2, '0');
+                        secondsElement.textContent = seconds.toString().padStart(2, '0');
+                    }
+                }
+            })
+            .catch(error => console.error("Error in force refresh:", error));
+        });
+        
+        // Do the same for bulk countdowns
+        document.querySelectorAll('.bulk-countdown').forEach(function(element) {
+            const roundId = element.dataset.roundId;
+            const timestamp = Date.now();
+            const url = `/check_bulk_round_status/${roundId}?_=${timestamp}`;
+            
+            fetch(url, {
+                method: 'GET',
+                cache: 'no-cache',
+                credentials: 'same-origin',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`Network response error: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Force bulk refresh response:", data);
+                // Update timer with fresh data
+                if (data.active && data.remaining !== undefined) {
+                    const minutes = Math.floor(data.remaining / 60);
+                    const seconds = Math.floor(data.remaining % 60);
+                    
+                    const minutesElement = document.getElementById(`bulk_minutes_${roundId}`);
+                    const secondsElement = document.getElementById(`bulk_seconds_${roundId}`);
+                    
+                    if (minutesElement && secondsElement) {
+                        minutesElement.textContent = minutes.toString().padStart(2, '0');
+                        secondsElement.textContent = seconds.toString().padStart(2, '0');
+                    }
+                }
+            })
+            .catch(error => console.error("Error in force bulk refresh:", error));
+        });
+    }
 </script>
 {% endblock %} 

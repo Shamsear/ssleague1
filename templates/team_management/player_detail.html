@@ -203,6 +203,20 @@
                         Overall Statistics
                     </h3>
                     
+                    <!-- Points display -->
+                    <div class="mb-6 bg-blue-50 rounded-xl p-4 shadow-sm border border-blue-100 flex items-center justify-between">
+                        <div>
+                            <p class="text-sm text-blue-700 font-medium">TOTAL POINTS</p>
+                            <p class="text-3xl font-bold text-blue-800">{{ player.points|default(0) }}</p>
+                        </div>
+                        {% if player.ranking %}
+                        <div class="bg-white px-4 py-2 rounded-lg shadow-sm">
+                            <p class="text-xs text-gray-500">League Ranking</p>
+                            <p class="text-xl font-bold text-primary">#{{ player.ranking }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
                     <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4">
                         <!-- Summary statistics cards -->
                         <div class="glass-card rounded-xl bg-white/30 p-3 text-center transform hover:scale-105 transition-all duration-300">
@@ -216,6 +230,11 @@
                         </div>
                         
                         <div class="glass-card rounded-xl bg-white/30 p-3 text-center transform hover:scale-105 transition-all duration-300">
+                            <p class="text-xs text-gray-500 mb-1">Clean Sheets</p>
+                            <p class="text-2xl font-bold text-blue-600">{{ player.clean_sheets|default(0) }}</p>
+                        </div>
+                        
+                        <div class="glass-card rounded-xl bg-white/30 p-3 text-center transform hover:scale-105 transition-all duration-300">
                             <p class="text-xs text-gray-500 mb-1">Win Rate</p>
                             <p class="text-2xl font-bold text-green-600">
                                 {% if player.played > 0 %}
@@ -224,11 +243,6 @@
                                     0%
                                 {% endif %}
                             </p>
-                        </div>
-                        
-                        <div class="glass-card rounded-xl bg-white/30 p-3 text-center transform hover:scale-105 transition-all duration-300">
-                            <p class="text-xs text-gray-500 mb-1">Clean Sheets</p>
-                            <p class="text-2xl font-bold text-blue-600">{{ player.clean_sheets|default(0) }}</p>
                         </div>
                     </div>
                     
@@ -296,63 +310,63 @@
                         <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        Weekly Performance
+                        Round Performance
                     </h3>
                     
-                    {% if player.weekly_stats and player.weekly_stats|length > 0 %}
+                    {% if player.round_performance and player.round_performance|length > 0 %}
                     <div class="space-y-4">
-                        {% for week in player.weekly_stats %}
+                        {% for round_key, round_data in player.round_performance.items() %}
                         <div class="glass rounded-xl p-4 bg-white/40 hover:bg-white/50 transition-all duration-300">
                             <div class="flex justify-between items-center mb-3">
-                                <h4 class="text-sm font-semibold text-gray-700">Week {{ week.week_number }}</h4>
+                                <h4 class="text-sm font-semibold text-gray-700">{{ round_key|capitalize }}</h4>
                                 <span class="text-xs px-2 py-1 rounded-full 
-                                    {% if week.result == 'W' %}bg-green-100 text-green-800
-                                    {% elif week.result == 'D' %}bg-yellow-100 text-yellow-800
-                                    {% elif week.result == 'L' %}bg-red-100 text-red-800
-                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                    {{ week.result|default('-') }}
+                                    {% if round_data.wins > round_data.losses %}bg-green-100 text-green-800
+                                    {% elif round_data.wins < round_data.losses %}bg-red-100 text-red-800
+                                    {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                                    {{ round_data.matches }} Matches
                                 </span>
                             </div>
                             
                             <div class="grid grid-cols-3 gap-2 text-center">
                                 <div class="bg-white/50 rounded-lg p-2">
-                                    <p class="text-xs text-gray-500 mb-1">GS</p>
-                                    <p class="text-lg font-bold text-green-600">{{ week.goals_scored|default(0) }}</p>
+                                    <p class="text-xs text-gray-500 mb-1">Goals</p>
+                                    <p class="text-lg font-bold text-green-600">{{ round_data.goals|default(0) }}</p>
                                 </div>
                                 
                                 <div class="bg-white/50 rounded-lg p-2">
-                                    <p class="text-xs text-gray-500 mb-1">GC</p>
-                                    <p class="text-lg font-bold text-red-600">{{ week.goals_conceded|default(0) }}</p>
+                                    <p class="text-xs text-gray-500 mb-1">Conceded</p>
+                                    <p class="text-lg font-bold text-red-600">{{ round_data.goals_conceded|default(0) }}</p>
                                 </div>
                                 
                                 <div class="bg-white/50 rounded-lg p-2">
                                     <p class="text-xs text-gray-500 mb-1">GD</p>
                                     <p class="text-lg font-bold 
-                                        {% if week.goals_scored - week.goals_conceded > 0 %}text-green-600
-                                        {% elif week.goals_scored - week.goals_conceded < 0 %}text-red-600
+                                        {% if round_data.goal_difference > 0 %}text-green-600
+                                        {% elif round_data.goal_difference < 0 %}text-red-600
                                         {% else %}text-gray-600{% endif %}">
-                                        {{ week.goals_scored - week.goals_conceded }}
+                                        {{ round_data.goal_difference }}
                                     </p>
                                 </div>
                             </div>
                             
-                            <div class="grid grid-cols-2 gap-2 text-center mt-2">
+                            <div class="grid grid-cols-3 gap-2 text-center mt-2">
+                                <div class="bg-white/50 rounded-lg p-2">
+                                    <p class="text-xs text-gray-500 mb-1">W/D/L</p>
+                                    <p class="text-sm font-bold text-gray-700">
+                                        {{ round_data.wins }}/{{ round_data.draws }}/{{ round_data.losses }}
+                                    </p>
+                                </div>
+                                
                                 <div class="bg-white/50 rounded-lg p-2">
                                     <p class="text-xs text-gray-500 mb-1">POTM</p>
-                                    <p class="text-lg font-bold text-amber-600">{{ week.potm_count|default(0) }}</p>
+                                    <p class="text-lg font-bold text-amber-600">{{ round_data.potm_count|default(0) }}</p>
                                 </div>
                                 
                                 <div class="bg-white/50 rounded-lg p-2">
                                     <p class="text-xs text-gray-500 mb-1">Points</p>
-                                    <p class="text-lg font-bold text-blue-600">{{ week.points|default(0) }}</p>
+                                    <p class="text-lg font-bold text-blue-600">{{ round_data.points|default(0) }}</p>
                                 </div>
                             </div>
-                            
-                            {% if week.notes %}
-                            <div class="mt-3 text-xs text-gray-600 bg-white/50 p-2 rounded-lg">
-                                {{ week.notes }}
-                            </div>
-                            {% endif %}
                         </div>
                         {% endfor %}
                     </div>
@@ -361,7 +375,7 @@
                         <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>
-                        <p class="text-gray-500">No weekly statistics available yet</p>
+                        <p class="text-gray-500">No round statistics available yet</p>
                     </div>
                     {% endif %}
                 </div>
@@ -411,22 +425,22 @@
                                         {% endif %}
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm font-medium 
-                                        {% if match.result == 'W' %}text-green-600 
-                                        {% elif match.result == 'L' %}text-red-600
+                                        {% if match.result == 'win' %}text-green-600 
+                                        {% elif match.result == 'loss' %}text-red-600
                                         {% else %}text-amber-500{% endif %}">
-                                        {{ match.result }}
+                                        {{ match.result|capitalize }}
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-center text-green-600 font-medium">
-                                        {{ match.goals_scored|default(0) }}
+                                        {{ match.player_goals|default(0) }}
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-center text-red-600 font-medium">
-                                        {{ match.goals_conceded|default(0) }}
+                                        {{ match.opponent_goals|default(0) }}
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-center font-medium
-                                        {% if match.goals_scored - match.goals_conceded > 0 %}text-green-600 
-                                        {% elif match.goals_scored - match.goals_conceded < 0 %}text-red-600
+                                        {% if match.player_goals - match.opponent_goals > 0 %}text-green-600 
+                                        {% elif match.player_goals - match.opponent_goals < 0 %}text-red-600
                                         {% else %}text-gray-600{% endif %}">
-                                        {{ match.goals_scored - match.goals_conceded }}
+                                        {{ match.player_goals - match.opponent_goals }}
                                     </td>
                                     <td class="px-4 py-2 whitespace-nowrap text-sm text-center text-amber-600 font-medium">
                                         {% if match.is_potm %}✓{% else %}—{% endif %}

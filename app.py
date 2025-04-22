@@ -419,26 +419,41 @@ def update_round_timer(round_id):
 @app.route('/check_round_status/<int:round_id>')
 @login_required
 def check_round_status(round_id):
+    # Add no-cache headers to prevent browser caching
+    response = make_response()
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
     round = Round.query.get_or_404(round_id)
     if not round.is_active:
-        return jsonify({'active': False, 'message': 'Round is already finalized'})
+        data = {'active': False, 'message': 'Round is already finalized'}
+        response.data = json.dumps(data)
+        response.content_type = 'application/json'
+        return response
     
     expired = round.is_timer_expired()
     if expired:
         # Finalize the round if expired
         finalize_round_internal(round_id)
-        return jsonify({'active': False, 'message': 'Round timer expired and has been finalized'})
+        data = {'active': False, 'message': 'Round timer expired and has been finalized'}
+        response.data = json.dumps(data)
+        response.content_type = 'application/json'
+        return response
     
     # Calculate remaining time
     elapsed = (datetime.utcnow() - round.start_time).total_seconds() if round.start_time else 0
     remaining = max(0, round.duration - elapsed)
     
-    return jsonify({
+    data = {
         'active': True,
         'remaining': remaining,
         'duration': round.duration,
         'start_time': round.start_time.isoformat() if round.start_time else None
-    })
+    }
+    response.data = json.dumps(data)
+    response.content_type = 'application/json'
+    return response
 
 def finalize_round_internal(round_id):
     """Internal function to finalize a round, can be called programmatically"""
@@ -2649,18 +2664,30 @@ def delete_bulk_bid(bid_id):
 @app.route('/check_bulk_round_status/<int:round_id>')
 @login_required
 def check_bulk_round_status(round_id):
+    # Add no-cache headers to prevent browser caching
+    response = make_response()
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
     bulk_round = BulkBidRound.query.get_or_404(round_id)
     
     if not bulk_round.is_active:
-        return jsonify({'active': False})
+        data = {'active': False}
+        response.data = json.dumps(data)
+        response.content_type = 'application/json'
+        return response
     
     elapsed = (datetime.utcnow() - bulk_round.start_time).total_seconds()
     remaining = max(bulk_round.duration - elapsed, 0)
     
-    return jsonify({
+    data = {
         'active': True,
         'remaining': remaining
-    })
+    }
+    response.data = json.dumps(data)
+    response.content_type = 'application/json'
+    return response
 
 @app.route('/team_bulk_tiebreaker/<int:tiebreaker_id>')
 @login_required
