@@ -36,7 +36,7 @@
                 <p class="text-sm text-gray-600 mt-1">Track team performance and rankings throughout the season</p>
             </div>
             <div class="flex flex-wrap gap-3 mt-2 sm:mt-0">
-                <a href="{{ url_for('team_management.dashboard') }}" class="inline-flex items-center justify-center text-primary hover:text-primary-dark transition-colors px-3 py-2 rounded-lg hover:bg-white/50">
+                <a href="{% if current_user.is_admin %}{{ url_for('team_management.team_management_dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}" class="inline-flex items-center justify-center text-primary hover:text-primary-dark transition-colors px-3 py-2 rounded-lg hover:bg-white/50">
                     <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
                 </svg>

@@ -7,9 +7,9 @@ from sqlalchemy import func, desc, or_
 team_management = Blueprint('team_management', __name__)
 
 # Dashboard route
-@team_management.route('/dashboard')
+@team_management.route('/team_management_dashboard')
 @login_required
-def dashboard():
+def team_management_dashboard():
     # Get all teams
     teams = Team.query.all()
     
@@ -140,61 +140,77 @@ def edit_category(id):
     category = Category.query.get_or_404(id)
     
     if request.method == 'POST':
-        category.name = request.form.get('name')
-        category.color = request.form.get('color')
-        category.priority = request.form.get('priority')
-        category.points_same_category = request.form.get('points_same_category', 8, type=int)
-        category.points_one_level_diff = request.form.get('points_one_level_diff', 7, type=int)
-        category.points_two_level_diff = request.form.get('points_two_level_diff', 6, type=int)
-        category.points_three_level_diff = request.form.get('points_three_level_diff', 5, type=int)
-        
-        # Add draw points
-        category.draw_same_category = request.form.get('draw_same_category', 4, type=int)
-        category.draw_one_level_diff = request.form.get('draw_one_level_diff', 3, type=int)
-        category.draw_two_level_diff = request.form.get('draw_two_level_diff', 3, type=int)
-        category.draw_three_level_diff = request.form.get('draw_three_level_diff', 2, type=int)
-        
-        # Add loss points
-        category.loss_same_category = request.form.get('loss_same_category', 1, type=int)
-        category.loss_one_level_diff = request.form.get('loss_one_level_diff', 1, type=int)
-        category.loss_two_level_diff = request.form.get('loss_two_level_diff', 1, type=int)
-        category.loss_three_level_diff = request.form.get('loss_three_level_diff', 0, type=int)
-        
-        db.session.commit()
-        
-        # Completely reset all player and team stats before recalculating
-        player_stats = PlayerStats.query.all()
-        for ps in player_stats:
-            ps.played = 0
-            ps.wins = 0
-            ps.draws = 0
-            ps.losses = 0
-            ps.goals_scored = 0
-            ps.goals_conceded = 0
-            ps.clean_sheets = 0
-            ps.points = 0
-        
-        team_stats = TeamStats.query.all()
-        for ts in team_stats:
-            ts.played = 0
-            ts.wins = 0
-            ts.draws = 0
-            ts.losses = 0
-            ts.goals_for = 0
-            ts.goals_against = 0
-            ts.points = 0
+        try:
+            category.name = request.form.get('name')
+            category.color = request.form.get('color')
+            category.priority = request.form.get('priority')
+            category.points_same_category = request.form.get('points_same_category', 8, type=int)
+            category.points_one_level_diff = request.form.get('points_one_level_diff', 7, type=int)
+            category.points_two_level_diff = request.form.get('points_two_level_diff', 6, type=int)
+            category.points_three_level_diff = request.form.get('points_three_level_diff', 5, type=int)
             
-        db.session.commit()
-        
-        # Recalculate points for all completed matches
-        completed_matches = Match.query.filter_by(is_completed=True).all()
-        for match in completed_matches:
-            update_player_and_team_stats(match.id)
+            # Add draw points
+            category.draw_same_category = request.form.get('draw_same_category', 4, type=int)
+            category.draw_one_level_diff = request.form.get('draw_one_level_diff', 3, type=int)
+            category.draw_two_level_diff = request.form.get('draw_two_level_diff', 3, type=int)
+            category.draw_three_level_diff = request.form.get('draw_three_level_diff', 2, type=int)
             
-        # No need for a second goal difference calculation here as it's already done in update_player_and_team_stats
-        
-        flash('Category updated successfully and stats recalculated', 'success')
-        return redirect(url_for('team_management.category_list'))
+            # Add loss points
+            category.loss_same_category = request.form.get('loss_same_category', 1, type=int)
+            category.loss_one_level_diff = request.form.get('loss_one_level_diff', 1, type=int)
+            category.loss_two_level_diff = request.form.get('loss_two_level_diff', 1, type=int)
+            category.loss_three_level_diff = request.form.get('loss_three_level_diff', 0, type=int)
+            
+            # Save category changes first
+            db.session.commit()
+            
+            # Now start a new transaction for stats recalculation
+            try:
+                # Completely reset all player and team stats before recalculating
+                player_stats = PlayerStats.query.all()
+                for ps in player_stats:
+                    ps.played = 0
+                    ps.wins = 0
+                    ps.draws = 0
+                    ps.losses = 0
+                    ps.goals_scored = 0
+                    ps.goals_conceded = 0
+                    ps.clean_sheets = 0
+                    ps.points = 0
+                
+                team_stats = TeamStats.query.all()
+                for ts in team_stats:
+                    ts.played = 0
+                    ts.wins = 0
+                    ts.draws = 0
+                    ts.losses = 0
+                    ts.goals_for = 0
+                    ts.goals_against = 0
+                    ts.points = 0
+                    
+                db.session.commit()
+                
+                # Recalculate points for all completed matches
+                completed_matches = Match.query.filter_by(is_completed=True).all()
+                for match in completed_matches:
+                    update_player_and_team_stats(match.id)
+                
+                flash('Category updated successfully and stats recalculated', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error recalculating stats: {str(e)}', 'danger')
+                # Log the error for debugging
+                import logging
+                logging.error(f"Error recalculating stats: {str(e)}")
+            
+            return redirect(url_for('team_management.category_list'))
+            
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error updating category: {str(e)}', 'danger')
+            # Log the error for debugging
+            import logging
+            logging.error(f"Error updating category: {str(e)}")
         
     return render_template('team_management/category_form.html', category=category)
 
@@ -227,7 +243,7 @@ def team_member_list():
     else:
         if not current_user.team:
             flash('You need to have a team first', 'warning')
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('team_management.team_management_dashboard'))
             
         team_members = TeamMember.query.filter_by(team_id=current_user.team.id).all()
         teams = [current_user.team]
@@ -247,7 +263,7 @@ def new_team_member():
     else:
         if not current_user.team:
             flash('You need to have a team first', 'warning')
-            return redirect(url_for('dashboard'))
+            return redirect(url_for('team_management.team_management_dashboard'))
             
         teams = [current_user.team]
     
@@ -798,12 +814,12 @@ def update_player_and_team_stats(match_id):
         if home_result == "win":
             home_player_stats.wins += 1
             away_player_stats.losses += 1
-        elif home_result == "loss":
-            home_player_stats.losses += 1
-            away_player_stats.wins += 1
-        else:
+        elif home_result == "draw":
             home_player_stats.draws += 1
             away_player_stats.draws += 1
+        else:  # away win
+            home_player_stats.losses += 1
+            away_player_stats.wins += 1
         
         home_player_stats.goals_scored += matchup.home_goals
         home_player_stats.goals_conceded += matchup.away_goals
@@ -905,8 +921,9 @@ def team_leaderboard():
 @team_management.route('/team_detail/<string:team_name>')
 @login_required
 def team_detail(team_name):
-    # Find the team by name
-    team = Team.query.filter_by(name=team_name).first_or_404()
+    # Find the team by name using proper parameter binding
+    # Using filter() with a parameter ensures proper escaping
+    team = Team.query.filter(Team.name == team_name).first_or_404()
     
     # Get team statistics
     team_stats = TeamStats.query.filter_by(team_id=team.id).first_or_404()
@@ -1081,8 +1098,8 @@ def team_detail(team_name):
                 'id': player.id,
                 'name': player.name,
                 'position': player.category.name,  # Using category as position
-                'games_played': stats.played,
-                'goals': stats.goals_scored,
+                'games_played': player_stats.played,
+                'goals': player_stats.goals_scored,
                 'points': player_stats.points
             }
         else:

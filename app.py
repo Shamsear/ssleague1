@@ -1245,6 +1245,7 @@ def admin_edit_player(player_id):
     player.name = data.get('name', player.name)
     player.position = data.get('position', player.position)
     player.overall_rating = data.get('overall_rating', player.overall_rating)
+    player.acquisition_value = data.get('acquisition_value', player.acquisition_value)
     
     # Get new team_id
     new_team_id = data.get('team_id', player.team_id)
@@ -2104,9 +2105,10 @@ def team_players_data():
         query = query.filter(Player.playing_style == current_playing_style)
     
     # Get starred players for the current user
-    # You need to implement this part if you have a StarredPlayer model
-    # For now, we'll use an empty list
     starred_player_ids = []
+    if current_user.team:
+        starred_players = StarredPlayer.query.filter_by(team_id=current_user.team.id).all()
+        starred_player_ids = [sp.player_id for sp in starred_players]
     
     # Paginate results
     players_pagination = query.order_by(Player.overall_rating.desc()).paginate(page=page, per_page=per_page)
@@ -2124,17 +2126,58 @@ def team_players_data():
 @login_required
 def star_player(player_id):
     """Add a player to the user's starred players list"""
-    # Implementation depends on your database model for starred players
-    # For now, just return success
-    return jsonify({'success': True, 'message': 'Player starred successfully'})
+    if not current_user.team:
+        return jsonify({'success': False, 'message': 'You do not have a team'}), 400
+    
+    # Check if player exists
+    player = Player.query.get_or_404(player_id)
+    
+    # Check if player is already starred
+    existing_star = StarredPlayer.query.filter_by(
+        team_id=current_user.team.id,
+        player_id=player_id
+    ).first()
+    
+    if existing_star:
+        return jsonify({'success': True, 'message': 'Player was already starred'}), 200
+    
+    # Add to starred players
+    new_star = StarredPlayer(
+        team_id=current_user.team.id,
+        player_id=player_id
+    )
+    
+    try:
+        db.session.add(new_star)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Player starred successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/api/unstar_player/<int:player_id>', methods=['POST'])
 @login_required
 def unstar_player(player_id):
     """Remove a player from the user's starred players list"""
-    # Implementation depends on your database model for starred players
-    # For now, just return success
-    return jsonify({'success': True, 'message': 'Player unstarred successfully'})
+    if not current_user.team:
+        return jsonify({'success': False, 'message': 'You do not have a team'}), 400
+    
+    # Find the starred player entry
+    starred_player = StarredPlayer.query.filter_by(
+        team_id=current_user.team.id,
+        player_id=player_id
+    ).first()
+    
+    if not starred_player:
+        return jsonify({'success': True, 'message': 'Player was not starred'}), 200
+    
+    try:
+        db.session.delete(starred_player)
+        db.session.commit()
+        return jsonify({'success': True, 'message': 'Player unstarred successfully'})
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'success': False, 'message': str(e)}), 500
 
 @app.route('/team_bids')
 @login_required
@@ -2219,12 +2262,19 @@ def team_round():
         # Get Config for minimum bid amount
         from config import Config
         
+        # Get starred players for this team
+        starred_player_ids = []
+        if current_user.team:
+            starred_players = StarredPlayer.query.filter_by(team_id=current_user.team.id).all()
+            starred_player_ids = [sp.player_id for sp in starred_players]
+        
         return render_template('team_round.html',
                               active_rounds=active_rounds,
                               active_bulk_round=active_bulk_round,
                               Config=Config,
                               auction_settings=AuctionSettings,
-                              completed_rounds_count=completed_rounds_count)
+                              completed_rounds_count=completed_rounds_count,
+                              starred_player_ids=starred_player_ids)
 
 # Password reset routes
 @app.route('/reset_password_request', methods=['GET', 'POST'])
@@ -2553,7 +2603,7 @@ def team_bulk_round():
     
     # Calculate available slot count (remaining slots for the team)
     team_player_count = Player.query.filter_by(team_id=current_user.team.id).count()
-    max_players_per_team = db.session.query(func.count(Player.id)).scalar() // db.session.query(func.count(Team.id)).scalar()
+    max_players_per_team = 25  # Each team can have a maximum of 25 players
     available_slots = max_players_per_team - team_player_count - len(team_bids)
     
     # Group players by position
@@ -2606,7 +2656,7 @@ def place_bulk_bid():
     
     # Calculate available slot count (remaining slots for the team)
     team_player_count = Player.query.filter_by(team_id=current_user.team.id).count()
-    max_players_per_team = db.session.query(func.count(Player.id)).scalar() // db.session.query(func.count(Team.id)).scalar()
+    max_players_per_team = 25  # Each team can have a maximum of 25 players
     
     # Count existing bids in this round
     existing_bids_count = BulkBid.query.filter_by(
@@ -4084,6 +4134,68 @@ def admin_dashboard_update():
         'active_bulk_round': bulk_round_data,
         'teams_data': teams_data
     })
+
+# Team Matches routes (read-only for team users)
+@app.route('/team/matches')
+@login_required
+def team_matches():
+    """Display a list of matches for team users (read-only)"""
+    # Only allow team users to access
+    if current_user.is_admin:
+        return redirect(url_for('team_management.match_list'))
+    
+    # Check if user has a team
+    if not current_user.team:
+        flash('You need to have a team to view matches.', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    # Get team's completed matches (where team is either home or away)
+    completed_matches = Match.query.filter(
+        ((Match.home_team_id == current_user.team.id) | (Match.away_team_id == current_user.team.id)) &
+        (Match.is_completed == True)
+    ).order_by(Match.match_date.desc()).all()
+    
+    # Get team's upcoming matches (where team is either home or away)
+    upcoming_matches = Match.query.filter(
+        ((Match.home_team_id == current_user.team.id) | (Match.away_team_id == current_user.team.id)) &
+        (Match.is_completed == False)
+    ).order_by(Match.match_date.asc()).all()
+    
+    return render_template(
+        'team_matches.html',
+        completed_matches=completed_matches,
+        upcoming_matches=upcoming_matches
+    )
+
+@app.route('/team/match/<int:match_id>')
+@login_required
+def team_match_detail(match_id):
+    """Display match details for team users (read-only)"""
+    # Only allow team users to access
+    if current_user.is_admin:
+        return redirect(url_for('team_management.match_detail', id=match_id))
+    
+    # Check if user has a team
+    if not current_user.team:
+        flash('You need to have a team to view match details.', 'warning')
+        return redirect(url_for('dashboard'))
+    
+    # Get the match
+    match = Match.query.get_or_404(match_id)
+    
+    # Make sure the match belongs to the team
+    if match.home_team_id != current_user.team.id and match.away_team_id != current_user.team.id:
+        flash('You do not have permission to view this match.', 'danger')
+        return redirect(url_for('team_matches'))
+    
+    # Get player matchups for this match
+    player_matchups = PlayerMatchup.query.filter_by(match_id=match_id).all()
+    
+    return render_template(
+        'team_match_detail.html',
+        match=match,
+        player_matchups=player_matchups
+    )
 
 if __name__ == '__main__':
     with app.app_context():

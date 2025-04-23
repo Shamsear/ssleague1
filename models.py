@@ -177,9 +177,25 @@ class Player(db.Model):
     overall_rating = db.Column(db.Integer, nullable=True)
     playing_style = db.Column(db.String(50), nullable=True)
     player_id = db.Column(db.Integer, nullable=True)
+    
+    # Define relationships
+    bids = db.relationship('Bid', backref='player', overlaps="bids,player")
 
     def has_bid_from_team(self, team_id):
         return any(bid.team_id == team_id for bid in self.bids)
+
+class StarredPlayer(db.Model):
+    """Model for storing which players are starred by which teams"""
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    team = db.relationship('Team', backref=db.backref('starred_players', lazy=True))
+    player = db.relationship('Player', backref=db.backref('starred_by', lazy=True))
+    
+    def __repr__(self):
+        return f"<StarredPlayer team_id={self.team_id} player_id={self.player_id}>"
 
 class Round(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -207,7 +223,7 @@ class Bid(db.Model):
     is_hidden = db.Column(db.Boolean, default=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     team = db.relationship('Team', backref='bids')
-    player = db.relationship('Player', backref='bids')
+    player = db.relationship('Player', foreign_keys=[player_id], backref='_bids', overlaps="bids,player")
     
     @property
     def is_tied(self):

@@ -19,7 +19,7 @@
             <h1 class="text-2xl font-bold gradient-text text-center sm:text-left">Player Leaderboard</h1>
             <p class="text-sm text-gray-500 mt-1 text-center sm:text-left">Track individual player performance throughout the season</p>
             <div class="flex flex-wrap gap-4 mt-2">
-                <a href="{{ url_for('team_management.dashboard') }}" class="inline-flex items-center text-primary hover:text-primary-dark text-center sm:text-left">
+                <a href="{% if current_user.is_admin %}{{ url_for('team_management.team_management_dashboard') }}{% else %}{{ url_for('dashboard') }}{% endif %}" class="inline-flex items-center text-primary hover:text-primary-dark text-center sm:text-left">
             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
             </svg>
