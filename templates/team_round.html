@@ -468,19 +468,39 @@
                         // Handle different scenarios when round is no longer active
                         if (data.redirect_to) {
                             // If there's a specific redirect URL (like to a tiebreaker)
-                            console.log("Redirecting to tiebreaker:", data.redirect_to);
-                            window.location.href = data.redirect_to;
-                        } else {
-                            // Check if there's an active tiebreaker notification
-                            const tiebreakerNotification = document.getElementById('tiebreaker-notification');
-                            const goToTiebreakerLink = document.getElementById('go-to-tiebreaker');
+                            console.log("Redirecting to:", data.redirect_to);
                             
-                            if (tiebreakerNotification && data.message && data.message.includes('Tiebreaker')) {
-                                // Show tiebreaker notification instead of reload
-                                tiebreakerNotification.classList.remove('hidden');
-                                if (goToTiebreakerLink && data.tiebreaker_id) {
-                                    goToTiebreakerLink.href = `/tiebreaker/${data.tiebreaker_id}`;
-                                }
+                            // Show brief notification before redirect
+                            const mainContent = document.querySelector('.container');
+                            if (mainContent) {
+                                mainContent.innerHTML = `
+                                    <div class="glass rounded-3xl p-8 max-w-md mx-auto text-center mt-12">
+                                        <div class="animate-spin mb-4 mx-auto w-12 h-12 text-primary">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                        </div>
+                                        <h2 class="text-xl font-bold text-gray-800 mb-2">Redirecting to Tiebreaker</h2>
+                                        <p class="text-gray-600">Your bid requires a tiebreaker resolution...</p>
+                                    </div>
+                                `;
+                            }
+                            
+                            // Redirect after a short delay to show the message
+                            setTimeout(() => {
+                                window.location.href = data.redirect_to;
+                            }, 1000);
+                        } else if (data.tiebreaker_id) {
+                            // If there's a tiebreaker ID but no redirect_to
+                            console.log("Tiebreaker needed, redirecting based on ID:", data.tiebreaker_id);
+                            window.location.href = `/tiebreaker/${data.tiebreaker_id}`;
+                        } else {
+                            // Check if there's a message about tiebreaker
+                            if (data.message && data.message.includes('Tiebreaker')) {
+                                // Show message and redirect to dashboard
+                                alert('A tiebreaker is in progress. Redirecting to dashboard...');
+                                window.location.href = '{{ url_for("dashboard") }}';
                             } else {
                                 // Default behavior: reload the page to show updated state
                                 console.log("Round ended, reloading page:", data.message);

@@ -23,6 +23,11 @@
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     <span id="timer-text">Updating...</span>
+                    <button id="refresh-status" class="ml-2 text-gray-500 hover:text-primary focus:outline-none" title="Refresh status">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                    </button>
                 </span>
                 <span class="ml-2 text-sm">Balance: 
                     <span class="font-medium text-primary">£{{ "{:,}".format(current_user.team.balance) }}</span>
@@ -111,7 +116,13 @@
                 <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <h3 class="text-lg font-semibold text-dark">Submit New Bid</h3>
+                <h3 class="text-lg font-semibold text-dark">
+                    {% if team_tiebreaker.new_amount %}
+                        Your Bid Status
+                    {% else %}
+                        Submit New Bid
+                    {% endif %}
+                </h3>
             </div>
             
             {% if team_tiebreaker.new_amount %}
@@ -123,15 +134,25 @@
                     </div>
                     <div class="ml-3">
                         <p class="text-sm text-green-700 leading-relaxed">
-                            You have submitted a new bid of <strong class="text-green-800">£{{ "{:,}".format(team_tiebreaker.new_amount) }}</strong>. 
-                            <span id="waiting-text">Waiting for other teams to submit their bids...</span>
+                            <strong>You've already submitted a bid of £{{ "{:,}".format(team_tiebreaker.new_amount) }}</strong>. 
+                            <span id="waiting-text">
+                                {% if bid_submitted_count < other_teams_count + 1 %}
+                                    Waiting for other teams to submit their bids ({{ bid_submitted_count }} of {{ other_teams_count + 1 }} teams have bid)...
+                                {% else %}
+                                    All teams have submitted bids. Resolving tiebreaker...
+                                {% endif %}
+                            </span>
                         </p>
                         <div class="mt-3 flex items-center" id="waiting-spinner">
                             <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                             </svg>
-                            <span class="text-xs text-green-600">Auto-refreshing...</span>
+                            <span class="text-xs text-green-600">Auto-refreshing status...</span>
+                        </div>
+                        
+                        <div class="mt-4 text-sm bg-yellow-50 p-3 rounded-md border border-yellow-100">
+                            <strong class="text-yellow-800">Important:</strong> Please wait for all teams to submit their bids or for the timer to expire. Do not navigate away from this page.
                         </div>
                     </div>
                 </div>
@@ -209,6 +230,7 @@
         const bidForm = document.getElementById('tiebreakBidForm');
         const timerContainer = document.getElementById('timer-container');
         const timerText = document.getElementById('timer-text');
+        const refreshButton = document.getElementById('refresh-status');
         
         // Initialize timer if available
         updateTimer();
@@ -244,6 +266,26 @@
             document.getElementById('bidAmount').addEventListener('input', validateBidAmount);
         }
         
+        // Add manual refresh button handler
+        if (refreshButton) {
+            refreshButton.addEventListener('click', function(e) {
+                e.preventDefault();
+                
+                // Show refreshing state
+                const originalButtonHTML = refreshButton.innerHTML;
+                refreshButton.innerHTML = `
+                    <svg class="w-4 h-4 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                `;
+                refreshButton.disabled = true;
+                
+                // Force page reload with cache busting
+                forceReload();
+            });
+        }
+        
         function validateBidAmount() {
             const bidInput = document.getElementById('bidAmount');
             const bidValue = parseInt(bidInput.value);
@@ -276,12 +318,22 @@
         
         // Handle form submission
         if (bidForm) {
+            // Track if a submission is in progress
+            let submissionInProgress = false;
+            
             bidForm.addEventListener('submit', async function(e) {
                 e.preventDefault();
+                
+                // Prevent multiple submissions
+                if (submissionInProgress) {
+                    return;
+                }
                 
                 if (!validateBidAmount()) {
                     return;
                 }
+                
+                submissionInProgress = true;
                 
                 const tiebreakerId = document.getElementById('tiebreakerId').value;
                 const bidAmount = parseInt(document.getElementById('bidAmount').value);
@@ -304,6 +356,8 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Cache-Control': 'no-cache',
+                            'Pragma': 'no-cache'
                         },
                         body: JSON.stringify({
                             tiebreaker_id: tiebreakerId,
@@ -322,7 +376,11 @@
                         submitBtn.classList.remove('bg-primary');
                         submitBtn.classList.add('bg-green-500');
                         
-                        setTimeout(() => location.reload(), 800);
+                        // Use controlled reload with cache busting instead of direct reload
+                        setTimeout(() => {
+                            const cacheBuster = new Date().getTime();
+                            window.location.href = `{{ request.path }}?_=${cacheBuster}`;
+                        }, 800);
                     } else {
                         const data = await response.json();
                         errorDiv.textContent = data.error || 'Failed to submit bid';
@@ -331,6 +389,7 @@
                         // Reset button
                         submitBtn.innerHTML = originalBtnContent;
                         submitBtn.disabled = false;
+                        submissionInProgress = false;
                     }
                 } catch (error) {
                     console.error('Error:', error);
@@ -340,13 +399,20 @@
                     // Reset button
                     submitBtn.innerHTML = originalBtnContent;
                     submitBtn.disabled = false;
+                    submissionInProgress = false;
                 }
             });
         }
         
         // Function to update timer
         function updateTimer() {
-            fetch('/check_tiebreaker_status/{{ tiebreaker.id }}')
+            const cacheBuster = new Date().getTime();
+            fetch(`/check_tiebreaker_status/{{ tiebreaker.id }}?_=${cacheBuster}`, {
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
+            })
                 .then(response => response.json())
                 .then(data => {
                     // Handle active tiebreaker that's still waiting for bids
@@ -385,48 +451,69 @@
                             timerText.textContent = data.message || 'Waiting for bids';
                         }
                         
-                        // Schedule next update
-                        setTimeout(updateTimer, 1000);
+                        // Update waiting text if we have new information about bid counts
+                        const waitingText = document.getElementById('waiting-text');
+                        if (waitingText && data.message) {
+                            waitingText.textContent = data.message;
+                        }
+                        
+                        // Detect if page needs reload due to submitted bid status change
+                        {% if not team_tiebreaker.new_amount %}
+                        // If server says we've submitted a bid but page doesn't show it yet, reload
+                        if (data.has_bid) {
+                            location.reload();
+                            return; // Stop further processing
+                        }
+                        {% endif %}
+                        
+                        // Schedule next update (more frequent updates)
+                        setTimeout(updateTimer, 750);
                     }
                     // Handle resolved tiebreaker
                     else if (data.status === 'processing' || data.status === 'completed') {
-                        // Tiebreaker is resolved, redirect to dashboard
-                        timerText.textContent = 'Resolved!';
-                        timerContainer.classList.add('bg-green-100');
-                        timerContainer.classList.remove('bg-gray-100');
-                        timerContainer.classList.remove('bg-yellow-100');
-                        timerContainer.classList.remove('bg-red-100');
-                        timerContainer.classList.remove('animate-pulse');
-                        
-                        // Show a message before redirecting
-                        const waitingText = document.getElementById('waiting-text');
-                        const waitingSpinner = document.getElementById('waiting-spinner');
-                        
-                        if (waitingText && waitingSpinner) {
-                            waitingText.textContent = 'Tiebreaker resolved! Redirecting...';
-                            waitingSpinner.innerHTML = `
-                                <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                                </svg>
-                                <span class="text-xs text-green-600">Complete</span>
-                            `;
-                        }
-                        
-                        // If there's a redirect URL provided, use it
-                        if (data.redirect_to) {
-                            setTimeout(() => {
-                                window.location.href = data.redirect_to;
-                            }, 2000);
-                        } else {
-                            setTimeout(() => {
-                                window.location.href = '{{ url_for("dashboard") }}';
-                            }, 2000);
+                        // Prevent multiple redirects by checking if we've already shown the resolved message
+                        if (timerText.textContent !== 'Resolved!') {
+                            // Tiebreaker is resolved, redirect to dashboard
+                            timerText.textContent = 'Resolved!';
+                            timerContainer.classList.add('bg-green-100');
+                            timerContainer.classList.remove('bg-gray-100');
+                            timerContainer.classList.remove('bg-yellow-100');
+                            timerContainer.classList.remove('bg-red-100');
+                            timerContainer.classList.remove('animate-pulse');
+                            
+                            // Show a message before redirecting
+                            const waitingText = document.getElementById('waiting-text');
+                            const waitingSpinner = document.getElementById('waiting-spinner');
+                            
+                            if (waitingText && waitingSpinner) {
+                                waitingText.textContent = 'Tiebreaker resolved! Redirecting...';
+                                waitingSpinner.innerHTML = `
+                                    <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    <span class="text-xs text-green-600">Complete</span>
+                                `;
+                            }
+                            
+                            // If there's a redirect URL provided, use it
+                            if (data.redirect_to) {
+                                setTimeout(() => {
+                                    window.location.href = data.redirect_to;
+                                }, 1500);
+                            } else {
+                                setTimeout(() => {
+                                    window.location.href = '{{ url_for("dashboard") }}';
+                                }, 1500);
+                            }
+                            
+                            // Don't schedule another update
+                            return;
                         }
                     }
                     // Handle any other status
                     else {
                         timerText.textContent = data.message || 'Status unknown';
-                        setTimeout(updateTimer, 2000);
+                        setTimeout(updateTimer, 1000);
                     }
                 })
                 .catch(error => {
@@ -434,8 +521,14 @@
                     timerText.textContent = 'Error updating';
                     
                     // Try again after a delay
-                    setTimeout(updateTimer, 3000);
+                    setTimeout(updateTimer, 2000);
                 });
+        }
+        
+        // Function to force reload with cache busting
+        function forceReload() {
+            const cacheBuster = new Date().getTime();
+            window.location.href = `{{ request.path }}?_=${cacheBuster}`;
         }
         
         // If we've already submitted, keep checking for updates

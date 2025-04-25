@@ -18,14 +18,25 @@
                     </div>
                     <select id="positionFilter" name="position" class="w-full sm:w-auto py-2 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
                         <option value="">All Positions</option>
+                        <optgroup label="Positions">
                         {% for position in config.POSITIONS %}
                         <option value="{{ position }}" {% if current_position == position %}selected{% endif %}>{{ position }}</option>
                         {% endfor %}
+                        </optgroup>
+                        <optgroup label="Position Groups">
+                        {% for position_group in config.POSITION_GROUPS %}
+                        <option value="{{ position_group }}" {% if current_position == position_group %}selected{% endif %}>{{ position_group }}</option>
+                        {% endfor %}
+                        </optgroup>
                     </select>
                     <select id="playingStyleFilter" name="playing_style" class="w-full sm:w-auto py-2 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
                         <option value="">All Playing Styles</option>
-                        {% for style in config.PLAYING_STYLES %}
-                        <option value="{{ style }}" {% if current_playing_style == style %}selected{% endif %}>{{ style }}</option>
+                        {% set seen_styles = [] %}
+                        {% for player in players %}
+                            {% if player.playing_style and player.playing_style not in seen_styles %}
+                                {% set _ = seen_styles.append(player.playing_style) %}
+                                <option value="{{ player.playing_style }}" {% if current_playing_style == player.playing_style %}selected{% endif %}>{{ player.playing_style }}</option>
+                            {% endif %}
                         {% endfor %}
                     </select>
                     <button type="submit" class="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all duration-300">
