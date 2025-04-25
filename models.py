@@ -179,7 +179,7 @@ class Player(db.Model):
     player_id = db.Column(db.Integer, nullable=True)
     
     # Define relationships
-    bids = db.relationship('Bid', backref='player', overlaps="bids,player")
+    bids = db.relationship('Bid', back_populates='player', foreign_keys='Bid.player_id')
 
     def has_bid_from_team(self, team_id):
         return any(bid.team_id == team_id for bid in self.bids)
@@ -223,7 +223,7 @@ class Bid(db.Model):
     is_hidden = db.Column(db.Boolean, default=True)
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     team = db.relationship('Team', backref='bids')
-    player = db.relationship('Player', foreign_keys=[player_id], backref='_bids', overlaps="bids,player")
+    player = db.relationship('Player', foreign_keys=[player_id], back_populates='bids')
     
     @property
     def is_tied(self):
