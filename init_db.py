@@ -4,6 +4,7 @@ from werkzeug.security import generate_password_hash
 import os
 import pandas as pd
 import sqlite3
+import shutil
 
 def init_database():
     """Initialize the database by creating all tables."""
@@ -30,14 +31,48 @@ def init_database():
             db.session.commit()
             print("Admin user created")
         
+        # Define possible paths for the SQLite database
+        possible_paths = [
+            'efootball_real.db',  # Local development path
+            '/opt/render/project/src/efootball_real.db',  # Root path in Render
+            '/opt/render/project/src/data/efootball_real.db'  # Persistent disk path in Render
+        ]
+        
+        # Find the first existing SQLite database path
+        db_path = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                db_path = path
+                print(f"Found SQLite database at: {db_path}")
+                break
+        
+        # If database file exists in repo but not in persistent storage on Render, copy it
+        render_data_dir = '/opt/render/project/src/data'
+        render_persistent_db = os.path.join(render_data_dir, 'efootball_real.db')
+        if os.path.exists('efootball_real.db') and os.path.exists(render_data_dir) and not os.path.exists(render_persistent_db):
+            print(f"Copying SQLite database to persistent storage: {render_persistent_db}")
+            try:
+                shutil.copy('efootball_real.db', render_persistent_db)
+                db_path = render_persistent_db
+                print("Database copied successfully")
+            except Exception as e:
+                print(f"Error copying database: {e}")
+        
         # Check if we have players
-        if Player.query.count() == 0 and os.path.exists('efootball_real.db'):
-            print("Importing players from SQLite database...")
+        if Player.query.count() == 0 and db_path:
+            print(f"Importing players from SQLite database at {db_path}...")
             # Import players from SQLite database
             try:
                 # Connect to SQLite
-                conn = sqlite3.connect('efootball_real.db')
+                conn = sqlite3.connect(db_path)
                 cursor = conn.cursor()
+                
+                # Check if the 'players_all' table exists
+                cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='players_all'")
+                if not cursor.fetchone():
+                    print("Error: 'players_all' table not found in the SQLite database")
+                    conn.close()
+                    return
                 
                 # Get player data
                 cursor.execute("""
@@ -112,6 +147,10 @@ def init_database():
             except Exception as e:
                 print(f"Error importing players: {e}")
                 db.session.rollback()
+        elif Player.query.count() == 0 and not db_path:
+            print("Error: No SQLite database found for player import")
+        else:
+            print(f"Player import skipped. Found {Player.query.count()} existing players.")
         
         print("Database initialization complete")
 

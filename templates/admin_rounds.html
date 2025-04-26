@@ -70,17 +70,17 @@
                         </div>
                     </div>
                     <div>
-                        <label for="duration" class="block text-sm font-medium text-gray-700 mb-1.5">Duration (seconds)</label>
+                        <label for="duration" class="block text-sm font-medium text-gray-700 mb-1.5">Duration (hours)</label>
                         <div class="relative">
                             <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
                                 <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                 </svg>
                             </span>
-                            <input type="number" id="duration" name="duration" value="300" min="30" required
+                            <input type="number" id="duration" name="duration" value="2" min="0.5" step="0.5" required
                                 class="pl-10 w-full py-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base shadow-sm">
                         </div>
-                        <p class="mt-1 text-xs text-gray-500">Recommended: 5-10 minutes (300-600 seconds)</p>
+                        <p class="mt-1 text-xs text-gray-500">Recommended: 2-3 hours</p>
                     </div>
                     <div>
                         <label for="max_bids_per_team" class="block text-sm font-medium text-gray-700 mb-1.5">Required Bids Per Team</label>
@@ -151,9 +151,9 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div class="glass rounded-xl p-3 backdrop-blur-sm flex items-center gap-4">
                                 <div class="relative flex-1 max-w-[120px]">
-                                    <input type="number" id="update-duration-{{ round.id }}" min="30" value="60"
+                                    <input type="number" id="update-duration-{{ round.id }}" min="1" value="1"
                                         class="w-full py-2.5 px-3 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-base shadow-sm">
-                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">sec</span>
+                                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">min</span>
                                 </div>
                                 <button onclick="updateRoundTimer({{ round.id }})"
                                     class="bg-primary/90 text-white px-4 py-2.5 rounded-xl hover:bg-primary transition-all duration-200 text-sm whitespace-nowrap flex items-center justify-center">
@@ -556,7 +556,9 @@ function hideRefreshIndicator() {
 document.getElementById('startRoundForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     const position = document.getElementById('position').value;
-    const duration = document.getElementById('duration').value;
+    const durationHours = parseFloat(document.getElementById('duration').value);
+    // Convert hours to seconds
+    const duration = Math.round(durationHours * 3600);
     const max_bids_per_team = document.getElementById('max_bids_per_team').value;
     
     showLoading('Starting new round...');
@@ -602,12 +604,16 @@ document.getElementById('startRoundForm').addEventListener('submit', async (e) =
 
 // Update Round Timer
 async function updateRoundTimer(roundId) {
-    const duration = document.getElementById(`update-duration-${roundId}`).value;
+    // Get duration in minutes (the input value is in minutes)
+    const durationMinutes = document.getElementById(`update-duration-${roundId}`).value;
     
-    if (parseInt(duration) < 30) {
-        showToast('Duration must be at least 30 seconds', 'error');
+    if (parseInt(durationMinutes) < 1) {
+        showToast('Duration must be at least 1 minute', 'error');
         return;
     }
+    
+    // Convert minutes to seconds for the API
+    const durationSeconds = parseInt(durationMinutes) * 60;
     
     showLoading('Updating timer...');
     
@@ -617,13 +623,13 @@ async function updateRoundTimer(roundId) {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ duration: duration }),
+            body: JSON.stringify({ duration: durationSeconds }),
         });
         
         if (response.ok) {
             const data = await response.json();
             hideLoading();
-            showToast(`Added ${duration} seconds to the timer`, 'success');
+            showToast(`Added ${durationMinutes} minute${parseInt(durationMinutes) !== 1 ? 's' : ''} to the timer`, 'success');
             // Fetch updates to refresh timer display
             await fetchUpdates();
         } else {
@@ -662,11 +668,7 @@ async function forcePageRefresh(maxRetries = 3, initialDelay = 500) {
             
             if (response.ok) {
                 const data = await response.json();
-                
-                // Log refresh for debugging
                 console.log('Forced page refresh successful');
-                
-                // Update all page sections
                 updatePageContent(data);
                 hideLoading();
                 return true;
@@ -770,11 +772,12 @@ async function deleteRound(roundId) {
     }
 }
 
-// Format time display (XX:XX format)
+// Format time display (HH:MM:SS format)
 function formatTime(seconds) {
-    const mins = Math.floor(seconds / 60);
+    const hours = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
     const secs = Math.floor(seconds % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
 // Function to force a timer refresh by clearing cache
@@ -788,9 +791,8 @@ function forceTimerRefresh() {
             console.log(`Force refreshing timer for round ${roundId}`);
             const url = `/check_round_status/${roundId}?_=${Date.now()}`;
             
-            // Add random query parameter to bypass cache
             fetch(url, {
-                cache: 'reload', // Force network request
+                cache: 'no-store',
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
@@ -844,7 +846,7 @@ async function initTimer(roundId) {
         // Fetch initial time from server right away with cache prevention
         console.log(`Fetching initial time for round ${roundId}...`);
         const initialResponse = await fetch(`/check_round_status/${roundId}?_=${Date.now()}`, {
-            cache: 'no-store', // Prevent caching
+            cache: 'no-store',
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
@@ -876,7 +878,7 @@ async function initTimer(roundId) {
             try {
                 console.log(`Checking status update for round ${roundId}...`);
                 const response = await fetch(`/check_round_status/${roundId}?_=${Date.now()}`, {
-                    cache: 'no-store', // Prevent caching
+                    cache: 'no-store',
                     headers: {
                         'Cache-Control': 'no-cache, no-store, must-revalidate',
                         'Pragma': 'no-cache',
@@ -889,7 +891,7 @@ async function initTimer(roundId) {
                     // Round is no longer active, update content instead of full reload
                     console.log(`Round ${roundId} is no longer active, updating content...`);
                     await fetchUpdates(true);
-                    hideLoading(); // Ensure loading is hidden
+                    hideLoading();
                     return;
                 }
                 
@@ -917,7 +919,7 @@ async function initTimer(roundId) {
                 setTimeout(checkStatus, 1000);
             } catch (error) {
                 console.error(`Error checking round ${roundId} status:`, error);
-                hideLoading(); // Ensure loading is hidden on error
+                hideLoading();
                 // Retry after a delay
                 setTimeout(checkStatus, 5000);
             }
@@ -927,7 +929,7 @@ async function initTimer(roundId) {
         checkStatus();
     } catch (error) {
         console.error('Error initializing timer:', error);
-        hideLoading(); // Ensure loading is hidden on error
+        hideLoading();
     }
 }
 
@@ -945,41 +947,29 @@ async function fetchUpdates(forceRefresh = false) {
     showRefreshIndicator();
     
     try {
-        // Use cache busting for forced refreshes
-        const cacheBuster = forceRefresh ? `?_=${Date.now()}` : '';
+        // Always add cache busting
+        const cacheBuster = `?_=${Date.now()}`;
         const headers = {
-            'X-Requested-With': 'XMLHttpRequest'
+            'X-Requested-With': 'XMLHttpRequest',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0'
         };
-        
-        // Add cache control headers for forced refreshes
-        if (forceRefresh) {
-            Object.assign(headers, {
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache',
-                'Expires': '0'
-            });
-        }
         
         const response = await fetch(`/admin/rounds_update${cacheBuster}`, {
             method: 'GET',
             headers: headers,
-            cache: forceRefresh ? 'no-store' : 'default'
+            cache: 'no-store'
         });
         
         if (response.ok) {
             const data = await response.json();
-            
-            // When force refreshing, ensure we get the latest data from server
-            if (forceRefresh) {
-                console.log("Force refreshing page content");
-            }
-            
             updatePageContent(data);
-            hideLoading(); // Always hide loading overlay after updating content
+            hideLoading();
         }
     } catch (error) {
         console.error('Error fetching updates:', error);
-        hideLoading(); // Hide loading overlay even if there's an error
+        hideLoading();
     } finally {
         isUpdating = false;
         hideRefreshIndicator();
@@ -1079,7 +1069,6 @@ function updatePageContent(data) {
                 const completedRoundsContainer = completedRoundsSection.querySelector('.space-y-4');
                 
                 if (completedRoundsContainer) {
-                    // Log the update for debugging
                     console.log('Updating completed rounds section');
                     
                     // Save scroll position

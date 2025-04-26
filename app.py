@@ -47,38 +47,6 @@ def before_request():
         public_routes = ['index', 'login', 'register', 'reset_password_request']
         if request.endpoint in public_routes:
             return redirect(url_for('dashboard'))
-        
-        # Check if teams are trying to access team_round when they have tiebreakers or no active rounds
-        if request.endpoint == 'team_round' and hasattr(current_user, 'team') and current_user.team and not current_user.is_admin:
-            # Check if there are any active team tiebreakers
-            team_tiebreakers = TeamTiebreaker.query.join(
-                Tiebreaker, TeamTiebreaker.tiebreaker_id == Tiebreaker.id
-            ).filter(
-                TeamTiebreaker.team_id == current_user.team.id,
-                Tiebreaker.resolved == False
-            ).first()
-            
-            if team_tiebreakers:
-                tiebreaker = Tiebreaker.query.get(team_tiebreakers.tiebreaker_id)
-                return redirect(url_for('get_tiebreaker', tiebreaker_id=tiebreaker.id))
-            
-            # Check for bulk tiebreakers
-            team_bulk_tiebreakers = TeamBulkTiebreaker.query.join(
-                BulkBidTiebreaker, TeamBulkTiebreaker.tiebreaker_id == BulkBidTiebreaker.id
-            ).filter(
-                TeamBulkTiebreaker.team_id == current_user.team.id,
-                TeamBulkTiebreaker.is_active == True,
-                BulkBidTiebreaker.resolved == False
-            ).first()
-            
-            if team_bulk_tiebreakers:
-                bulk_tiebreaker = BulkBidTiebreaker.query.get(team_bulk_tiebreakers.tiebreaker_id)
-                return redirect(url_for('team_bulk_tiebreaker', tiebreaker_id=bulk_tiebreaker.id))
-            
-            # Check if there are no active rounds
-            active_rounds = Round.query.filter_by(is_active=True).all()
-            if not active_rounds:
-                return redirect(url_for('dashboard'))
 
 # Add an after_request handler to set cache control headers
 @app.after_request
@@ -451,77 +419,27 @@ def update_round_timer(round_id):
 @app.route('/check_round_status/<int:round_id>')
 @login_required
 def check_round_status(round_id):
-    # Add no-cache headers to prevent browser caching
-    response = make_response()
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    
     round = Round.query.get_or_404(round_id)
+    if not round.is_active:
+        return jsonify({'active': False, 'message': 'Round is already finalized'})
     
-    # Check for tiebreakers for this team in this round
-    if current_user.team:
-        # Find tiebreakers where this team is involved and the round is this round
-        tiebreaker = Tiebreaker.query.join(
-            TeamTiebreaker, Tiebreaker.id == TeamTiebreaker.tiebreaker_id
-        ).filter(
-            Tiebreaker.round_id == round_id,
-            TeamTiebreaker.team_id == current_user.team.id,
-            Tiebreaker.resolved == False
-        ).first()
-        
-        if tiebreaker:
-            # If there's a tiebreaker, redirect to it
-            return jsonify({
-                'active': False,
-                'redirect_to': url_for('get_tiebreaker', tiebreaker_id=tiebreaker.id),
-                'message': 'Tiebreaker in progress',
-                'tiebreaker_id': tiebreaker.id
-            })
+    expired = round.is_timer_expired()
+    if expired:
+        # Finalize the round if expired
+        finalize_round_internal(round_id)
+        return jsonify({'active': False, 'message': 'Round timer expired and has been finalized'})
     
-    if round.is_active:
-        # Calculate time remaining based on round start time and duration
-        if round.start_time:
-            elapsed = (datetime.utcnow() - round.start_time).total_seconds()
-            remaining = max(0, round.duration - elapsed)
-            
-            # If timer has reached zero, check if the round should be finalized
-            if remaining <= 0:
-                # Attempt to finalize if timer expired, but don't wait for it
-                try:
-                    finalize_round_internal(round_id)
-                    # Check if the round was actually finalized
-                    round = Round.query.get(round_id)
-                    if not round.is_active:
-                        return jsonify({
-                            'active': False,
-                            'message': 'Round finalized'
-                        })
-                except Exception as e:
-                    # Log the error but continue
-                    print(f"Error finalizing round: {e}")
-                
-                # If we're still here, the round is still active despite timer expiration
-                return jsonify({
-                    'active': True,
-                    'message': 'Timer expired, waiting for finalization',
-                    'remaining': 0
-                })
-            
-            return jsonify({
-                'active': True,
-                'remaining': remaining
-            })
-        else:
-            return jsonify({
-                'active': True,
-                'message': 'Round active but timer not set'
-            })
-    else:
-        return jsonify({
-            'active': False,
-            'message': 'Round finalized'
-        })
+    # Calculate remaining time
+    elapsed = (datetime.utcnow() - round.start_time).total_seconds() if round.start_time else 0
+    remaining = max(0, round.duration - elapsed)
+    
+    data = {
+        'active': True,
+        'remaining': remaining,
+        'duration': round.duration,
+        'start_time': round.start_time.isoformat() if round.start_time else None
+    }
+    return jsonify(data)
 
 def finalize_round_internal(round_id):
     """Internal function to finalize a round, can be called programmatically"""
@@ -848,28 +766,23 @@ def logout():
 @app.route('/tiebreaker/<int:tiebreaker_id>', methods=['GET'])
 @login_required
 def get_tiebreaker(tiebreaker_id):
-    # Add no-cache headers to prevent browser caching
-    response = make_response()
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    
-    # Force fresh query
-    db.session.expire_all()
-    
     tiebreaker = Tiebreaker.query.get_or_404(tiebreaker_id)
     
     if current_user.is_admin:
         # Admin view
         team_tiebreakers = TeamTiebreaker.query.filter_by(tiebreaker_id=tiebreaker_id).all()
-        teams = [Team.query.get(tt.team_id) for tt in team_tiebreakers]
+        teams = [team_tiebreaker.team for team_tiebreaker in team_tiebreakers]
         player = Player.query.get(tiebreaker.player_id)
+        
+        # Count how many teams have submitted bids
+        teams_submitted = sum(1 for tt in team_tiebreakers if tt.new_amount is not None)
         
         return render_template('tiebreaker_admin.html', 
                              tiebreaker=tiebreaker, 
                              teams=teams,
                              team_tiebreakers=team_tiebreakers,
-                             player=player)
+                             player=player,
+                             teams_submitted=teams_submitted)
     else:
         # Team view - only show if this team is part of the tiebreaker
         team_tiebreaker = TeamTiebreaker.query.filter_by(
@@ -878,73 +791,30 @@ def get_tiebreaker(tiebreaker_id):
         ).first()
         
         if not team_tiebreaker:
-            flash('You are not authorized to view this tiebreaker.', 'error')
-            return redirect(url_for('dashboard'))
+            return jsonify({'error': 'Not authorized to view this tiebreaker'}), 403
         
-        # If the tiebreaker is resolved, redirect to dashboard
-        if tiebreaker.resolved:
-            flash('This tiebreaker has been resolved.', 'info')
-            return redirect(url_for('dashboard'))
-            
         player = Player.query.get(tiebreaker.player_id)
-        
-        # Get other teams in this tiebreaker
-        all_team_tiebreakers = TeamTiebreaker.query.filter_by(tiebreaker_id=tiebreaker_id).all()
-        other_teams_count = len(all_team_tiebreakers) - 1
-        
-        # Get bid status for all teams
-        bid_submitted_count = sum(1 for tt in all_team_tiebreakers if tt.new_amount is not None)
-        
-        # Add query parameter to prevent browser caching
-        cache_buster = int(datetime.utcnow().timestamp())
-        
-        response = make_response(render_template('tiebreaker_team.html', 
+        return render_template('tiebreaker_team.html', 
                              tiebreaker=tiebreaker,
                              team_tiebreaker=team_tiebreaker,
-                             player=player,
-                             other_teams_count=other_teams_count,
-                             bid_submitted_count=bid_submitted_count,
-                             cache_buster=cache_buster))
-        
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        return response
+                             player=player)
 
 @app.route('/submit_tiebreaker_bid', methods=['POST'])
 @login_required
 def submit_tiebreaker_bid():
-    # Add no-cache headers to prevent browser caching
-    response = make_response()
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    
     if current_user.is_admin:
-        response.data = json.dumps({'error': 'Admins cannot submit bids'})
-        response.content_type = 'application/json'
-        response.status_code = 403
-        return response
+        return jsonify({'error': 'Admins cannot submit bids'}), 403
     
     data = request.json
     tiebreaker_id = data.get('tiebreaker_id')
     new_amount = data.get('amount')
     
     if not all([tiebreaker_id, new_amount]):
-        response.data = json.dumps({'error': 'Missing required fields'})
-        response.content_type = 'application/json'
-        response.status_code = 400
-        return response
-    
-    # Force a fresh query to avoid stale data
-    db.session.expire_all()
+        return jsonify({'error': 'Missing required fields'}), 400
     
     tiebreaker = Tiebreaker.query.get_or_404(tiebreaker_id)
     if tiebreaker.resolved:
-        response.data = json.dumps({'error': 'Tiebreaker already resolved'})
-        response.content_type = 'application/json'
-        response.status_code = 400
-        return response
+        return jsonify({'error': 'Tiebreaker already resolved'}), 400
     
     team_tiebreaker = TeamTiebreaker.query.filter_by(
         tiebreaker_id=tiebreaker_id,
@@ -952,37 +822,21 @@ def submit_tiebreaker_bid():
     ).first()
     
     if not team_tiebreaker:
-        response.data = json.dumps({'error': 'Your team is not part of this tiebreaker'})
-        response.content_type = 'application/json'
-        response.status_code = 403
-        return response
-    
-    # Check if team has already submitted a bid
-    if team_tiebreaker.new_amount is not None:
-        response.data = json.dumps({'error': 'You have already submitted a bid for this tiebreaker'})
-        response.content_type = 'application/json'
-        response.status_code = 400
-        return response
+        return jsonify({'error': 'Your team is not part of this tiebreaker'}), 403
     
     # New bid must be higher than original
     if new_amount <= tiebreaker.original_amount:
-        response.data = json.dumps({'error': f'New bid must be higher than original amount of {tiebreaker.original_amount}'})
-        response.content_type = 'application/json'
-        response.status_code = 400
-        return response
+        return jsonify({'error': f'New bid must be higher than original amount of {tiebreaker.original_amount}'}), 400
     
     # Check team balance
     if current_user.team.balance < new_amount:
-        response.data = json.dumps({'error': 'Insufficient balance'})
-        response.content_type = 'application/json'
-        response.status_code = 400
-        return response
+        return jsonify({'error': 'Insufficient balance'}), 400
     
     # Update the team's tiebreaker bid
     team_tiebreaker.new_amount = new_amount
     db.session.commit()
     
-    # Check if all teams have submitted new bids - force fresh query
+    # Check if all teams have submitted new bids
     all_team_tiebreakers = TeamTiebreaker.query.filter_by(tiebreaker_id=tiebreaker_id).all()
     all_submitted = all(tt.new_amount is not None for tt in all_team_tiebreakers)
     
@@ -1011,31 +865,16 @@ def submit_tiebreaker_bid():
         result = finalize_round_internal(round_id)
         
         if isinstance(result, dict) and result.get("status") == "success":
-            response.data = json.dumps({'message': 'Tiebreaker resolved and round finalized', 'redirect_to': url_for('dashboard')})
-            response.content_type = 'application/json'
-            return response
+            return jsonify({'message': 'Tiebreaker resolved and round finalized'})
         
         # If we get here, round finalization might require more tiebreakers
-        response.data = json.dumps({'message': 'Tiebreaker resolved, additional processing needed', 'redirect_to': url_for('dashboard')})
-        response.content_type = 'application/json'
-        return response
+        return jsonify({'message': 'Tiebreaker resolved, additional processing needed'})
     
-    response.data = json.dumps({'message': 'Bid submitted successfully, waiting for other teams'})
-    response.content_type = 'application/json'
-    return response
+    return jsonify({'message': 'Bid submitted successfully, waiting for other teams'})
 
 @app.route('/check_tiebreaker_status/<int:tiebreaker_id>')
 @login_required
 def check_tiebreaker_status(tiebreaker_id):
-    # Add no-cache headers to prevent browser caching
-    response = make_response()
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    
-    # Force fresh database query
-    db.session.expire_all()
-    
     tiebreaker = Tiebreaker.query.get_or_404(tiebreaker_id)
     
     # Check if this tiebreaker is resolved
@@ -1043,48 +882,25 @@ def check_tiebreaker_status(tiebreaker_id):
         # Check if the round is still active
         round = Round.query.get(tiebreaker.round_id)
         if round.is_active:
-            data = {
+            return jsonify({
                 'status': 'processing',
-                'message': 'Tiebreaker resolved, round still processing',
-                'redirect_to': url_for('dashboard')
-            }
+                'message': 'Tiebreaker resolved, round still processing'
+            })
         else:
-            data = {
+            return jsonify({
                 'status': 'completed',
-                'message': 'Round finalized',
-                'redirect_to': url_for('dashboard')
-            }
-        
-        response.data = json.dumps(data)
-        response.content_type = 'application/json'
-        return response
+                'message': 'Round finalized'
+            })
     
     # Count how many teams have submitted bids
     team_tiebreakers = TeamTiebreaker.query.filter_by(tiebreaker_id=tiebreaker_id).all()
     submitted = sum(1 for tt in team_tiebreakers if tt.new_amount is not None)
     total = len(team_tiebreakers)
     
-    # Check if current team has submitted a bid
-    current_team_tiebreaker = next((tt for tt in team_tiebreakers if tt.team_id == current_user.team.id), None)
-    has_bid = current_team_tiebreaker and current_team_tiebreaker.new_amount is not None
-    
-    # Get the time remaining
-    elapsed = (datetime.utcnow() - tiebreaker.timestamp).total_seconds()
-    remaining = max(0, 300 - elapsed)  # 5 minute timer
-    
-    data = {
+    return jsonify({
         'status': 'waiting',
-        'message': f'{submitted} of {total} teams have submitted tiebreaker bids',
-        'active': True,
-        'has_bid': has_bid,
-        'remaining': remaining,
-        'current_amount': current_team_tiebreaker.new_amount if has_bid else None,
-        'timestamp': datetime.utcnow().isoformat()  # Add timestamp to track freshness
-    }
-    
-    response.data = json.dumps(data)
-    response.content_type = 'application/json'
-    return response
+        'message': f'{submitted} of {total} teams have submitted tiebreaker bids'
+    })
 
 @app.route('/players')
 @login_required
@@ -2391,12 +2207,6 @@ def team_bids():
 @app.route('/team_round')
 @login_required
 def team_round():
-    # Add no-cache headers to prevent browser caching
-    response = make_response()
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    
     # Check if user has any active tiebreakers
     from models import TeamTiebreaker, Tiebreaker
     
@@ -2412,9 +2222,7 @@ def team_round():
         
         if team_bulk_tiebreakers:
             tiebreaker = BulkBidTiebreaker.query.get(team_bulk_tiebreakers[0].tiebreaker_id)
-            # Double-check tiebreaker is not resolved
-            if not tiebreaker.resolved:
-                return redirect(url_for('team_bulk_tiebreaker', tiebreaker_id=tiebreaker.id))
+            return redirect(url_for('team_bulk_tiebreaker', tiebreaker_id=tiebreaker.id))
         
         # Check for regular tiebreakers
         team_tiebreakers = TeamTiebreaker.query.join(
@@ -2427,40 +2235,15 @@ def team_round():
         if team_tiebreakers:
             tiebreaker_id = team_tiebreakers[0].tiebreaker_id
             tiebreaker = Tiebreaker.query.get(tiebreaker_id)
-            
-            # Double-check that tiebreaker is not resolved (in case of caching issues)
-            if tiebreaker.resolved:
-                flash('This tiebreaker has been resolved.', 'info')
-                return redirect(url_for('dashboard'))
-                
             player = Player.query.get(tiebreaker.player_id)
             
-            # Get other teams in this tiebreaker
-            all_team_tiebreakers = TeamTiebreaker.query.filter_by(tiebreaker_id=tiebreaker_id).all()
-            other_teams_count = len(all_team_tiebreakers) - 1
-            
-            # Get bid status for all teams
-            bid_submitted_count = sum(1 for tt in all_team_tiebreakers if tt.new_amount is not None)
-            
-            response = make_response(render_template('tiebreaker_team.html',
+            return render_template('tiebreaker_team.html',
                                   tiebreaker=tiebreaker,
                                   team_tiebreaker=team_tiebreakers[0],
-                                  player=player,
-                                  other_teams_count=other_teams_count,
-                                  bid_submitted_count=bid_submitted_count))
-            
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
-            return response
+                                  player=player)
         
         # Only show active rounds if no tiebreakers are pending
         active_rounds = Round.query.filter_by(is_active=True).all()
-        
-        # If no active rounds, redirect to dashboard
-        if not active_rounds:
-            flash('There are no active bidding rounds at this time.', 'info')
-            return redirect(url_for('dashboard'))
         
         # Get auction settings
         settings = AuctionSettings.get_settings()
@@ -2480,18 +2263,13 @@ def team_round():
             starred_players = StarredPlayer.query.filter_by(team_id=current_user.team.id).all()
             starred_player_ids = [sp.player_id for sp in starred_players]
         
-        response = make_response(render_template('team_round.html',
+        return render_template('team_round.html',
                               active_rounds=active_rounds,
                               active_bulk_round=active_bulk_round,
                               Config=Config,
                               auction_settings=AuctionSettings,
                               completed_rounds_count=completed_rounds_count,
-                              starred_player_ids=starred_player_ids))
-        
-        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-        response.headers["Pragma"] = "no-cache"
-        response.headers["Expires"] = "0"
-        return response
+                              starred_player_ids=starred_player_ids)
 
 # Password reset routes
 @app.route('/reset_password_request', methods=['GET', 'POST'])
@@ -2931,19 +2709,10 @@ def delete_bulk_bid(bid_id):
 @app.route('/check_bulk_round_status/<int:round_id>')
 @login_required
 def check_bulk_round_status(round_id):
-    # Add no-cache headers to prevent browser caching
-    response = make_response()
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    
     bulk_round = BulkBidRound.query.get_or_404(round_id)
     
     if not bulk_round.is_active:
-        data = {'active': False}
-        response.data = json.dumps(data)
-        response.content_type = 'application/json'
-        return response
+        return jsonify({'active': False})
     
     elapsed = (datetime.utcnow() - bulk_round.start_time).total_seconds()
     remaining = max(bulk_round.duration - elapsed, 0)
@@ -2952,9 +2721,7 @@ def check_bulk_round_status(round_id):
         'active': True,
         'remaining': remaining
     }
-    response.data = json.dumps(data)
-    response.content_type = 'application/json'
-    return response
+    return jsonify(data)
 
 @app.route('/team_bulk_tiebreaker/<int:tiebreaker_id>')
 @login_required
@@ -4278,24 +4045,25 @@ def admin_rounds_update():
     rounds = Round.query.all()
     active_tiebreakers = Tiebreaker.query.filter_by(resolved=False).all()
     
-    # Render HTML snippets for different sections
-    active_rounds_html = render_template('partials/active_rounds.html', 
-                                        active_rounds=active_rounds)
+    # We removed the partials, so we're not rendering these HTML snippets anymore
+    # active_rounds_html = render_template('partials/active_rounds.html', 
+    #                                     active_rounds=active_rounds)
     
-    tiebreakers_html = None
-    if active_tiebreakers:
-        tiebreakers_html = render_template('partials/active_tiebreakers.html', 
-                                          active_tiebreakers=active_tiebreakers)
+    # tiebreakers_html = None
+    # if active_tiebreakers:
+    #     tiebreakers_html = render_template('partials/active_tiebreakers.html', 
+    #                                       active_tiebreakers=active_tiebreakers)
     
     completed_rounds_html = render_template('partials/completed_rounds.html', 
                                            rounds=rounds)
     
-    # Return JSON with all the HTML snippets
+    # Return JSON with just the data, not the HTML snippets for the removed partials
     return jsonify({
         'active_count': len(active_rounds),
         'total_count': len(rounds),
-        'activeRoundsHtml': active_rounds_html,
-        'tiebreakersHtml': tiebreakers_html,
+        'tiebreakers_count': len(active_tiebreakers),
+        # 'activeRoundsHtml': active_rounds_html,
+        # 'tiebreakersHtml': tiebreakers_html,
         'completedRoundsHtml': completed_rounds_html
     })
 
@@ -4413,6 +4181,172 @@ def team_match_detail(match_id):
         match=match,
         player_matchups=player_matchups
     )
+
+@app.route('/admin/database', methods=['GET'])
+@login_required
+def admin_database():
+    if not current_user.is_admin:
+        flash('Unauthorized access', 'danger')
+        return redirect(url_for('dashboard'))
+    
+    player_count = Player.query.count()
+    
+    # Check for SQLite database file
+    sqlite_paths = [
+        'efootball_real.db',
+        '/opt/render/project/src/efootball_real.db',
+        '/opt/render/project/src/data/efootball_real.db'
+    ]
+    
+    db_exists = False
+    db_path = None
+    
+    for path in sqlite_paths:
+        if os.path.exists(path):
+            db_exists = True
+            db_path = path
+            break
+    
+    return render_template('admin_database.html', 
+                          player_count=player_count,
+                          db_exists=db_exists,
+                          db_path=db_path)
+
+@app.route('/admin/import_players', methods=['POST'])
+@login_required
+def admin_import_players():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Check for SQLite database file
+    sqlite_paths = [
+        'efootball_real.db',
+        '/opt/render/project/src/efootball_real.db',
+        '/opt/render/project/src/data/efootball_real.db'
+    ]
+    
+    db_path = None
+    for path in sqlite_paths:
+        if os.path.exists(path):
+            db_path = path
+            break
+    
+    if not db_path:
+        return jsonify({'error': 'SQLite database not found'})
+    
+    try:
+        # Connect to SQLite
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+        
+        # Check if the 'players_all' table exists
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='players_all'")
+        if not cursor.fetchone():
+            conn.close()
+            return jsonify({'error': "'players_all' table not found in the database"})
+        
+        # Get player data
+        cursor.execute("""
+            SELECT player_name, position, team_name, nationality,
+                offensive_awareness, ball_control, dribbling, tight_possession,
+                low_pass, lofted_pass, finishing, heading, set_piece_taking,
+                curl, speed, acceleration, kicking_power, jumping,
+                physical_contact, balance, stamina, defensive_awareness,
+                tackling, aggression, defensive_engagement, gk_awareness,
+                gk_catching, gk_parrying, gk_reflexes, gk_reach,
+                overall_rating, playing_style, player_id
+            FROM players_all
+        """)
+        
+        player_count = 0
+        batch_size = 100
+        batch = []
+        
+        for row in cursor.fetchall():
+            player = Player(
+                name=row[0],
+                position=row[1],
+                team_name=row[2],
+                nationality=row[3],
+                offensive_awareness=row[4],
+                ball_control=row[5],
+                dribbling=row[6],
+                tight_possession=row[7],
+                low_pass=row[8],
+                lofted_pass=row[9],
+                finishing=row[10],
+                heading=row[11],
+                set_piece_taking=row[12],
+                curl=row[13],
+                speed=row[14],
+                acceleration=row[15],
+                kicking_power=row[16],
+                jumping=row[17],
+                physical_contact=row[18],
+                balance=row[19],
+                stamina=row[20],
+                defensive_awareness=row[21],
+                tackling=row[22],
+                aggression=row[23],
+                defensive_engagement=row[24],
+                gk_awareness=row[25],
+                gk_catching=row[26],
+                gk_parrying=row[27],
+                gk_reflexes=row[28],
+                gk_reach=row[29],
+                overall_rating=row[30],
+                playing_style=row[31],
+                player_id=row[32]
+            )
+            batch.append(player)
+            player_count += 1
+            
+            # Process in batches to avoid memory issues
+            if len(batch) >= batch_size:
+                db.session.add_all(batch)
+                db.session.commit()
+                batch = []
+        
+        # Add remaining players
+        if batch:
+            db.session.add_all(batch)
+            db.session.commit()
+        
+        conn.close()
+        return jsonify({'success': f'Successfully imported {player_count} players'})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Error importing players: {str(e)}'})
+
+@app.route('/admin/upload_sqlite', methods=['POST'])
+@login_required
+def admin_upload_sqlite():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    if 'sqlite_db' not in request.files:
+        return jsonify({'error': 'No file uploaded'})
+    
+    file = request.files['sqlite_db']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'})
+    
+    if not file.filename.endswith('.db'):
+        return jsonify({'error': 'File must be a SQLite database (.db)'})
+    
+    # Determine where to save the file
+    render_data_dir = '/opt/render/project/src/data'
+    if os.path.exists(render_data_dir):
+        target_path = os.path.join(render_data_dir, 'efootball_real.db')
+    else:
+        target_path = 'efootball_real.db'
+    
+    try:
+        file.save(target_path)
+        return jsonify({'success': f'Database uploaded successfully to {target_path}'})
+    except Exception as e:
+        return jsonify({'error': f'Error saving file: {str(e)}'})
 
 if __name__ == '__main__':
     with app.app_context():

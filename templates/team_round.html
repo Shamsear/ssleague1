@@ -67,7 +67,7 @@
                     <div class="flex flex-col items-center bg-gradient-to-r from-primary/5 to-primary/10 p-3 rounded-xl backdrop-blur-md">
                         <div class="text-sm text-gray-600 mb-1">Time Remaining</div>
                         <div class="text-2xl font-bold text-primary countdown" data-round-id="{{ round.id }}">
-                            <span id="minutes_{{ round.id }}">--</span>:<span id="seconds_{{ round.id }}">--</span>
+                            <span id="hours_{{ round.id }}">--</span>:<span id="minutes_{{ round.id }}">--</span>:<span id="seconds_{{ round.id }}">--</span>
                         </div>
                     </div>
                 </div>
@@ -203,6 +203,18 @@
                         </svg>
                         Available Players
                     </h4>
+                    
+                    <!-- Player Search Bar -->
+                    <div class="mb-4">
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-500">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                                </svg>
+                            </div>
+                            <input type="text" id="player-search" class="block w-full pl-10 pr-3 py-2.5 text-sm rounded-lg border-gray-200 focus:ring-primary focus:border-primary shadow-sm" placeholder="Search players by name...">
+                        </div>
+                    </div>
                     
                     <div class="flex items-center mb-3 bg-gray-100/50 p-2 rounded-lg text-xs text-gray-600">
                         <svg class="w-4 h-4 mr-2 text-yellow-500" fill="currentColor" viewBox="0 0 20 20">
@@ -397,7 +409,7 @@
                 <div class="flex flex-col items-center backdrop-blur-md bg-purple-50/30 p-3 rounded-xl border border-purple-100/20 shadow-sm">
                     <div class="text-sm text-purple-700 mb-1">Time Remaining</div>
                     <div class="text-2xl font-bold text-purple-700 bulk-countdown" data-round-id="{{ active_bulk_round.id }}">
-                        <span id="bulk_minutes_{{ active_bulk_round.id }}">--</span>:<span id="bulk_seconds_{{ active_bulk_round.id }}">--</span>
+                        <span id="bulk_hours_{{ active_bulk_round.id }}">--</span>:<span id="bulk_minutes_{{ active_bulk_round.id }}">--</span>:<span id="bulk_seconds_{{ active_bulk_round.id }}">--</span>
                     </div>
                 </div>
             </div>
@@ -442,18 +454,8 @@
             const roundId = element.dataset.roundId;
             console.log(`Fetching timer for round ${roundId}...`);
             
-            // Add timestamp to URL to prevent caching
-            const timestamp = new Date().getTime();
-            fetch(`/check_round_status/${roundId}?_=${timestamp}`, {
-                method: 'GET',
-                cache: 'no-store',
-                credentials: 'same-origin',
-                headers: {
-                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+            fetch(`/check_round_status/${roundId}`, {
+                method: 'GET'
             })
                 .then(response => {
                     if (!response.ok) {
@@ -468,39 +470,19 @@
                         // Handle different scenarios when round is no longer active
                         if (data.redirect_to) {
                             // If there's a specific redirect URL (like to a tiebreaker)
-                            console.log("Redirecting to:", data.redirect_to);
-                            
-                            // Show brief notification before redirect
-                            const mainContent = document.querySelector('.container');
-                            if (mainContent) {
-                                mainContent.innerHTML = `
-                                    <div class="glass rounded-3xl p-8 max-w-md mx-auto text-center mt-12">
-                                        <div class="animate-spin mb-4 mx-auto w-12 h-12 text-primary">
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                        </div>
-                                        <h2 class="text-xl font-bold text-gray-800 mb-2">Redirecting to Tiebreaker</h2>
-                                        <p class="text-gray-600">Your bid requires a tiebreaker resolution...</p>
-                                    </div>
-                                `;
-                            }
-                            
-                            // Redirect after a short delay to show the message
-                            setTimeout(() => {
-                                window.location.href = data.redirect_to;
-                            }, 1000);
-                        } else if (data.tiebreaker_id) {
-                            // If there's a tiebreaker ID but no redirect_to
-                            console.log("Tiebreaker needed, redirecting based on ID:", data.tiebreaker_id);
-                            window.location.href = `/tiebreaker/${data.tiebreaker_id}`;
+                            console.log("Redirecting to tiebreaker:", data.redirect_to);
+                            window.location.href = data.redirect_to;
                         } else {
-                            // Check if there's a message about tiebreaker
-                            if (data.message && data.message.includes('Tiebreaker')) {
-                                // Show message and redirect to dashboard
-                                alert('A tiebreaker is in progress. Redirecting to dashboard...');
-                                window.location.href = '{{ url_for("dashboard") }}';
+                            // Check if there's an active tiebreaker notification
+                            const tiebreakerNotification = document.getElementById('tiebreaker-notification');
+                            const goToTiebreakerLink = document.getElementById('go-to-tiebreaker');
+                            
+                            if (tiebreakerNotification && data.message && data.message.includes('Tiebreaker')) {
+                                // Show tiebreaker notification instead of reload
+                                tiebreakerNotification.classList.remove('hidden');
+                                if (goToTiebreakerLink && data.tiebreaker_id) {
+                                    goToTiebreakerLink.href = `/tiebreaker/${data.tiebreaker_id}`;
+                                }
                             } else {
                                 // Default behavior: reload the page to show updated state
                                 console.log("Round ended, reloading page:", data.message);
@@ -511,31 +493,35 @@
                     }
                     
                     if (data.remaining !== undefined) {
-                        const minutes = Math.floor(data.remaining / 60);
+                        const hours = Math.floor(data.remaining / 3600);
+                        const minutes = Math.floor((data.remaining % 3600) / 60);
                         const seconds = Math.floor(data.remaining % 60);
                         
+                        const hoursElement = document.getElementById(`hours_${roundId}`);
                         const minutesElement = document.getElementById(`minutes_${roundId}`);
                         const secondsElement = document.getElementById(`seconds_${roundId}`);
                         
-                        console.log(`Updating timer: ${minutes}:${seconds.toString().padStart(2, '0')}`);
+                        console.log(`Updating timer: ${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
                         
-                        if (minutesElement && secondsElement) {
+                        if (hoursElement && minutesElement && secondsElement) {
+                            hoursElement.textContent = hours.toString().padStart(2, '0');
                             minutesElement.textContent = minutes.toString().padStart(2, '0');
                             secondsElement.textContent = seconds.toString().padStart(2, '0');
                             
                             // Update timer color based on remaining time
-                            const timerElement = minutesElement.parentElement;
+                            const timerElement = hoursElement.parentElement;
                             if (timerElement) {
                                 if (data.remaining <= 0) {
                                     // For zero time left, show special styling and wait for server response
                                     timerElement.classList.add('text-red-600', 'animate-pulse');
                                     timerElement.classList.remove('text-primary', 'text-orange-500');
+                                    hoursElement.textContent = "00";
                                     minutesElement.textContent = "00";
                                     secondsElement.textContent = "00";
-                                } else if (data.remaining < 30) {
+                                } else if (data.remaining < 300) { // Less than 5 minutes left
                                     timerElement.classList.add('text-red-600', 'animate-pulse');
                                     timerElement.classList.remove('text-primary', 'text-orange-500');
-                                } else if (data.remaining < 60) {
+                                } else if (data.remaining < 600) { // Less than 10 minutes left
                                     timerElement.classList.add('text-orange-500');
                                     timerElement.classList.remove('text-primary', 'text-red-600', 'animate-pulse');
                                 } else {
@@ -558,18 +544,8 @@
         document.querySelectorAll('.bulk-countdown').forEach(function(element) {
             const roundId = element.dataset.roundId;
             
-            // Add timestamp to URL to prevent caching
-            const timestamp = new Date().getTime();
-            fetch(`/check_bulk_round_status/${roundId}?_=${timestamp}`, {
-                method: 'GET',
-                cache: 'no-store',
-                credentials: 'same-origin',
-                headers: {
-                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
+            fetch(`/check_bulk_round_status/${roundId}`, {
+                method: 'GET'
             })
                 .then(response => {
                     if (!response.ok) {
@@ -593,23 +569,26 @@
                     }
                     
                     if (data.remaining !== undefined) {
-                        const minutes = Math.floor(data.remaining / 60);
+                        const hours = Math.floor(data.remaining / 3600);
+                        const minutes = Math.floor((data.remaining % 3600) / 60);
                         const seconds = Math.floor(data.remaining % 60);
                         
+                        const hoursElement = document.getElementById(`bulk_hours_${roundId}`);
                         const minutesElement = document.getElementById(`bulk_minutes_${roundId}`);
                         const secondsElement = document.getElementById(`bulk_seconds_${roundId}`);
                         
-                        if (minutesElement && secondsElement) {
+                        if (hoursElement && minutesElement && secondsElement) {
+                            hoursElement.textContent = hours.toString().padStart(2, '0');
                             minutesElement.textContent = minutes.toString().padStart(2, '0');
                             secondsElement.textContent = seconds.toString().padStart(2, '0');
                             
                             // Update timer color based on remaining time
-                            const timerElement = minutesElement.parentElement;
+                            const timerElement = hoursElement.parentElement;
                             if (timerElement) {
-                                if (data.remaining < 30) {
+                                if (data.remaining < 300) { // Less than 5 minutes
                                     timerElement.classList.add('text-red-600', 'animate-pulse');
                                     timerElement.classList.remove('text-purple-700', 'text-orange-500');
-                                } else if (data.remaining < 60) {
+                                } else if (data.remaining < 600) { // Less than 10 minutes
                                     timerElement.classList.add('text-orange-500');
                                     timerElement.classList.remove('text-purple-700', 'text-red-600', 'animate-pulse');
                                 } else {
@@ -724,9 +703,6 @@
     document.addEventListener('DOMContentLoaded', function() {
         console.log("DOM loaded, initializing timers...");
         
-        // Force reload timer data immediately
-        forceTimerRefresh();
-        
         // Initialize timers
         updateTimers();
         
@@ -747,96 +723,24 @@
                 deleteBid(bidId);
             });
         });
+        
+        // Player search functionality
+        const playerSearch = document.getElementById('player-search');
+        if (playerSearch) {
+            playerSearch.addEventListener('input', function() {
+                const searchTerm = this.value.toLowerCase();
+                const playerCards = document.querySelectorAll('.glass-card:not(.mb-6)'); // Select all player cards
+                
+                playerCards.forEach(card => {
+                    const playerName = card.querySelector('.font-medium.text-dark')?.textContent.toLowerCase() || '';
+                    if (playerName.includes(searchTerm)) {
+                        card.style.display = '';
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+            });
+        }
     });
-
-    // Function to force a timer refresh by clearing cache
-    function forceTimerRefresh() {
-        console.log("Forcing timer refresh...");
-        
-        // Clear browser cache for timer endpoints
-        document.querySelectorAll('.countdown').forEach(function(element) {
-            const roundId = element.dataset.roundId;
-            const timestamp = Date.now();
-            const url = `/check_round_status/${roundId}?_=${timestamp}`;
-            
-            // Add random query parameter to bypass cache
-            fetch(url, {
-                method: 'GET',
-                cache: 'no-cache',
-                credentials: 'same-origin',
-                headers: {
-                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Network response error: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log("Force refresh response:", data);
-                // Update timer with this fresh data
-                if (data.active && data.remaining !== undefined) {
-                    const minutes = Math.floor(data.remaining / 60);
-                    const seconds = Math.floor(data.remaining % 60);
-                    
-                    const minutesElement = document.getElementById(`minutes_${roundId}`);
-                    const secondsElement = document.getElementById(`seconds_${roundId}`);
-                    
-                    if (minutesElement && secondsElement) {
-                        minutesElement.textContent = minutes.toString().padStart(2, '0');
-                        secondsElement.textContent = seconds.toString().padStart(2, '0');
-                    }
-                }
-            })
-            .catch(error => console.error("Error in force refresh:", error));
-        });
-        
-        // Do the same for bulk countdowns
-        document.querySelectorAll('.bulk-countdown').forEach(function(element) {
-            const roundId = element.dataset.roundId;
-            const timestamp = Date.now();
-            const url = `/check_bulk_round_status/${roundId}?_=${timestamp}`;
-            
-            fetch(url, {
-                method: 'GET',
-                cache: 'no-cache',
-                credentials: 'same-origin',
-                headers: {
-                    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`Network response error: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log("Force bulk refresh response:", data);
-                // Update timer with fresh data
-                if (data.active && data.remaining !== undefined) {
-                    const minutes = Math.floor(data.remaining / 60);
-                    const seconds = Math.floor(data.remaining % 60);
-                    
-                    const minutesElement = document.getElementById(`bulk_minutes_${roundId}`);
-                    const secondsElement = document.getElementById(`bulk_seconds_${roundId}`);
-                    
-                    if (minutesElement && secondsElement) {
-                        minutesElement.textContent = minutes.toString().padStart(2, '0');
-                        secondsElement.textContent = seconds.toString().padStart(2, '0');
-                    }
-                }
-            })
-            .catch(error => console.error("Error in force bulk refresh:", error));
-        });
-    }
 </script>
 {% endblock %} 

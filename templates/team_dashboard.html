@@ -373,6 +373,14 @@
                         </div>
                         <span class="text-sm text-gray-700">Bidding History</span>
                     </a>
+                    <a href="{{ url_for('team_bulk_round') }}" class="flex items-center px-3 py-2 rounded-xl hover:bg-white/40 transition-colors duration-200 group">
+                        <div class="bg-primary/10 p-1.5 rounded-lg mr-2 group-hover:bg-primary/20 transition-colors">
+                            <svg class="w-4 h-4 text-primary mr-0 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                        </div>
+                        <span class="text-sm text-gray-700">Bulk Bidding</span>
+                    </a>
                     <a href="{{ url_for('all_teams') }}" class="flex items-center px-3 py-2 rounded-xl hover:bg-white/40 transition-colors duration-200 group">
                         <div class="bg-primary/10 p-1.5 rounded-lg mr-2 group-hover:bg-primary/20 transition-colors">
                             <svg class="w-4 h-4 text-primary mr-0 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1323,12 +1331,13 @@ function forceTimerRefresh() {
                 console.log(`Force refresh response for round ${roundId}:`, data);
                 // Update timer with this fresh data
                 if (data.active && data.remaining !== undefined) {
-                    const minutes = Math.floor(data.remaining / 60);
+                    const hours = Math.floor(data.remaining / 3600);
+                    const minutes = Math.floor((data.remaining % 3600) / 60);
                     const seconds = Math.floor(data.remaining % 60);
                     
                     const timerElement = document.getElementById(`timer-remaining-${roundId}`);
                     if (timerElement) {
-                        timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                        timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                     }
                 }
             })
@@ -1363,16 +1372,17 @@ async function initTimer(roundId) {
                 return;
             }
             
-            // Update the timer display
+            // Update the timer display using HH:MM:SS format
             const remainingSeconds = Math.floor(data.remaining);
-            const minutes = Math.floor(remainingSeconds / 60);
+            const hours = Math.floor(remainingSeconds / 3600);
+            const minutes = Math.floor((remainingSeconds % 3600) / 60);
             const seconds = remainingSeconds % 60;
             const timerElement = document.getElementById(`timer-remaining-${roundId}`);
             
-            console.log(`Updating timer for round ${roundId}: ${minutes}:${seconds.toString().padStart(2, '0')}`);
+            console.log(`Updating timer for round ${roundId}: ${hours}:${minutes}:${seconds.toString().padStart(2, '0')}`);
             
             if (timerElement) {
-                timerElement.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                timerElement.textContent = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
                 
                 // Set color based on remaining time
                 const timerContainer = document.getElementById(`timer-${roundId}`);
