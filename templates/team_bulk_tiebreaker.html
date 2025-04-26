@@ -245,51 +245,63 @@
             document.getElementById('currentBalance').textContent = data.team_balance;
             document.getElementById('bidAmount').max = data.team_balance;
         }
+
+        // Store the last update timestamp
+        window.lastUpdateTime = Date.now();
+        window.lastData = data;
     }
     
-    // Fetch real-time updates
+    // Fetch real-time updates - faster polling for immediate updates
     function fetchTiebreakerUpdates() {
-        fetch('/api/bulk_tiebreaker_status/{{ tiebreaker.id }}', {
+        fetch('/api/bulk_tiebreaker_status/{{ tiebreaker.id }}?_=' + Date.now(), {
             method: 'GET',
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
-                'Expires': '0'
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response error');
+            return response.json();
+        })
         .then(data => {
             updateTiebreakerUI(data);
             
-            // If not resolved, continue checking
+            // If not resolved, continue checking at a faster rate
             if (!data.resolved) {
-                setTimeout(fetchTiebreakerUpdates, 3000); // Check every 3 seconds
+                setTimeout(fetchTiebreakerUpdates, 1000); // Check every 1 second
             } else {
                 handleTiebreakerResolution(data);
             }
         })
         .catch(error => {
             console.error('Error fetching tiebreaker updates:', error);
-            // Continue checking even if there's an error
-            setTimeout(fetchTiebreakerUpdates, 5000);
+            // Continue checking even if there's an error, but with slightly longer delay
+            setTimeout(fetchTiebreakerUpdates, 2000);
         });
     }
     
     // Check if tiebreaker is resolved
     function checkTiebreakerStatus() {
-        fetch('/check_bulk_tiebreaker_status/{{ tiebreaker.id }}', {
+        fetch('/check_bulk_tiebreaker_status/{{ tiebreaker.id }}?_=' + Date.now(), {
             method: 'GET',
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
-                'Expires': '0'
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
             }
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) throw new Error('Network response error');
+            return response.json();
+        })
         .then(data => handleTiebreakerResolution(data))
         .catch(error => {
             console.error('Error checking tiebreaker status:', error);
-            setTimeout(checkTiebreakerStatus, 10000);
+            setTimeout(checkTiebreakerStatus, 5000); // Reduced from 10s to 5s
         });
     }
     
@@ -313,18 +325,77 @@
                 }
             }
         } else {
-            // If not resolved, continue checking
-            setTimeout(checkTiebreakerStatus, 10000);
+            // If not resolved, continue checking more frequently
+            setTimeout(checkTiebreakerStatus, 3000); // Reduced from 10s to 3s
         }
     }
+
+    // Function to create a visual pulse effect when new bids come in
+    function pulseEffect(element) {
+        if (!element) return;
+        
+        // Add pulse class
+        element.classList.add('animate-pulse-fast', 'bg-yellow-100');
+        
+        // Remove it after animation completes
+        setTimeout(() => {
+            element.classList.remove('animate-pulse-fast', 'bg-yellow-100');
+        }, 1000);
+    }
+
+    // Add CSS for faster pulse animation
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    `;
+    document.head.appendChild(styleElement);
     
     // Start checking tiebreaker status and updates
     checkTiebreakerStatus();
     fetchTiebreakerUpdates();
     
-    // Add event listener to prevent page caching
-    window.addEventListener('beforeunload', function() {
-        // This empty function helps ensure the page isn't cached
-    });
+    // Function to push updates instantly when new bids are placed by anyone
+    // This simulates push notifications without websockets
+    function simulatePushUpdates() {
+        const fastCheckInterval = setInterval(() => {
+            fetch('/api/bulk_tiebreaker_status/{{ tiebreaker.id }}?fast=1&_=' + Date.now(), {
+                method: 'GET',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response error');
+                return response.json(); 
+            })
+            .then(data => {
+                if (window.lastData && window.lastData.current_amount !== data.current_amount) {
+                    // Bid has changed, update UI and add visual indicator
+                    updateTiebreakerUI(data);
+                    pulseEffect(document.getElementById('currentBidAmount').parentElement);
+                }
+            })
+            .catch(error => {
+                console.error('Error in fast update check:', error);
+            });
+        }, 500); // Check very frequently for new bids (every 500ms)
+
+        // Clear interval when leaving page
+        window.addEventListener('beforeunload', () => {
+            clearInterval(fastCheckInterval);
+        });
+    }
+
+    // Start simulated push updates
+    simulatePushUpdates();
 </script>
 {% endblock %} 

@@ -2,6 +2,21 @@
 
 {% block title %}Active Rounds - Football Auction{% endblock %}
 
+{% block head %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<style>
+    @keyframes pulse-fast {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    .animate-pulse-fast {
+        animation: pulse-fast 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="container mx-auto px-3 sm:px-4 py-6 sm:py-8">
     <!-- Active Rounds -->
@@ -447,15 +462,127 @@
 
 <!-- JavaScript for Bidding and Timer -->
 <script>
-    // Update countdown timers
-    function updateTimers() {
-        console.log("Updating timers...");
+    // Track the last update time for each timer
+    const lastUpdateTimes = {};
+    const lastRemainingTimes = {};
+    
+    // Client-side timer update function (runs every 100ms for smooth countdown)
+    function updateClientSideTimers() {
+        const now = Date.now();
+        
+        // Update regular round timers
         document.querySelectorAll('.countdown').forEach(function(element) {
             const roundId = element.dataset.roundId;
-            console.log(`Fetching timer for round ${roundId}...`);
+            if (!lastUpdateTimes[roundId] || !lastRemainingTimes[roundId]) return;
             
-            fetch(`/check_round_status/${roundId}`, {
-                method: 'GET'
+            // Calculate elapsed time since last server update (in seconds)
+            const elapsedSince = (now - lastUpdateTimes[roundId]) / 1000;
+            
+            // Calculate current remaining time
+            const currentRemaining = Math.max(lastRemainingTimes[roundId] - elapsedSince, 0);
+            
+            // Update timer display
+            updateTimerDisplay(roundId, currentRemaining);
+        });
+        
+        // Update bulk round timers
+        document.querySelectorAll('.bulk-countdown').forEach(function(element) {
+            const roundId = element.dataset.roundId;
+            if (!lastUpdateTimes['bulk_' + roundId] || !lastRemainingTimes['bulk_' + roundId]) return;
+            
+            // Calculate elapsed time since last server update (in seconds)
+            const elapsedSince = (now - lastUpdateTimes['bulk_' + roundId]) / 1000;
+            
+            // Calculate current remaining time
+            const currentRemaining = Math.max(lastRemainingTimes['bulk_' + roundId] - elapsedSince, 0);
+            
+            // Update bulk timer display
+            updateBulkTimerDisplay(roundId, currentRemaining);
+        });
+    }
+    
+    // Format and display timer for regular rounds
+    function updateTimerDisplay(roundId, seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        
+        const hoursElement = document.getElementById(`hours_${roundId}`);
+        const minutesElement = document.getElementById(`minutes_${roundId}`);
+        const secondsElement = document.getElementById(`seconds_${roundId}`);
+        
+        if (hoursElement && minutesElement && secondsElement) {
+            hoursElement.textContent = hours.toString().padStart(2, '0');
+            minutesElement.textContent = minutes.toString().padStart(2, '0');
+            secondsElement.textContent = secs.toString().padStart(2, '0');
+            
+            // Update timer color based on remaining time
+            const timerElement = hoursElement.parentElement;
+            if (timerElement) {
+                if (seconds <= 0) {
+                    // For zero time left, show special styling and wait for server response
+                    timerElement.classList.add('text-red-600', 'animate-pulse-fast');
+                    timerElement.classList.remove('text-primary', 'text-orange-500', 'animate-pulse');
+                } else if (seconds < 300) { // Less than 5 minutes left
+                    timerElement.classList.add('text-red-600', 'animate-pulse-fast');
+                    timerElement.classList.remove('text-primary', 'text-orange-500', 'animate-pulse');
+                } else if (seconds < 600) { // Less than 10 minutes left
+                    timerElement.classList.add('text-orange-500');
+                    timerElement.classList.remove('text-primary', 'text-red-600', 'animate-pulse-fast', 'animate-pulse');
+                } else {
+                    timerElement.classList.add('text-primary');
+                    timerElement.classList.remove('text-orange-500', 'text-red-600', 'animate-pulse-fast', 'animate-pulse');
+                }
+            }
+        }
+    }
+    
+    // Format and display timer for bulk rounds
+    function updateBulkTimerDisplay(roundId, seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+        
+        const hoursElement = document.getElementById(`bulk_hours_${roundId}`);
+        const minutesElement = document.getElementById(`bulk_minutes_${roundId}`);
+        const secondsElement = document.getElementById(`bulk_seconds_${roundId}`);
+        
+        if (hoursElement && minutesElement && secondsElement) {
+            hoursElement.textContent = hours.toString().padStart(2, '0');
+            minutesElement.textContent = minutes.toString().padStart(2, '0');
+            secondsElement.textContent = secs.toString().padStart(2, '0');
+            
+            // Update timer color based on remaining time
+            const timerElement = hoursElement.parentElement;
+            if (timerElement) {
+                if (seconds < 300) { // Less than 5 minutes
+                    timerElement.classList.add('text-red-600', 'animate-pulse-fast');
+                    timerElement.classList.remove('text-purple-700', 'text-orange-500', 'animate-pulse');
+                } else if (seconds < 600) { // Less than 10 minutes
+                    timerElement.classList.add('text-orange-500');
+                    timerElement.classList.remove('text-purple-700', 'text-red-600', 'animate-pulse-fast', 'animate-pulse');
+                } else {
+                    timerElement.classList.add('text-purple-700');
+                    timerElement.classList.remove('text-orange-500', 'text-red-600', 'animate-pulse-fast', 'animate-pulse');
+                }
+            }
+        }
+    }
+    
+    // Update countdown timers from server
+    function updateTimers() {
+        document.querySelectorAll('.countdown').forEach(function(element) {
+            const roundId = element.dataset.roundId;
+            
+            fetch(`/check_round_status/${roundId}?_=${Date.now()}`, {
+                method: 'GET',
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             })
                 .then(response => {
                     if (!response.ok) {
@@ -464,8 +591,6 @@
                     return response.json();
                 })
                 .then(data => {
-                    console.log(`Round ${roundId} data:`, data);
-                    
                     if (!data.active) {
                         // Handle different scenarios when round is no longer active
                         if (data.redirect_to) {
@@ -493,50 +618,17 @@
                     }
                     
                     if (data.remaining !== undefined) {
-                        const hours = Math.floor(data.remaining / 3600);
-                        const minutes = Math.floor((data.remaining % 3600) / 60);
-                        const seconds = Math.floor(data.remaining % 60);
+                        // Save the last server time value and timestamp
+                        lastRemainingTimes[roundId] = data.remaining;
+                        lastUpdateTimes[roundId] = Date.now();
                         
-                        const hoursElement = document.getElementById(`hours_${roundId}`);
-                        const minutesElement = document.getElementById(`minutes_${roundId}`);
-                        const secondsElement = document.getElementById(`seconds_${roundId}`);
-                        
-                        console.log(`Updating timer: ${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-                        
-                        if (hoursElement && minutesElement && secondsElement) {
-                            hoursElement.textContent = hours.toString().padStart(2, '0');
-                            minutesElement.textContent = minutes.toString().padStart(2, '0');
-                            secondsElement.textContent = seconds.toString().padStart(2, '0');
-                            
-                            // Update timer color based on remaining time
-                            const timerElement = hoursElement.parentElement;
-                            if (timerElement) {
-                                if (data.remaining <= 0) {
-                                    // For zero time left, show special styling and wait for server response
-                                    timerElement.classList.add('text-red-600', 'animate-pulse');
-                                    timerElement.classList.remove('text-primary', 'text-orange-500');
-                                    hoursElement.textContent = "00";
-                                    minutesElement.textContent = "00";
-                                    secondsElement.textContent = "00";
-                                } else if (data.remaining < 300) { // Less than 5 minutes left
-                                    timerElement.classList.add('text-red-600', 'animate-pulse');
-                                    timerElement.classList.remove('text-primary', 'text-orange-500');
-                                } else if (data.remaining < 600) { // Less than 10 minutes left
-                                    timerElement.classList.add('text-orange-500');
-                                    timerElement.classList.remove('text-primary', 'text-red-600', 'animate-pulse');
-                                } else {
-                                    timerElement.classList.add('text-primary');
-                                    timerElement.classList.remove('text-orange-500', 'text-red-600', 'animate-pulse');
-                                }
-                            }
-                        } else {
-                            console.warn(`Timer elements not found for round ${roundId}`);
-                        }
+                        // Update the UI immediately
+                        updateTimerDisplay(roundId, data.remaining);
                     }
                 })
                 .catch(error => {
                     console.error('Error updating timer:', error);
-                    // Continue trying to update other timers even if one fails
+                    // Don't interrupt the client-side updates on error
                 });
         });
         
@@ -544,8 +636,15 @@
         document.querySelectorAll('.bulk-countdown').forEach(function(element) {
             const roundId = element.dataset.roundId;
             
-            fetch(`/check_bulk_round_status/${roundId}`, {
-                method: 'GET'
+            fetch(`/check_bulk_round_status/${roundId}?_=${Date.now()}`, {
+                method: 'GET',
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
             })
                 .then(response => {
                     if (!response.ok) {
@@ -569,39 +668,17 @@
                     }
                     
                     if (data.remaining !== undefined) {
-                        const hours = Math.floor(data.remaining / 3600);
-                        const minutes = Math.floor((data.remaining % 3600) / 60);
-                        const seconds = Math.floor(data.remaining % 60);
+                        // Save the last server time value and timestamp
+                        lastRemainingTimes['bulk_' + roundId] = data.remaining;
+                        lastUpdateTimes['bulk_' + roundId] = Date.now();
                         
-                        const hoursElement = document.getElementById(`bulk_hours_${roundId}`);
-                        const minutesElement = document.getElementById(`bulk_minutes_${roundId}`);
-                        const secondsElement = document.getElementById(`bulk_seconds_${roundId}`);
-                        
-                        if (hoursElement && minutesElement && secondsElement) {
-                            hoursElement.textContent = hours.toString().padStart(2, '0');
-                            minutesElement.textContent = minutes.toString().padStart(2, '0');
-                            secondsElement.textContent = seconds.toString().padStart(2, '0');
-                            
-                            // Update timer color based on remaining time
-                            const timerElement = hoursElement.parentElement;
-                            if (timerElement) {
-                                if (data.remaining < 300) { // Less than 5 minutes
-                                    timerElement.classList.add('text-red-600', 'animate-pulse');
-                                    timerElement.classList.remove('text-purple-700', 'text-orange-500');
-                                } else if (data.remaining < 600) { // Less than 10 minutes
-                                    timerElement.classList.add('text-orange-500');
-                                    timerElement.classList.remove('text-purple-700', 'text-red-600', 'animate-pulse');
-                                } else {
-                                    timerElement.classList.add('text-purple-700');
-                                    timerElement.classList.remove('text-orange-500', 'text-red-600', 'animate-pulse');
-                                }
-                            }
-                        }
+                        // Update the UI immediately
+                        updateBulkTimerDisplay(roundId, data.remaining);
                     }
                 })
                 .catch(error => {
                     console.error('Error updating bulk timer:', error);
-                    // Continue trying to update other timers even if one fails
+                    // Don't interrupt the client-side updates on error
                 });
         });
     }
@@ -639,6 +716,9 @@
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
+                            'Cache-Control': 'no-cache, no-store, must-revalidate',
+                            'Pragma': 'no-cache',
+                            'Expires': '0'
                         },
                         body: JSON.stringify({
                             player_id: playerId,
@@ -681,8 +761,13 @@
     // Delete bid function
     function deleteBid(bidId) {
         if (confirm('Are you sure you want to cancel this bid?')) {
-            fetch(`/delete_bid/${bidId}`, {
-                method: 'DELETE'
+            fetch(`/delete_bid/${bidId}?_=${Date.now()}`, {
+                method: 'DELETE',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
             })
             .then(response => response.json())
             .then(data => {
@@ -701,17 +786,14 @@
     
     // Initialize everything when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
-        console.log("DOM loaded, initializing timers...");
-        
-        // Initialize timers
+        // Initial timer update from server
         updateTimers();
         
-        // Update timers more frequently for a smoother experience
-        console.log("Setting up timer interval...");
-        const timerInterval = setInterval(updateTimers, 1000);
+        // Server fetch interval - get updates from server every 2 seconds
+        setInterval(updateTimers, 2000);
         
-        // Log interval ID for debugging
-        console.log("Timer interval set:", timerInterval);
+        // Client-side update interval - update UI every 100ms
+        setInterval(updateClientSideTimers, 100);
         
         // Setup bid forms
         setupBidForms();
@@ -741,6 +823,14 @@
                 });
             });
         }
+        
+        // Add event listener to force refresh on visibility change
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                // Page is now visible again, force update
+                updateTimers();
+            }
+        });
     });
 </script>
 {% endblock %} 

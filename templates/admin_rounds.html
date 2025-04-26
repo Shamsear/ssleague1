@@ -2,6 +2,21 @@
 
 {% block title %}Manage Rounds - Auction System{% endblock %}
 
+{% block head %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<style>
+    @keyframes pulse-fast {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.6; }
+    }
+    .animate-pulse-fast {
+        animation: pulse-fast 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- Loading Overlay -->
 <div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
@@ -564,10 +579,14 @@ document.getElementById('startRoundForm').addEventListener('submit', async (e) =
     showLoading('Starting new round...');
     
     try {
-        const response = await fetch('/start_round', {
+        const response = await fetch(`/start_round?nocache=${Date.now()}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({ position, duration, max_bids_per_team }),
         });
@@ -618,10 +637,14 @@ async function updateRoundTimer(roundId) {
     showLoading('Updating timer...');
     
     try {
-        const response = await fetch(`/update_round_timer/${roundId}`, {
+        const response = await fetch(`/update_round_timer/${roundId}?nocache=${Date.now()}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({ duration: durationSeconds }),
         });
@@ -631,7 +654,7 @@ async function updateRoundTimer(roundId) {
             hideLoading();
             showToast(`Added ${durationMinutes} minute${parseInt(durationMinutes) !== 1 ? 's' : ''} to the timer`, 'success');
             // Fetch updates to refresh timer display
-            await fetchUpdates();
+            await fetchUpdates(true);
         } else {
             const data = await response.json();
             hideLoading();
@@ -655,7 +678,7 @@ async function forcePageRefresh(maxRetries = 3, initialDelay = 500) {
             
             // Fetch data with cache busting
             const timestamp = Date.now();
-            const response = await fetch(`/admin/rounds_update?_=${timestamp}`, {
+            const response = await fetch(`/admin/rounds_update?nocache=${timestamp}`, {
                 method: 'GET',
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest',
@@ -703,8 +726,14 @@ async function finalizeRound(roundId) {
     showLoading('Finalizing round...');
     
     try {
-        const response = await fetch(`/finalize_round/${roundId}`, {
+        const response = await fetch(`/finalize_round/${roundId}?nocache=${Date.now()}`, {
             method: 'POST',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         });
         
         if (response.redirected) {
@@ -739,8 +768,14 @@ async function deleteRound(roundId) {
     showLoading('Deleting round and updating players...');
     
     try {
-        const response = await fetch(`/admin/delete_round/${roundId}`, {
+        const response = await fetch(`/admin/delete_round/${roundId}?nocache=${Date.now()}`, {
             method: 'POST',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         });
         
         const data = await response.json();
@@ -789,14 +824,16 @@ function forceTimerRefresh() {
         const roundId = element.getAttribute('data-round-id');
         if (roundId) {
             console.log(`Force refreshing timer for round ${roundId}`);
-            const url = `/check_round_status/${roundId}?_=${Date.now()}`;
+            const url = `/check_round_status/${roundId}?nocache=${Date.now()}`;
             
             fetch(url, {
+                method: 'GET',
                 cache: 'no-store',
                 headers: {
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
-                    'Expires': '0'
+                    'Expires': '0',
+                    'X-Requested-With': 'XMLHttpRequest'
                 }
             })
             .then(response => response.json())
@@ -845,12 +882,14 @@ async function initTimer(roundId) {
         
         // Fetch initial time from server right away with cache prevention
         console.log(`Fetching initial time for round ${roundId}...`);
-        const initialResponse = await fetch(`/check_round_status/${roundId}?_=${Date.now()}`, {
+        const initialResponse = await fetch(`/check_round_status/${roundId}?nocache=${Date.now()}`, {
+            method: 'GET',
             cache: 'no-store',
             headers: {
                 'Cache-Control': 'no-cache, no-store, must-revalidate',
                 'Pragma': 'no-cache',
-                'Expires': '0'
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
             }
         });
         const initialData = await initialResponse.json();
@@ -865,7 +904,7 @@ async function initTimer(roundId) {
             const timerContainer = document.getElementById(`timer-${roundId}`);
             if (timerContainer) {
                 if (initialData.remaining < 30) {
-                    timerContainer.className = 'text-sm font-medium px-4 py-2 rounded-xl bg-red-50 text-red-600 backdrop-blur-sm shadow-sm flex items-center animate-pulse';
+                    timerContainer.className = 'text-sm font-medium px-4 py-2 rounded-xl bg-red-50 text-red-600 backdrop-blur-sm shadow-sm flex items-center animate-pulse-fast';
                 } else if (initialData.remaining < 60) {
                     timerContainer.className = 'text-sm font-medium px-4 py-2 rounded-xl bg-orange-50 text-orange-600 backdrop-blur-sm shadow-sm flex items-center';
                 } else {
@@ -877,12 +916,14 @@ async function initTimer(roundId) {
         const checkStatus = async () => {
             try {
                 console.log(`Checking status update for round ${roundId}...`);
-                const response = await fetch(`/check_round_status/${roundId}?_=${Date.now()}`, {
+                const response = await fetch(`/check_round_status/${roundId}?nocache=${Date.now()}`, {
+                    method: 'GET',
                     cache: 'no-store',
                     headers: {
                         'Cache-Control': 'no-cache, no-store, must-revalidate',
                         'Pragma': 'no-cache',
-                        'Expires': '0'
+                        'Expires': '0',
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
                 });
                 const data = await response.json();
@@ -906,7 +947,7 @@ async function initTimer(roundId) {
                     const timerContainer = document.getElementById(`timer-${roundId}`);
                     if (timerContainer) {
                         if (remainingSeconds < 30) {
-                            timerContainer.className = 'text-sm font-medium px-4 py-2 rounded-xl bg-red-50 text-red-600 backdrop-blur-sm shadow-sm flex items-center animate-pulse';
+                            timerContainer.className = 'text-sm font-medium px-4 py-2 rounded-xl bg-red-50 text-red-600 backdrop-blur-sm shadow-sm flex items-center animate-pulse-fast';
                         } else if (remainingSeconds < 60) {
                             timerContainer.className = 'text-sm font-medium px-4 py-2 rounded-xl bg-orange-50 text-orange-600 backdrop-blur-sm shadow-sm flex items-center';
                         } else {
@@ -948,7 +989,7 @@ async function fetchUpdates(forceRefresh = false) {
     
     try {
         // Always add cache busting
-        const cacheBuster = `?_=${Date.now()}`;
+        const cacheBuster = `?nocache=${Date.now()}`;
         const headers = {
             'X-Requested-With': 'XMLHttpRequest',
             'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -959,7 +1000,8 @@ async function fetchUpdates(forceRefresh = false) {
         const response = await fetch(`/admin/rounds_update${cacheBuster}`, {
             method: 'GET',
             headers: headers,
-            cache: 'no-store'
+            cache: 'no-store',
+            credentials: 'same-origin'
         });
         
         if (response.ok) {
@@ -1110,6 +1152,17 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Create refresh indicator element
     createRefreshIndicator();
+    
+    // Add event listener to force refresh on visibility change
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            // Page is now visible again, force update
+            forcePageRefresh();
+        }
+    });
+    
+    // Set a short refresh interval for more frequent updates
+    refreshInterval = 5000; // Reduced from 10s to 5s
     
     // Perform an initial forced refresh to ensure page is up-to-date
     forcePageRefresh().then(() => {
