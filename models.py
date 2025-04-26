@@ -1,7 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime
+from datetime import datetime, timedelta
 import secrets
 
 db = SQLAlchemy()
@@ -15,12 +15,45 @@ class User(UserMixin, db.Model):
     is_approved = db.Column(db.Boolean, default=False)
     team = db.relationship('Team', backref='user', uselist=False)
     password_reset_requests = db.relationship('PasswordResetRequest', backref='user', lazy=True)
+    remember_token = db.Column(db.String(100), unique=True, nullable=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+        
+    def generate_remember_token(self, days=30):
+        """Generate a secure token for the 'remember me' functionality"""
+        # Clear any existing token
+        self.remember_token = None
+        
+        # Generate new token
+        token = secrets.token_urlsafe(32)
+        self.remember_token = token
+        
+        # Set expiration (30 days by default)
+        self.token_expires_at = datetime.utcnow() + timedelta(days=days)
+        
+        return token
+        
+    @classmethod
+    def get_by_remember_token(cls, token):
+        """Find a user by remember token if not expired"""
+        user = cls.query.filter_by(remember_token=token).first()
+        
+        if user and user.token_expires_at:
+            # Check if token is still valid
+            if user.token_expires_at > datetime.utcnow():
+                return user
+            
+            # Token expired, clear it
+            user.remember_token = None
+            user.token_expires_at = None
+            db.session.commit()
+            
+        return None
 
 class Team(db.Model):
     id = db.Column(db.Integer, primary_key=True)
