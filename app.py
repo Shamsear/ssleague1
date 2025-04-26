@@ -16,6 +16,8 @@ import base64
 from sqlalchemy import func
 import time
 from team_management_routes import team_management
+from bs4 import BeautifulSoup
+import re
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -48,7 +50,7 @@ def before_request():
         if request.endpoint in public_routes:
             return redirect(url_for('dashboard'))
 
-# Add an after_request handler to set cache control headers
+# Add an after_request handler to set cache control headers and improve accessibility
 @app.after_request
 def add_header(response):
     # Prevent caching for authenticated users
@@ -56,16 +58,89 @@ def add_header(response):
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
+    
+    # Add accessibility improvements for HTML responses
+    if response.content_type.startswith('text/html'):
+        try:
+            html = response.get_data(as_text=True)
+            soup = BeautifulSoup(html, 'html.parser')
+            
+            # 1. Ensure all images have alt text
+            for img in soup.find_all('img'):
+                if not img.get('alt'):
+                    img['alt'] = ''  # Empty alt for decorative images
+            
+            # 2. Ensure all buttons have accessible labels
+            for button in soup.find_all('button'):
+                if not button.get('aria-label') and not button.text.strip():
+                    # If button has an SVG icon, add descriptive label
+                    if button.find('svg'):
+                        button['aria-label'] = 'Button'
+            
+            # 3. Add skip to content link for keyboard users if not present
+            if not soup.find(id='skip-to-content'):
+                skip_link = soup.new_tag('a')
+                skip_link['id'] = 'skip-to-content'
+                skip_link['href'] = '#main-content'
+                skip_link['class'] = 'sr-only focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 focus:p-4 focus:bg-white focus:text-primary'
+                skip_link.string = 'Skip to main content'
+                
+                # Add to beginning of body
+                if soup.body:
+                    soup.body.insert(0, skip_link)
+            
+            # 4. Add focus styles to interactive elements without them
+            for elem in soup.select('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])'):
+                if not any(cls.startswith('focus:') for cls in elem.get('class', [])):
+                    elem_classes = elem.get('class', [])
+                    elem_classes.append('focus-outline')
+                    elem['class'] = elem_classes
+            
+            # 5. Ensure all form elements have associated labels
+            for input_elem in soup.find_all(['input', 'select', 'textarea']):
+                input_id = input_elem.get('id')
+                if input_id and not soup.find('label', attrs={'for': input_id}):
+                    # Try to find label within parent elements
+                    parent = input_elem.parent
+                    for i in range(3):  # Check up to 3 levels up
+                        if parent and parent.name == 'label':
+                            if not parent.get('for'):
+                                parent['for'] = input_id
+                            break
+                        if parent:
+                            parent = parent.parent
+            
+            # 6. Add role="main" to main content container if not present
+            main_content = soup.find(class_=re.compile('(main|container)'))
+            if main_content and not main_content.get('role'):
+                main_content['role'] = 'main'
+                if not main_content.get('id'):
+                    main_content['id'] = 'main-content'
+            
+            # Update response data with improved HTML
+            response.set_data(str(soup))
+            
+        except Exception as e:
+            # Log error but don't break the response
+            print(f"Error enhancing accessibility: {e}")
+    
     return response
-
-# Add request time to context
-@app.context_processor
-def inject_time():
-    return dict(time=time.time())
 
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    # First try to load the user by ID
+    user = User.query.get(int(user_id))
+    if user:
+        return user
+    
+    # If user not found by ID, check for remember token in cookies
+    remember_token = request.cookies.get('remember_token')
+    if remember_token:
+        # Try to find and validate user by remember token
+        user = User.get_by_remember_token(remember_token)
+        return user
+    
+    return None
 
 @app.route('/service-worker.js')
 def service_worker():
@@ -97,12 +172,38 @@ def login():
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
+        remember = 'remember' in request.form
+        
         user = User.query.filter_by(username=username).first()
         if user and user.check_password(password):
             # Check if user is either an admin or has been approved
             if user.is_admin or user.is_approved:
-                login_user(user, remember=False)  # Don't use "remember me" functionality
-                return redirect(url_for('dashboard'))
+                # Login the user
+                login_user(user, remember=False)  # We'll handle remember me manually with secure tokens
+                
+                # Create a response object for redirect
+                response = make_response(redirect(url_for('dashboard')))
+                
+                # If remember me is checked, generate and store a secure token
+                if remember:
+                    # Generate a new remember token
+                    token = user.generate_remember_token(days=30)
+                    # Save the changes to the database
+                    db.session.commit()
+                    
+                    # Set a secure cookie with the token
+                    # secure=True ensures the cookie is only sent over HTTPS
+                    # httponly=True prevents JavaScript from accessing the cookie (security against XSS)
+                    response.set_cookie(
+                        'remember_token', 
+                        token, 
+                        max_age=30*24*60*60,  # 30 days in seconds
+                        httponly=True,
+                        samesite='Strict',    # Protection against CSRF
+                        secure=request.is_secure  # Only set to True if using HTTPS
+                    )
+                
+                return response
             else:
                 flash('Your account is pending approval. Please contact an administrator.')
                 return render_template('login.html')
@@ -160,6 +261,12 @@ def dashboard():
         session.clear()
         return redirect(url_for('login'))
     
+    # Check if user is a new user (no bids placed yet)
+    user_is_new = False
+    if current_user.team:
+        bid_count = Bid.query.filter_by(team_id=current_user.team.id).count()
+        user_is_new = bid_count == 0
+
     # Check if any active rounds have expired
     active_rounds = Round.query.filter_by(is_active=True).all()
     for round in active_rounds:
@@ -727,39 +834,30 @@ def delete_bid(bid_id):
 @login_required
 def logout():
     # Get the username before logging out for the flash message
-    username = current_user.username if current_user.is_authenticated else ""
+    username = current_user.username
     
-    # Standard logout
+    # Clear the remember token if it exists
+    if hasattr(current_user, 'clear_remember_token'):
+        current_user.clear_remember_token()
+        db.session.commit()
+    
+    # Log the user out using Flask-Login
     logout_user()
     
-    # Clear all session data
+    # Clear session data
     session.clear()
     
-    response = redirect(url_for('index'))
+    # Flash message to confirm logout
+    flash(f'You have been logged out, {username}.')
     
-    # Clear all possible cookies 
-    response.delete_cookie('session')
+    # Create response for redirect
+    response = make_response(redirect(url_for('index')))
+    
+    # Remove the remember_token cookie
     response.delete_cookie('remember_token')
-    response.delete_cookie('remember')
-    # Also delete cookies with path and domain parameters
-    response.delete_cookie('session', path='/')
     
-    # Force browsers to delete session cookies by setting expiry to past date
-    response.set_cookie('session', '', expires=0)
-    
-    # Add cache-control headers to prevent caching
-    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
-    response.headers['Pragma'] = 'no-cache'
-    response.headers['Expires'] = '0'
-    
-    # Add flash message
-    flash(f'You have been successfully logged out')
-    
-    # Ensure we're redirecting to a non-auth-required page after logout
-    if current_user.is_authenticated:
-        # If somehow still authenticated (session not properly cleared), force another logout
-        logout_user()
-        session.clear()
+    # Tell service worker to clear cache
+    response.headers['Clear-Site-Data'] = '"cache", "cookies"'
     
     return response
 
@@ -4191,6 +4289,17 @@ def admin_database():
     
     player_count = Player.query.count()
     
+    # Get player count by position for a quick summary
+    position_counts = {}
+    if player_count > 0:
+        position_results = db.session.query(
+            Player.position, 
+            func.count(Player.id)
+        ).group_by(Player.position).all()
+        
+        for position, count in position_results:
+            position_counts[position] = count
+    
     # Check for SQLite database file
     sqlite_paths = [
         'efootball_real.db',
@@ -4207,10 +4316,25 @@ def admin_database():
             db_path = path
             break
     
+    # If SQLite DB exists, get the count of players in it
+    sqlite_player_count = 0
+    if db_exists:
+        try:
+            conn = sqlite3.connect(db_path)
+            cursor = conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM players_all")
+            sqlite_player_count = cursor.fetchone()[0]
+            conn.close()
+        except:
+            # If there's an error, we'll just show 0
+            pass
+    
     return render_template('admin_database.html', 
                           player_count=player_count,
+                          position_counts=position_counts,
                           db_exists=db_exists,
-                          db_path=db_path)
+                          db_path=db_path,
+                          sqlite_player_count=sqlite_player_count)
 
 @app.route('/admin/import_players', methods=['POST'])
 @login_required
@@ -4235,6 +4359,10 @@ def admin_import_players():
         return jsonify({'error': 'SQLite database not found'})
     
     try:
+        # Get current player count to determine if we're doing a fresh import or adding players
+        current_player_count = Player.query.count()
+        operation_type = "Fresh import" if current_player_count == 0 else "Adding players"
+        
         # Connect to SQLite
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
@@ -4244,6 +4372,10 @@ def admin_import_players():
         if not cursor.fetchone():
             conn.close()
             return jsonify({'error': "'players_all' table not found in the database"})
+        
+        # Count how many players we're going to import
+        cursor.execute("SELECT COUNT(*) FROM players_all")
+        total_players = cursor.fetchone()[0]
         
         # Get player data
         cursor.execute("""
@@ -4263,6 +4395,11 @@ def admin_import_players():
         batch = []
         
         for row in cursor.fetchall():
+            # Skip if this player_id already exists in the database
+            existing_player = Player.query.filter_by(player_id=row[32]).first()
+            if existing_player:
+                continue
+                
             player = Player(
                 name=row[0],
                 position=row[1],
@@ -4313,7 +4450,17 @@ def admin_import_players():
             db.session.commit()
         
         conn.close()
-        return jsonify({'success': f'Successfully imported {player_count} players'})
+        
+        # Determine success message based on how many players were added
+        if player_count == 0:
+            if current_player_count > 0:
+                message = f"No new players were imported. All {total_players} players from the SQLite database already exist in the system."
+            else:
+                message = "No players were imported. The SQLite database may not contain valid player data."
+        else:
+            message = f"{operation_type}: Successfully imported {player_count} players out of {total_players} in the SQLite database."
+        
+        return jsonify({'success': message, 'count': player_count, 'total_available': total_players})
     
     except Exception as e:
         db.session.rollback()
@@ -4347,6 +4494,552 @@ def admin_upload_sqlite():
         return jsonify({'success': f'Database uploaded successfully to {target_path}'})
     except Exception as e:
         return jsonify({'error': f'Error saving file: {str(e)}'})
+
+@app.route('/admin/delete_all_players', methods=['POST'])
+@login_required
+def admin_delete_all_players():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        # Check for active rounds that might reference players
+        active_rounds = Round.query.filter_by(is_active=True).all()
+        if active_rounds:
+            return jsonify({'error': 'Cannot delete players while there are active rounds. Please finalize or delete all active rounds first.'})
+        
+        # Check for active bulk rounds
+        active_bulk_rounds = BulkBidRound.query.filter_by(is_active=True).all()
+        if active_bulk_rounds:
+            return jsonify({'error': 'Cannot delete players while there are active bulk rounds. Please finalize or delete all active bulk rounds first.'})
+        
+        # Count players before deletion
+        player_count = Player.query.count()
+        
+        # Delete all related bids first to avoid foreign key constraints
+        Bid.query.delete()
+        db.session.commit()
+        
+        # Delete tiebreakers that reference players
+        TeamTiebreaker.query.delete()
+        db.session.commit()
+        
+        Tiebreaker.query.delete()
+        db.session.commit()
+        
+        # Delete bulk bids and tiebreakers
+        TeamBulkTiebreaker.query.delete()
+        db.session.commit()
+        
+        BulkBidTiebreaker.query.delete()
+        db.session.commit()
+        
+        BulkBid.query.delete()
+        db.session.commit()
+        
+        # Delete starred players references
+        StarredPlayer.query.delete()
+        db.session.commit()
+        
+        # Finally delete all players
+        Player.query.delete()
+        db.session.commit()
+        
+        return jsonify({'success': f'Successfully deleted {player_count} players and all related bids and tiebreakers'})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Error deleting players: {str(e)}'})
+
+@app.route('/admin/create_backup', methods=['POST'])
+@login_required
+def admin_create_backup():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    try:
+        # Create a JSON serializable backup of the database
+        backup_data = {
+            'metadata': {
+                'created_at': datetime.utcnow().isoformat(),
+                'version': '1.0',
+                'app_name': 'Football Auction'
+            },
+            'data': {}
+        }
+        
+        # Back up Players
+        players_data = []
+        for player in Player.query.all():
+            player_dict = {column.name: getattr(player, column.name) for column in player.__table__.columns}
+            # Convert datetime objects to ISO strings for JSON serialization
+            for key, value in player_dict.items():
+                if isinstance(value, datetime):
+                    player_dict[key] = value.isoformat()
+            players_data.append(player_dict)
+        backup_data['data']['players'] = players_data
+        
+        # Back up Teams
+        teams_data = []
+        for team in Team.query.all():
+            team_dict = {column.name: getattr(team, column.name) for column in team.__table__.columns}
+            for key, value in team_dict.items():
+                if isinstance(value, datetime):
+                    team_dict[key] = value.isoformat()
+            teams_data.append(team_dict)
+        backup_data['data']['teams'] = teams_data
+        
+        # Back up Users
+        users_data = []
+        for user in User.query.all():
+            user_dict = {column.name: getattr(user, column.name) for column in user.__table__.columns}
+            for key, value in user_dict.items():
+                if isinstance(value, datetime):
+                    user_dict[key] = value.isoformat()
+            users_data.append(user_dict)
+        backup_data['data']['users'] = users_data
+        
+        # Back up other essential tables
+        # Rounds
+        rounds_data = []
+        for round in Round.query.all():
+            round_dict = {column.name: getattr(round, column.name) for column in round.__table__.columns}
+            for key, value in round_dict.items():
+                if isinstance(value, datetime):
+                    round_dict[key] = value.isoformat()
+            rounds_data.append(round_dict)
+        backup_data['data']['rounds'] = rounds_data
+        
+        # Bids
+        bids_data = []
+        for bid in Bid.query.all():
+            bid_dict = {column.name: getattr(bid, column.name) for column in bid.__table__.columns}
+            for key, value in bid_dict.items():
+                if isinstance(value, datetime):
+                    bid_dict[key] = value.isoformat()
+            bids_data.append(bid_dict)
+        backup_data['data']['bids'] = bids_data
+        
+        # Create response with the backup file
+        response = make_response(json.dumps(backup_data, indent=2))
+        response.headers['Content-Type'] = 'application/json'
+        response.headers['Content-Disposition'] = f'attachment; filename=efootball_auction_backup_{datetime.utcnow().strftime("%Y%m%d")}.json'
+        return response
+    
+    except Exception as e:
+        return jsonify({'error': f'Error creating backup: {str(e)}'}), 500
+
+@app.route('/admin/restore_backup', methods=['POST'])
+@login_required
+def admin_restore_backup():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    if 'backup_file' not in request.files:
+        return jsonify({'error': 'No backup file provided'})
+    
+    file = request.files['backup_file']
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'})
+    
+    if not file.filename.endswith('.json'):
+        return jsonify({'error': 'File must be a JSON backup'})
+    
+    try:
+        # Read and parse JSON data
+        backup_data = json.loads(file.read().decode('utf-8'))
+        
+        # Validate backup format
+        if 'metadata' not in backup_data or 'data' not in backup_data:
+            return jsonify({'error': 'Invalid backup format'})
+        
+        # Check for active rounds/operations
+        active_rounds = Round.query.filter_by(is_active=True).all()
+        if active_rounds:
+            return jsonify({'error': 'Cannot restore while there are active rounds. Please finalize or delete all active rounds first.'})
+        
+        active_bulk_rounds = BulkBidRound.query.filter_by(is_active=True).all()
+        if active_bulk_rounds:
+            return jsonify({'error': 'Cannot restore while there are active bulk rounds. Please finalize or delete all active bulk rounds first.'})
+        
+        # Begin the restore process in a transaction
+        try:
+            # Clear existing data (in proper order to avoid foreign key constraints)
+            # Note: This is a destructive operation!
+            Bid.query.delete()
+            db.session.commit()
+            
+            TeamTiebreaker.query.delete()
+            db.session.commit()
+            
+            Tiebreaker.query.delete()
+            db.session.commit()
+            
+            TeamBulkTiebreaker.query.delete()
+            db.session.commit()
+            
+            BulkBidTiebreaker.query.delete()
+            db.session.commit()
+            
+            BulkBid.query.delete()
+            db.session.commit()
+            
+            StarredPlayer.query.delete()
+            db.session.commit()
+            
+            Player.query.delete()
+            db.session.commit()
+            
+            Round.query.delete()
+            db.session.commit()
+            
+            # Preserve the admin user for safety
+            admin_user = User.query.filter_by(is_admin=True).first()
+            admin_id = admin_user.id if admin_user else None
+            
+            # Now restore the data
+            # Restore Players
+            if 'players' in backup_data['data']:
+                for player_data in backup_data['data']['players']:
+                    player = Player()
+                    for key, value in player_data.items():
+                        if key != 'id':  # Don't restore IDs directly
+                            # Handle datetime conversion if needed
+                            if key.endswith('_at') and value:
+                                try:
+                                    value = datetime.fromisoformat(value)
+                                except:
+                                    pass
+                            setattr(player, key, value)
+                    db.session.add(player)
+                db.session.commit()
+            
+            # Restore Teams
+            if 'teams' in backup_data['data']:
+                for team_data in backup_data['data']['teams']:
+                    # Skip if team already exists (by ID)
+                    if Team.query.get(team_data.get('id')):
+                        continue
+                    
+                    team = Team()
+                    for key, value in team_data.items():
+                        if key != 'id' or not Team.query.get(value):  # Only set ID if not exists
+                            if key.endswith('_at') and value:
+                                try:
+                                    value = datetime.fromisoformat(value)
+                                except:
+                                    pass
+                            setattr(team, key, value)
+                    db.session.add(team)
+                db.session.commit()
+            
+            # Restore Users (except existing admin)
+            if 'users' in backup_data['data']:
+                for user_data in backup_data['data']['users']:
+                    # Skip if this is the admin user we want to preserve
+                    if admin_id and user_data.get('id') == admin_id:
+                        continue
+                    
+                    # Skip if user already exists
+                    if User.query.get(user_data.get('id')):
+                        continue
+                    
+                    user = User()
+                    for key, value in user_data.items():
+                        if key != 'id' or not User.query.get(value):
+                            if key.endswith('_at') and value:
+                                try:
+                                    value = datetime.fromisoformat(value)
+                                except:
+                                    pass
+                            setattr(user, key, value)
+                    db.session.add(user)
+                db.session.commit()
+            
+            # Restore Rounds
+            if 'rounds' in backup_data['data']:
+                for round_data in backup_data['data']['rounds']:
+                    round = Round()
+                    for key, value in round_data.items():
+                        if key != 'id':
+                            if key.endswith('_at') and value:
+                                try:
+                                    value = datetime.fromisoformat(value)
+                                except:
+                                    pass
+                            setattr(round, key, value)
+                    db.session.add(round)
+                db.session.commit()
+            
+            # Restore Bids
+            if 'bids' in backup_data['data']:
+                for bid_data in backup_data['data']['bids']:
+                    bid = Bid()
+                    for key, value in bid_data.items():
+                        if key != 'id':
+                            if key.endswith('_at') and value:
+                                try:
+                                    value = datetime.fromisoformat(value)
+                                except:
+                                    pass
+                            setattr(bid, key, value)
+                    db.session.add(bid)
+                db.session.commit()
+            
+            return jsonify({'success': 'Database restored successfully from backup'})
+            
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': f'Error during restore process: {str(e)}'})
+    
+    except Exception as e:
+        return jsonify({'error': f'Error processing backup file: {str(e)}'})
+
+@app.route('/admin/filter_players', methods=['POST'])
+@login_required
+def admin_filter_players():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    data = request.json
+    position = data.get('position')
+    min_rating = data.get('min_rating')
+    max_rating = data.get('max_rating')
+    
+    # Build query with filters
+    query = Player.query
+    
+    if position:
+        query = query.filter(Player.position == position)
+    
+    if min_rating:
+        query = query.filter(Player.overall_rating >= int(min_rating))
+    
+    if max_rating:
+        query = query.filter(Player.overall_rating <= int(max_rating))
+    
+    # Execute query and format results
+    try:
+        players = query.all()
+        result = []
+        
+        for player in players:
+            player_data = {
+                'id': player.id,
+                'name': player.name,
+                'position': player.position,
+                'team_name': player.team_name,
+                'overall_rating': player.overall_rating
+            }
+            result.append(player_data)
+        
+        return jsonify({
+            'players': result,
+            'count': len(result)
+        })
+    
+    except Exception as e:
+        return jsonify({'error': f'Error filtering players: {str(e)}'}), 500
+
+@app.route('/admin/export_filtered_players', methods=['POST'])
+@login_required
+def admin_export_filtered_players():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    data = request.json
+    position = data.get('position')
+    min_rating = data.get('min_rating')
+    max_rating = data.get('max_rating')
+    
+    # Build query with filters
+    query = Player.query
+    
+    if position:
+        query = query.filter(Player.position == position)
+    
+    if min_rating:
+        query = query.filter(Player.overall_rating >= int(min_rating))
+    
+    if max_rating:
+        query = query.filter(Player.overall_rating <= int(max_rating))
+    
+    try:
+        # Get players and create a dataframe
+        players = query.all()
+        
+        # Create in-memory Excel file
+        output = io.BytesIO()
+        
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            # Convert player data to DataFrame
+            players_data = []
+            for player in players:
+                player_dict = {
+                    'ID': player.id,
+                    'Name': player.name,
+                    'Position': player.position,
+                    'Team': player.team_name,
+                    'Nationality': player.nationality,
+                    'Rating': player.overall_rating,
+                    'Playing Style': player.playing_style,
+                    'Player ID': player.player_id,
+                    'Offensive Awareness': player.offensive_awareness,
+                    'Ball Control': player.ball_control,
+                    'Dribbling': player.dribbling,
+                    'Tight Possession': player.tight_possession,
+                    'Low Pass': player.low_pass,
+                    'Lofted Pass': player.lofted_pass,
+                    'Finishing': player.finishing,
+                    'Heading': player.heading,
+                    'Set Piece Taking': player.set_piece_taking,
+                    'Curl': player.curl,
+                    'Speed': player.speed,
+                    'Acceleration': player.acceleration,
+                    'Kicking Power': player.kicking_power,
+                    'Jumping': player.jumping,
+                    'Physical Contact': player.physical_contact,
+                    'Balance': player.balance,
+                    'Stamina': player.stamina,
+                    'Defensive Awareness': player.defensive_awareness,
+                    'Tackling': player.tackling,
+                    'Aggression': player.aggression,
+                    'Defensive Engagement': player.defensive_engagement,
+                }
+                # Add goalkeeper stats if applicable
+                if player.position == 'GK':
+                    player_dict.update({
+                        'GK Awareness': player.gk_awareness,
+                        'GK Catching': player.gk_catching,
+                        'GK Parrying': player.gk_parrying,
+                        'GK Reflexes': player.gk_reflexes,
+                        'GK Reach': player.gk_reach
+                    })
+                
+                players_data.append(player_dict)
+            
+            # Create DataFrame and write to Excel
+            df = pd.DataFrame(players_data)
+            df.to_excel(writer, sheet_name='Players', index=False)
+            
+            # Get the worksheet and set column widths
+            worksheet = writer.sheets['Players']
+            for i, col in enumerate(df.columns):
+                # Set column width based on maximum length of column data
+                max_len = max([
+                    len(str(col)),  # Column header
+                    df[col].astype(str).str.len().max()  # Column data
+                ]) + 2  # Add padding
+                worksheet.set_column(i, i, max_len)
+        
+        # Reset file pointer
+        output.seek(0)
+        
+        # Create response
+        filter_text = f"_{position}" if position else ""
+        rating_text = f"_rating_{min_rating or '0'}-{max_rating or '99'}" if min_rating or max_rating else ""
+        filename = f"players{filter_text}{rating_text}_{datetime.utcnow().strftime('%Y%m%d')}.xlsx"
+        
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name=filename,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+    
+    except Exception as e:
+        return jsonify({'error': f'Error exporting players: {str(e)}'}), 500
+
+@app.route('/admin/delete_filtered_players', methods=['POST'])
+@login_required
+def admin_delete_filtered_players():
+    if not current_user.is_admin:
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    data = request.json
+    position = data.get('position')
+    min_rating = data.get('min_rating')
+    max_rating = data.get('max_rating')
+    
+    # Require at least one filter for safety
+    if not position and not min_rating and not max_rating:
+        return jsonify({'error': 'At least one filter must be specified for deletion'})
+    
+    # Build query with filters
+    query = Player.query
+    
+    if position:
+        query = query.filter(Player.position == position)
+    
+    if min_rating:
+        query = query.filter(Player.overall_rating >= int(min_rating))
+    
+    if max_rating:
+        query = query.filter(Player.overall_rating <= int(max_rating))
+    
+    try:
+        # Check for active rounds first
+        active_rounds = Round.query.filter_by(is_active=True).all()
+        if active_rounds:
+            return jsonify({'error': 'Cannot delete players while there are active rounds. Please finalize or delete all active rounds first.'})
+        
+        # Check for active bulk rounds
+        active_bulk_rounds = BulkBidRound.query.filter_by(is_active=True).all()
+        if active_bulk_rounds:
+            return jsonify({'error': 'Cannot delete players while there are active bulk rounds. Please finalize or delete all active bulk rounds first.'})
+        
+        # Get players to delete
+        players = query.all()
+        player_count = len(players)
+        
+        if player_count == 0:
+            return jsonify({'success': 'No players match the filter criteria'})
+        
+        # Get player IDs
+        player_ids = [player.id for player in players]
+        
+        # Delete related data first (to avoid foreign key constraint errors)
+        Bid.query.filter(Bid.player_id.in_(player_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        
+        StarredPlayer.query.filter(StarredPlayer.player_id.in_(player_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        
+        # Find tiebreakers related to these players
+        tiebreakers = Tiebreaker.query.filter(Tiebreaker.player_id.in_(player_ids)).all()
+        tiebreaker_ids = [t.id for t in tiebreakers]
+        
+        if tiebreaker_ids:
+            TeamTiebreaker.query.filter(TeamTiebreaker.tiebreaker_id.in_(tiebreaker_ids)).delete(synchronize_session=False)
+            db.session.commit()
+            
+            Tiebreaker.query.filter(Tiebreaker.id.in_(tiebreaker_ids)).delete(synchronize_session=False)
+            db.session.commit()
+        
+        # Find bulk tiebreakers related to these players
+        bulk_tiebreakers = BulkBidTiebreaker.query.filter(BulkBidTiebreaker.player_id.in_(player_ids)).all()
+        bulk_tiebreaker_ids = [t.id for t in bulk_tiebreakers]
+        
+        if bulk_tiebreaker_ids:
+            TeamBulkTiebreaker.query.filter(TeamBulkTiebreaker.tiebreaker_id.in_(bulk_tiebreaker_ids)).delete(synchronize_session=False)
+            db.session.commit()
+            
+            BulkBidTiebreaker.query.filter(BulkBidTiebreaker.id.in_(bulk_tiebreaker_ids)).delete(synchronize_session=False)
+            db.session.commit()
+        
+        # Delete bulk bids
+        BulkBid.query.filter(BulkBid.player_id.in_(player_ids)).delete(synchronize_session=False)
+        db.session.commit()
+        
+        # Finally delete the players
+        query.delete(synchronize_session=False)
+        db.session.commit()
+        
+        return jsonify({'success': f'Successfully deleted {player_count} players and related data'})
+    
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': f'Error deleting players: {str(e)}'}), 500
+
 
 if __name__ == '__main__':
     with app.app_context():

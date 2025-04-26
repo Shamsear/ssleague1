@@ -18,11 +18,17 @@
     
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/a11y.css') }}"/>
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/tooltips.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/whats_new.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
     <script src="{{ url_for('static', filename='js/smoothscroll.js') }}"></script>
     <script src="{{ url_for('static', filename='js/scrollTo.js') }}"></script>
     <!-- PWA Support End -->
+    
+    <!-- Accessibility meta tags -->
+    <meta name="description" content="SS League Auction - Build your dream team through strategic bidding and competitive auctions">
     
     <script>
         tailwind.config = {
@@ -30,6 +36,7 @@
                 extend: {
                     colors: {
                         primary: '#0066FF',
+                        'primary-dark': '#0055CC',
                         secondary: '#9580FF',
                         accent: '#FF2D55',
                         golden: '#D4AF37',
@@ -54,7 +61,39 @@
                         '4xl': '2rem',
                     }
                 }
-            }
+            },
+            // Add keyboard and accessibility utilities
+            plugins: [
+                function({ addUtilities }) {
+                    const newUtilities = {
+                        '.focus-outline': {
+                            '&:focus': {
+                                outline: '2px solid rgba(0, 102, 255, 0.5)',
+                                outlineOffset: '2px',
+                            },
+                            '&:focus:not(:focus-visible)': {
+                                outline: 'none',
+                            },
+                            '&:focus-visible': {
+                                outline: '2px solid rgba(0, 102, 255, 0.5)',
+                                outlineOffset: '2px',
+                            },
+                        },
+                        '.sr-only': {
+                            position: 'absolute',
+                            width: '1px',
+                            height: '1px',
+                            padding: '0',
+                            margin: '-1px',
+                            overflow: 'hidden',
+                            clip: 'rect(0, 0, 0, 0)',
+                            whiteSpace: 'nowrap',
+                            borderWidth: '0',
+                        },
+                    }
+                    addUtilities(newUtilities)
+                }
+            ]
         }
     </script>
     <style>
@@ -360,6 +399,15 @@
 
         {% block content %}{% endblock %}
         
+        <!-- Include Notification Center for authenticated users -->
+        {% if current_user.is_authenticated %}
+            {% include 'partials/notification_center.html' %}
+            {% include 'whats_new.html' %}
+        {% endif %}
+
+        <!-- Screen reader announcer element -->
+        <div id="screen-reader-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
         <!-- Spacer for mobile bottom nav -->
         <div class="mobile-spacer sm:hidden"></div>
     </main>

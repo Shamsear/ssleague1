@@ -1,0 +1,211 @@
+/* Accessibility Improvements */
+
+/* --- Focus States --- */
+/* Improved focus styles for all interactive elements */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+    outline: 3px solid rgba(0, 102, 255, 0.5) !important;
+    outline-offset: 2px !important;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Ensure focused elements are visible during keyboard navigation */
+.focus-visible-only:not(:focus-visible) {
+    outline: none !important;
+}
+
+/* --- Color Contrast --- */
+/* Enhanced text contrast */
+.text-primary {
+    color: #0055CC !important; /* Darker blue with better contrast on white */
+}
+
+.text-secondary {
+    color: #7055D3 !important; /* Darker purple with better contrast */
+}
+
+/* Button contrast improvements */
+.bg-primary {
+    background-color: #0055CC !important; /* Darker blue with 4.5:1 contrast on white */
+}
+
+.bg-primary-light {
+    background-color: #E6F0FF !important; /* Light blue background with proper contrast */
+    color: #00449E !important; /* Dark blue text on light blue background */
+}
+
+/* Badge and tag contrast fixes */
+.badge {
+    font-weight: 600 !important; /* Increased font weight for better readability */
+}
+
+.badge-gray {
+    background-color: #E5E7EB !important;
+    color: #111827 !important; /* Dark enough gray for proper contrast */
+}
+
+.badge-yellow {
+    background-color: #FEF3C7 !important;
+    color: #92400E !important; /* Dark enough amber for proper contrast */
+}
+
+.badge-green {
+    background-color: #D1FAE5 !important;
+    color: #065F46 !important; /* Dark enough green for proper contrast */
+}
+
+.badge-red {
+    background-color: #FEE2E2 !important;
+    color: #B91C1C !important; /* Dark enough red for proper contrast */
+}
+
+.badge-blue {
+    background-color: #DBEAFE !important;
+    color: #1E40AF !important; /* Dark enough blue for proper contrast */
+}
+
+/* Link contrast and clarity */
+a:not([class]) {
+    text-decoration: underline !important; /* Ensure links are recognizable without relying on color */
+    text-underline-offset: 2px !important;
+}
+
+/* Ensure disabled elements have proper visual indication beyond just color */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+.disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    background-image: repeating-linear-gradient(
+        45deg,
+        transparent,
+        transparent 5px,
+        rgba(0, 0, 0, 0.05) 5px,
+        rgba(0, 0, 0, 0.05) 10px
+    ) !important;
+}
+
+/* --- Screen Reader Utilities --- */
+.sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border-width: 0 !important;
+}
+
+.sr-only-focusable:not(:focus) {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border-width: 0 !important;
+}
+
+/* --- Motion & Animation Accessibility --- */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
+
+/* --- Form Accessibility --- */
+/* Better error states */
+.input-error {
+    border-color: #DC2626 !important;
+    background-color: #FEF2F2 !important;
+}
+
+.input-error:focus {
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.3) !important;
+}
+
+.error-message {
+    color: #B91C1C !important;
+    font-weight: 500 !important;
+}
+
+/* Required field indication */
+.required-field::after {
+    content: "*";
+    color: #DC2626;
+    margin-left: 2px;
+}
+
+/* Fieldset and Legend styling */
+fieldset {
+    border: 1px solid #D1D5DB !important;
+    border-radius: 0.5rem !important;
+    padding: 1rem !important;
+    margin-bottom: 1.5rem !important;
+}
+
+legend {
+    padding: 0 0.5rem !important;
+    font-weight: 500 !important;
+}
+
+/* --- Table Accessibility --- */
+table {
+    border-collapse: separate !important;
+    border-spacing: 0 !important;
+    width: 100% !important;
+}
+
+th {
+    text-align: left !important;
+    font-weight: 600 !important;
+    border-bottom: 2px solid #D1D5DB !important;
+    padding: 0.75rem !important;
+}
+
+td {
+    border-bottom: 1px solid #E5E7EB !important;
+    padding: 0.75rem !important;
+}
+
+/* Improve table row hover state */
+tr:hover td {
+    background-color: #F9FAFB !important;
+}
+
+/* Add proper borders to tables */
+.table-bordered th,
+.table-bordered td {
+    border: 1px solid #D1D5DB !important;
+}
+
+/* --- Skip Link --- */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: #0055CC;
+    color: white;
+    padding: 8px;
+    z-index: 9999;
+    transition: top 0.3s;
+}
+
+.skip-link:focus {
+    top: 0;
+} 

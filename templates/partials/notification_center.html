@@ -1,0 +1,124 @@
+<!-- Notification Center -->
+<div id="notification-center" class="fixed right-4 top-20 z-50 w-80 max-h-[70vh] bg-white rounded-2xl shadow-lg overflow-hidden transition-all duration-300 transform translate-x-full opacity-0 border border-gray-100" aria-labelledby="notification-title" role="region">
+    <div class="p-4 bg-gradient-to-r from-primary to-secondary text-white flex justify-between items-center sticky top-0 z-10">
+        <h3 id="notification-title" class="font-semibold flex items-center" role="heading" aria-level="2">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+            </svg>
+            Notifications
+        </h3>
+        <div class="flex gap-2">
+            <button id="mark-all-read" class="text-xs bg-white/20 hover:bg-white/30 text-white px-2 py-1 rounded-lg transition-colors" aria-label="Mark all as read">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                </svg>
+            </button>
+            <button id="close-notifications" class="text-white hover:text-gray-200 transition-colors" aria-label="Close notification center">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+    
+    <div class="notification-tabs flex border-b border-gray-200">
+        <button class="notification-tab w-1/3 py-3 text-sm font-medium text-center text-primary border-b-2 border-primary" 
+            data-tab="all" aria-selected="true" role="tab" aria-controls="tab-all" id="tab-all-button">
+            All
+        </button>
+        <button class="notification-tab w-1/3 py-3 text-sm font-medium text-center text-gray-600 hover:text-gray-800" 
+            data-tab="unread" aria-selected="false" role="tab" aria-controls="tab-unread" id="tab-unread-button">
+            Unread
+        </button>
+        <button class="notification-tab w-1/3 py-3 text-sm font-medium text-center text-gray-600 hover:text-gray-800" 
+            data-tab="important" aria-selected="false" role="tab" aria-controls="tab-important" id="tab-important-button">
+            Important
+        </button>
+    </div>
+    
+    <!-- Notification Panels -->
+    <div class="notification-panels overflow-y-auto max-h-[calc(70vh-8rem)]">
+        <!-- All Notifications Panel -->
+        <div id="tab-all" class="notification-panel" role="tabpanel" aria-labelledby="tab-all-button">
+            <div id="all-notifications-list" class="divide-y divide-gray-100">
+                <!-- Notifications will be dynamically inserted here -->
+                <div class="text-center text-gray-500 py-8">
+                    <p>No notifications yet</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Unread Notifications Panel -->
+        <div id="tab-unread" class="notification-panel hidden" role="tabpanel" aria-labelledby="tab-unread-button">
+            <div id="unread-notifications-list" class="divide-y divide-gray-100">
+                <!-- Unread notifications will be inserted here -->
+                <div class="text-center text-gray-500 py-8">
+                    <p>No unread notifications</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Important Notifications Panel -->
+        <div id="tab-important" class="notification-panel hidden" role="tabpanel" aria-labelledby="tab-important-button">
+            <div id="important-notifications-list" class="divide-y divide-gray-100">
+                <!-- Important notifications will be inserted here -->
+                <div class="text-center text-gray-500 py-8">
+                    <p>No important notifications</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="p-3 bg-gray-50 border-t border-gray-100 sticky bottom-0 z-10">
+        <a href="#" id="settings-link" class="text-xs text-gray-600 hover:text-primary flex items-center justify-center transition-colors">
+            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            Notification Settings
+        </a>
+    </div>
+</div>
+
+<!-- Notification Trigger -->
+<button id="notification-trigger" class="fixed right-4 top-20 z-40 p-2 bg-white rounded-full shadow-md hover:shadow-lg transition-all duration-300 flex items-center justify-center" aria-label="Open notifications" aria-expanded="false" aria-controls="notification-center">
+    <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"></path>
+    </svg>
+    <span id="notification-count" class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-medium hidden" aria-live="polite">0</span>
+</button>
+
+<!-- Notification Template (Hidden) -->
+<template id="notification-template">
+    <div class="notification-item p-4 hover:bg-gray-50 transition-colors" data-id="" data-read="false" data-important="false">
+        <div class="flex justify-between items-start">
+            <div class="flex items-start">
+                <div class="notification-icon flex-shrink-0 mr-3 mt-1"></div>
+                <div class="flex-1">
+                    <h4 class="notification-title text-sm font-medium text-gray-900 mb-1"></h4>
+                    <p class="notification-message text-sm text-gray-600"></p>
+                    <div class="mt-2 flex items-center justify-between">
+                        <span class="notification-time text-xs text-gray-500"></span>
+                        <div class="notification-actions flex items-center">
+                            <button class="mark-read text-xs text-gray-500 hover:text-gray-700 mr-2" aria-label="Mark as read">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                                </svg>
+                            </button>
+                            <button class="toggle-important text-xs text-gray-500 hover:text-yellow-500" aria-label="Mark as important">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <button class="delete-notification text-gray-400 hover:text-gray-600" aria-label="Delete notification">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+</template> 
