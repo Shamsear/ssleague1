@@ -91,8 +91,12 @@ def add_header(response):
             
             # 4. Add focus styles to interactive elements without them
             for elem in soup.select('a, button, input, select, textarea, [tabindex]:not([tabindex="-1"])'):
-                if not any(cls.startswith('focus:') for cls in elem.get('class', [])):
-                    elem_classes = elem.get('class', [])
+                # Fix: Handle the case where class might be a string
+                elem_classes = elem.get('class', [])
+                if isinstance(elem_classes, str):
+                    elem_classes = elem_classes.split()
+                
+                if not any(cls.startswith('focus:') for cls in elem_classes):
                     elem_classes.append('focus-outline')
                     elem['class'] = elem_classes
             
