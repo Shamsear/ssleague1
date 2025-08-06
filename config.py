@@ -9,6 +9,8 @@ class Config:
     
     # Handle potential "postgres://" format from Render and remove invalid schema parameter
     database_url = os.environ.get('DATABASE_URL') or 'postgresql://postgres:shamsear@localhost/auction_db'
+    print(f"DEBUG: DATABASE_URL from env: {os.environ.get('DATABASE_URL')}")
+    print(f"DEBUG: Final database_url: {database_url}")
     
     # Convert postgres:// to postgresql://
     if database_url.startswith("postgres://"):

@@ -13,7 +13,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        value: postgresql://postgres:zyiubE1EA8QHblQG@db.ibgcfbnqqbdqyukhxcuz.supabase.co:5432/postgres?sslmode=require&connect_timeout=60&tcp_user_timeout=60000
+        value: postgresql://postgres:zyiubE1EA8QHblQG@db.ibgcfbnqqbdqyukhxcuz.supabase.co:5432/postgres?sslmode=require
       - key: WEB_CONCURRENCY
         value: 1
       - key: FLASK_APP
