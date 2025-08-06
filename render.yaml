@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: ssleague-new
+    env: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python init_db.py
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        value: postgresql://postgres:zyiubE1EA8QHblQG@db.ibgcfbnqqbdqyukhxcuz.supabase.co:5432/postgres?sslmode=require&connect_timeout=60&tcp_user_timeout=60000
+      - key: WEB_CONCURRENCY
+        value: 1
+      - key: FLASK_APP
+        value: app.py
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: false
+      - key: SKIP_BUILD_DB_INIT
+        value: false
+      # VAPID keys for push notifications - ADD THESE MANUALLY IN RENDER DASHBOARD
+      # - key: VAPID_PRIVATE_KEY
+      #   value: your_vapid_private_key_here
+      # - key: VAPID_PUBLIC_KEY
+      #   value: your_vapid_public_key_here
+      # - key: VAPID_CLAIMS_SUB
+      #   value: mailto:admin@yourdomain.com
