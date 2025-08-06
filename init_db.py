@@ -5,6 +5,7 @@ import os
 import pandas as pd
 import sqlite3
 import shutil
+from datetime import datetime
 
 def init_database():
     """Initialize the database by creating all tables."""
@@ -33,12 +34,44 @@ def init_database():
                     retry_delay *= 2  # Exponential backoff
                 else:
                     print("All database connection attempts failed.")
-                    if "Network is unreachable" in str(e) or "connection to server" in str(e):
-                        print("Network connectivity issue detected. This might be temporary.")
-                        print("Skipping database initialization for now - will retry at runtime.")
-                        return
+                    error_str = str(e)
+                    if any(keyword in error_str for keyword in [
+                        "Network is unreachable", "connection to server", 
+                        "Name or service not known", "could not translate host name",
+                        "No address associated with hostname", "nodename nor servname provided",
+                        "Connection refused", "timeout", "Temporary failure in name resolution"
+                    ]):
+                        print("\n" + "="*60)
+                        print("🔄 DATABASE CONNECTIVITY ISSUE DETECTED")
+                        print("="*60)
+                        print("This is common during Render deployment when:")
+                        print("• The database service is still starting up")
+                        print("• DNS propagation is in progress")
+                        print("• Network routing is being established")
+                        print("")
+                        print("✅ SOLUTION: Database initialization will be deferred to runtime.")
+                        print("The app will automatically initialize the database when it first starts.")
+                        print("="*60)
+                        
+                        # Create an empty flag file to indicate initialization was skipped
+                        try:
+                            with open('/tmp/db_init_skipped', 'w') as f:
+                                f.write(f'Database initialization skipped at {datetime.now().isoformat()} due to connectivity issues during build\nError: {error_str}')
+                            print("📁 Created runtime initialization flag: /tmp/db_init_skipped")
+                        except Exception as flag_error:
+                            print(f"⚠️  Could not create flag file: {flag_error}")
+                        
+                        print("\n✅ Build will continue - database setup deferred to runtime.")
+                        return  # Exit gracefully, don't raise an error
                     else:
-                        print(f"Fatal database error: {repr(e)}")
+                        print(f"\n❌ FATAL DATABASE ERROR (non-connectivity issue): {repr(e)}")
+                        print("This error is not related to network connectivity and needs investigation.")
+                        # Still create the flag file but also raise the error for debugging
+                        try:
+                            with open('/tmp/db_init_failed', 'w') as f:
+                                f.write(f'Database initialization failed at {datetime.now().isoformat()} with error: {repr(e)}')
+                        except Exception:
+                            pass
                         raise
         
         try:

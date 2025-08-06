@@ -44,6 +44,42 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
 
+# Runtime database initialization check
+def check_and_init_database():
+    """Check if database needs initialization at runtime and do it if needed."""
+    try:
+        # Check if initialization was skipped during build
+        if os.path.exists('/tmp/db_init_skipped'):
+            print("Database initialization was skipped during build. Attempting runtime initialization...")
+            
+            # Import init_database function
+            from init_db import init_database
+            
+            # Try to initialize now
+            try:
+                init_database()
+                # Remove the flag file if successful
+                os.remove('/tmp/db_init_skipped')
+                print("Runtime database initialization completed successfully!")
+            except Exception as e:
+                print(f"Runtime database initialization failed: {e}")
+                # Keep the flag file so we try again on next startup
+                pass
+        
+        # Always check if we have basic tables (safety check)
+        with app.app_context():
+            from models import User
+            # Simple check - if this works, database is accessible
+            User.query.first()
+    
+    except Exception as e:
+        print(f"Database check failed: {e}")
+        # We'll continue running - the app might still work for some functions
+        pass
+
+# Perform runtime database check
+check_and_init_database()
+
 # Add a before_request handler to prevent browser back button for authenticated users
 @app.before_request
 def before_request():

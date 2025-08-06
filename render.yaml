@@ -12,9 +12,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        fromDatabase:
-          name: efootball-auction-db
-          property: connectionString
+        value: postgresql://postgres:JiFbKCuryjeFKfKl@db.lgagutgjlvavpkmeeruj.supabase.co:5432/postgres
       - key: WEB_CONCURRENCY
         value: 1
       - key: FLASK_APP
@@ -30,9 +28,3 @@ services:
       #   value: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFOTc0Qm1Nd3FnL0ZjL3hSOFZxVUFrbDNoenVybwp5TUZLYjR2ZXY4TS9henhRV0N2QWw0TVhPaVlCVnIwR1FtenFJZitNVVBIYldOeCsyZksrZUwwYUdBPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==
       # - key: VAPID_CLAIMS_SUB
       #   value: mailto:admin@yourdomain.com
-
-databases:
-  - name: efootball-auction-db
-    plan: free
-    databaseName: auction_db
-    ipAllowList: []
