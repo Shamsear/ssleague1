@@ -12,7 +12,7 @@ services:
       - key: SECRET_KEY
         generateValue: true
       - key: DATABASE_URL
-        value: postgresql://postgres:JiFbKCuryjeFKfKl@db.lgagutgjlvavpkmeeruj.supabase.co:5432/postgres
+        value: postgresql://postgres:JiFbKCuryjeFKfKl@db.lgagutgjlvavpkmeeruj.supabase.co:6543/postgres?sslmode=require&connect_timeout=60&tcp_user_timeout=60000
       - key: WEB_CONCURRENCY
         value: 1
       - key: FLASK_APP
@@ -20,6 +20,8 @@ services:
       - key: FLASK_ENV
         value: production
       - key: FLASK_DEBUG
+        value: false
+      - key: SKIP_BUILD_DB_INIT
         value: false
       # VAPID keys for push notifications - ADD THESE MANUALLY IN RENDER DASHBOARD
       # - key: VAPID_PRIVATE_KEY

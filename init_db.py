@@ -9,20 +9,54 @@ from datetime import datetime
 
 def init_database():
     """Initialize the database by creating all tables."""
+    
+    # Check if build-time database initialization should be skipped
+    if os.environ.get('SKIP_BUILD_DB_INIT', 'false').lower() == 'true':
+        print("\n" + "="*60)
+        print("🔄 BUILD-TIME DATABASE INITIALIZATION SKIPPED")
+        print("="*60)
+        print("SKIP_BUILD_DB_INIT environment variable is set to 'true'")
+        print("Database initialization will be performed at runtime.")
+        print("="*60)
+        
+        # Create skip flag file
+        try:
+            with open('/tmp/db_init_skipped', 'w') as f:
+                f.write(f'Database initialization intentionally skipped at {datetime.now().isoformat()} due to SKIP_BUILD_DB_INIT=true')
+            print("📁 Created runtime initialization flag: /tmp/db_init_skipped")
+        except Exception as flag_error:
+            print(f"⚠️  Could not create flag file: {flag_error}")
+        
+        print("\n✅ Build will continue - database setup deferred to runtime.")
+        return
+    
     with app.app_context():
         print("Initializing database...")
         print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")
         
         # Test database connection with retries
-        max_retries = 5
-        retry_delay = 2
+        max_retries = 3
+        retry_delay = 5
         
         for attempt in range(max_retries):
             try:
                 print(f"Attempt {attempt + 1}/{max_retries}: Testing database connection...")
-                # Test connection by running a simple query
-                with db.engine.connect() as conn:
+                # Test connection by running a simple query with timeout
+                # Add connection pool settings to handle IPv6/network issues
+                from sqlalchemy import create_engine
+                test_engine = create_engine(
+                    app.config['SQLALCHEMY_DATABASE_URI'],
+                    pool_timeout=30,
+                    pool_recycle=300,
+                    pool_pre_ping=True,
+                    connect_args={
+                        "connect_timeout": 30,
+                        "options": "-c statement_timeout=30000"
+                    }
+                )
+                with test_engine.connect() as conn:
                     conn.execute(db.text("SELECT 1"))
+                test_engine.dispose()
                 print("Database connection successful!")
                 break
             except Exception as e:
