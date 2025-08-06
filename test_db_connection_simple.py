@@ -4,8 +4,8 @@ import os
 from urllib.parse import urlparse
 
 def test_database_connection():
-    # Test the database URL from environment
-    database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:zyiubE1EA8QHblQG@db.ibgcfbnqqbdqyukhxcuz.supabase.co:5432/postgres?sslmode=require')
+    # Test the database URL from environment  
+    database_url = os.environ.get('DATABASE_URL', 'postgresql://postgres:password@localhost/auction_db')
     
     print(f"Testing connection to: {database_url}")
     

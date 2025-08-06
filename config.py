@@ -8,13 +8,15 @@ class Config:
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'your-secret-key-here'
     
     # Handle potential "postgres://" format from Render and remove invalid schema parameter
-    database_url = os.environ.get('DATABASE_URL') or 'postgresql://postgres:shamsear@localhost/auction_db'
+    database_url = os.environ.get('DATABASE_URL') or 'postgresql://postgres:password@localhost/auction_db'
     print(f"DEBUG: DATABASE_URL from env: {os.environ.get('DATABASE_URL')}")
     print(f"DEBUG: Final database_url: {database_url}")
     
-    # Check if Supabase URL is reachable, if not use Render's database
-    if 'supabase.co' in database_url:
-        print("DEBUG: Detected Supabase URL, checking connectivity...")
+    # Check if it's a Render PostgreSQL database
+    if 'render.com' in database_url:
+        print("DEBUG: Detected Render PostgreSQL database")
+    elif 'supabase.co' in database_url:
+        print("DEBUG: Detected Supabase URL")
     
     # Convert postgres:// to postgresql://
     if database_url.startswith("postgres://"):
