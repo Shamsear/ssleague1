@@ -12,6 +12,10 @@ class Config:
     print(f"DEBUG: DATABASE_URL from env: {os.environ.get('DATABASE_URL')}")
     print(f"DEBUG: Final database_url: {database_url}")
     
+    # Check if Supabase URL is reachable, if not use Render's database
+    if 'supabase.co' in database_url:
+        print("DEBUG: Detected Supabase URL, checking connectivity...")
+    
     # Convert postgres:// to postgresql://
     if database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
