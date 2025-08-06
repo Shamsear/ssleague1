@@ -1,2 +1,2 @@
-web: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
+web: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --worker-class eventlet
 release: python init_db.py

@@ -3,8 +3,9 @@ services:
     name: ssleague-new
     env: python
     plan: free
+    runtime: python
     buildCommand: pip install -r requirements.txt && python init_db.py
-    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --worker-class eventlet
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
