@@ -9,8 +9,17 @@ import shutil
 def init_database():
     """Initialize the database by creating all tables."""
     with app.app_context():
-        print("Creating database tables...")
-        db.create_all()
+        print("Initializing database...")
+        print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")
+        
+        try:
+            print("Creating database tables...")
+            db.create_all()
+            print("Database tables created successfully!")
+        except Exception as e:
+            print(f"Error creating database tables: {e}")
+            print(f"Full error: {repr(e)}")
+            raise
         
         # Check if we already have an admin user
         admin_exists = User.query.filter_by(is_admin=True).first() is not None

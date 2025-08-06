@@ -126,21 +126,20 @@
                     </div>
                 </div>
                 
-                <!-- Bids Placed / Capacity -->
-                <div class="mt-4 mb-6">
+                <div id="bids-placed-section-{{ round.id }}" class="mt-4 mb-6">
                     {% set bid_count = current_user.team.bids|selectattr('round_id', 'equalto', round.id)|list|length %}
                     {% set width_percent = (bid_count / round.max_bids_per_team) * 100 %}
                     <div class="flex justify-between items-center mb-2">
                         <span class="text-sm font-medium text-gray-700">Bids Placed</span>
-                        <span class="text-sm font-medium text-primary">{{ bid_count }} / {{ round.max_bids_per_team }}</span>
+                        <span id="bid-count-{{ round.id }}" class="text-sm font-medium text-primary">{{ bid_count }} / {{ round.max_bids_per_team }}</span>
                     </div>
                     <div class="h-3 bg-gray-100 rounded-full overflow-hidden backdrop-blur-sm">
-                        <div class="h-3 rounded-full bg-gradient-to-r from-primary to-primary-dark" style="width: {{ width_percent|int }}%"></div>
+                        <div id="bid-progress-bar-{{ round.id }}" class="h-3 rounded-full bg-gradient-to-r from-primary to-primary-dark" style="width: {{ width_percent|int }}%"></div>
                     </div>
                 </div>
                 
                 <!-- Your Selected Players Section -->
-                <div class="mb-6">
+                <div id="selected-players-section-{{ round.id }}" class="mb-6">
                     <h4 class="font-medium text-dark mb-3 flex items-center">
                         <svg class="w-4 h-4 mr-1.5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -148,7 +147,7 @@
                         Your Selected Players
                     </h4>
                     
-                    {% set team_bids = current_user.team.bids|selectattr('round_id', 'equalto', round.id)|list %}
+                    {% set team_bids = current_user.team.bids|selectattr('round_id', 'equalto', round.id)|sort(attribute='amount', reverse=true)|list %}
                     {% if team_bids|length > 0 %}
                     <div class="glass-card rounded-xl overflow-hidden backdrop-blur-sm shadow-sm border border-white/10 mb-5">
                         <div class="overflow-x-auto">
@@ -161,9 +160,9 @@
                                         <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Action</th>
                                     </tr>
                                 </thead>
-                                <tbody class="bg-white/50 divide-y divide-gray-200">
+                                <tbody id="bids-table-body-{{ round.id }}" class="bg-white/50 divide-y divide-gray-200">
                                     {% for bid in team_bids %}
-                                    <tr class="hover:bg-white/80">
+                                    <tr class="hover:bg-white/80" data-bid-amount="{{ bid.amount }}">
                                         <td class="px-4 py-3 whitespace-nowrap">
                                             <div class="flex items-center">
                                                 <div class="flex-shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
@@ -204,7 +203,7 @@
                         </div>
                     </div>
                     {% else %}
-                    <div class="glass-card p-4 rounded-xl backdrop-blur-sm bg-white/30 border border-white/10 text-center mb-5">
+                    <div id="no-bids-message-{{ round.id }}" class="glass-card p-4 rounded-xl backdrop-blur-sm bg-white/30 border border-white/10 text-center mb-5">
                         <span class="text-sm text-gray-500">You haven't placed any bids in this round yet</span>
                     </div>
                     {% endif %}
@@ -251,7 +250,7 @@
                         {% for player in round.players %}
                             {% if player.id in starred_player_ids and not player.team_id %}
                                 {% set has_bid = player.has_bid_from_team(current_user.team.id) %}
-                                <div class="glass-card p-4 rounded-xl backdrop-blur-sm shadow-sm border border-yellow-300 hover:border-yellow-400 hover:shadow-md transition-all {% if has_bid %}ring-2 ring-primary{% endif %}">
+                                <div class="glass-card p-4 rounded-xl backdrop-blur-sm shadow-sm border border-yellow-300 hover:border-yellow-400 hover:shadow-md transition-all {% if has_bid %}ring-2 ring-primary{% endif %}" data-player-card-id="{{ player.id }}-{{ round.id }}">
                                     <div class="flex justify-between items-start">
                                         <div class="flex items-start gap-3">
                                             <div class="bg-primary/10 flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center">
@@ -322,7 +321,7 @@
                         {% for player in round.players %}
                             {% if not player.team_id and player.id not in starred_player_ids %}
                                 {% set has_bid = player.has_bid_from_team(current_user.team.id) %}
-                                <div class="glass-card p-4 rounded-xl backdrop-blur-sm shadow-sm border border-white/10 hover:border-primary/20 hover:shadow-md transition-all {% if has_bid %}ring-2 ring-primary{% endif %}">
+                                <div class="glass-card p-4 rounded-xl backdrop-blur-sm shadow-sm border border-white/10 hover:border-primary/20 hover:shadow-md transition-all {% if has_bid %}ring-2 ring-primary{% endif %}" data-player-card-id="{{ player.id }}-{{ round.id }}">
                                     <div class="flex justify-between items-start">
                                         <div class="flex items-start gap-3">
                                             <div class="bg-primary/10 flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center">
@@ -595,24 +594,12 @@
                         // Handle different scenarios when round is no longer active
                         if (data.redirect_to) {
                             // If there's a specific redirect URL (like to a tiebreaker)
-                            console.log("Redirecting to tiebreaker:", data.redirect_to);
+                            console.log("Redirecting to:", data.redirect_to);
                             window.location.href = data.redirect_to;
                         } else {
-                            // Check if there's an active tiebreaker notification
-                            const tiebreakerNotification = document.getElementById('tiebreaker-notification');
-                            const goToTiebreakerLink = document.getElementById('go-to-tiebreaker');
-                            
-                            if (tiebreakerNotification && data.message && data.message.includes('Tiebreaker')) {
-                                // Show tiebreaker notification instead of reload
-                                tiebreakerNotification.classList.remove('hidden');
-                                if (goToTiebreakerLink && data.tiebreaker_id) {
-                                    goToTiebreakerLink.href = `/tiebreaker/${data.tiebreaker_id}`;
-                                }
-                            } else {
-                                // Default behavior: reload the page to show updated state
-                                console.log("Round ended, reloading page:", data.message);
-                                window.location.reload();
-                            }
+                            // Default behavior: reload the page to show updated state
+                            console.log("Round ended, reloading page:", data.message);
+                            window.location.reload();
                         }
                         return;
                     }
@@ -727,7 +714,30 @@
                         })
                     });
                     
-                    const data = await response.json();
+                    // Try to get response text first
+                    const responseText = await response.text();
+                    console.log('Response received:', responseText);
+                    
+                    // Try to parse as JSON
+                    let data;
+                    try {
+                        data = JSON.parse(responseText);
+                    } catch (jsonError) {
+                        // If JSON parsing fails but response is ok, assume success
+                        if (response.ok) {
+                            console.log('Bid placed successfully, reloading page');
+                            submitBtn.innerHTML = `
+                                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Success!
+                            `;
+                            submitBtn.classList.add('bg-green-600');
+                            setTimeout(() => window.location.reload(), 500);
+                            return;
+                        }
+                        throw new Error('Invalid response from server');
+                    }
                     
                     if (data.error) {
                         alert(data.error);
@@ -735,7 +745,7 @@
                         submitBtn.innerHTML = originalBtnContent;
                         submitBtn.disabled = false;
                     } else {
-                        // Show success and reload
+                        // Show success and reload page
                         submitBtn.innerHTML = `
                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -744,21 +754,310 @@
                         `;
                         submitBtn.classList.add('bg-green-600');
                         
-                        setTimeout(() => window.location.reload(), 800);
+                        // Update the page dynamically instead of reloading
+                        setTimeout(() => {
+                            const playerCard = document.querySelector(`[data-player-id="${playerId}"]`)?.closest('.glass-card');
+                            updatePageAfterBid(data.bid || {
+                                id: Date.now(), // fallback ID
+                                player_id: playerId,
+                                round_id: roundId,
+                                amount: amount,
+                                player: {
+                                    name: playerCard?.querySelector('.font-medium.text-dark')?.textContent || 'Unknown',
+                                    position: playerCard?.querySelector('.text-xs.text-gray-500')?.textContent?.split(' •')[0] || 'Unknown'
+                                }
+                            });
+                        }, 500);
                     }
                 } catch (error) {
-                    console.error('Error placing bid:', error);
-                    alert('An error occurred while placing your bid. Please try again.');
+                    console.error('Error details:', error);
                     
-                    // Reset button
-                    submitBtn.innerHTML = originalBtnContent;
-                    submitBtn.disabled = false;
+                    // Check if bid was actually placed by trying to reload
+                    // Since you mentioned the bid appears after refresh
+                    if (confirm('There was an issue with the response. Would you like to refresh the page to see if your bid was placed?')) {
+                        window.location.reload();
+                    } else {
+                        // Reset button
+                        submitBtn.innerHTML = originalBtnContent;
+                        submitBtn.disabled = false;
+                    }
                 }
             });
         });
     }
     
+    // Function to update the page after a successful bid without full page reload
+    function updatePageAfterBid(bid) {
+        // Get the player card that was bid on
+        const playerCard = document.querySelector(`[data-player-id="${bid.player_id}"]`)?.closest('.glass-card');
+        
+        if (playerCard) {
+            // Hide the bid form section
+            const bidFormSection = playerCard.querySelector('.bid-form')?.closest('.mt-4');
+            if (bidFormSection) {
+                bidFormSection.style.display = 'none';
+                
+                // Add a success indicator
+                const successIndicator = document.createElement('div');
+                successIndicator.className = 'mt-3 py-2 text-xs text-center text-green-600 bg-green-50 rounded-lg animate-pulse bid-success-indicator';
+                successIndicator.innerHTML = `
+                    <div class="flex items-center justify-center gap-2">
+                        <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        Bid placed: £${bid.amount.toLocaleString()}
+                    </div>
+                `;
+                bidFormSection.parentNode.appendChild(successIndicator);
+                
+                // Add ring effect to show the player has been bid on
+                playerCard.classList.add('ring-2', 'ring-primary', 'ring-opacity-50');
+                
+                // Add the bid indicator in the top right
+                const bidIndicatorContainer = playerCard.querySelector('.flex.flex-col.items-end');
+                if (bidIndicatorContainer) {
+                    bidIndicatorContainer.innerHTML = `
+                        <div class="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            £${bid.amount.toLocaleString()}
+                        </div>
+                        <button type="button" class="mt-2 text-xs text-red-500 hover:text-red-700 cancel-bid-btn flex items-center" data-bid-id="${bid.id}">
+                            <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Cancel
+                        </button>
+                    `;
+                    
+                    // Add event listener to the new cancel button
+                    const newCancelBtn = bidIndicatorContainer.querySelector('.cancel-bid-btn');
+                    if (newCancelBtn) {
+                        newCancelBtn.addEventListener('click', function() {
+                            const bidId = this.getAttribute('data-bid-id');
+                            deleteBid(bidId);
+                        });
+                    }
+                }
+            }
+        }
+        
+        // Update the bidded players list
+        updateBiddedPlayerList(bid);
+    }
+    
+    function updateBiddedPlayerList(bid) {
+        const roundId = bid.round_id;
+        const noBidsMessage = document.getElementById(`no-bids-message-${roundId}`);
+        const tableBody = document.getElementById(`bids-table-body-${roundId}`);
+
+        if (noBidsMessage) {
+            noBidsMessage.style.display = 'none';
+        }
+
+        if (!tableBody) {
+            // If the table body doesn't exist, create it
+            const selectedPlayersSection = document.getElementById(`selected-players-section-${roundId}`);
+            if (selectedPlayersSection) {
+                const tableHTML = `
+                    <div class="glass-card rounded-xl overflow-hidden backdrop-blur-sm shadow-sm border border-white/10 mb-5">
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-gray-200">
+                                <thead class="bg-gray-50/70">
+                                    <tr>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                        <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider hidden sm:table-cell">Position</th>
+                                        <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Bid Amount</th>
+                                        <th scope="col" class="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bids-table-body-${roundId}" class="bg-white/50 divide-y divide-gray-200">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                selectedPlayersSection.innerHTML += tableHTML;
+            }
+        }
+
+        const newTableBody = document.getElementById(`bids-table-body-${roundId}`);
+        if (newTableBody) {
+            const positionColors = {
+                'GK': 'bg-yellow-100 text-yellow-800',
+                'DEF': 'bg-blue-100 text-blue-800',
+                'MID': 'bg-green-100 text-green-800',
+                'FWD': 'bg-red-100 text-red-800'
+            };
+            const positionColorClass = positionColors[bid.player.position] || 'bg-gray-100 text-gray-800';
+
+            const newRow = document.createElement('tr');
+            newRow.classList.add('hover:bg-white/80', 'new-bid-row');
+            newRow.setAttribute('data-bid-amount', bid.amount); // Add data attribute for sorting
+            newRow.innerHTML = `
+                <td class="px-4 py-3 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold text-sm">
+                            ${bid.player.position ? bid.player.position[0] : '?'}
+                        </div>
+                        <div class="ml-3">
+                            <div class="text-sm font-medium text-gray-800 flex items-center">
+                                ${bid.player.name}
+                            </div>
+                            <div class="text-xs text-gray-500 sm:hidden">${bid.player.position}</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap hidden sm:table-cell">
+                    <span class="px-2 py-0.5 text-xs rounded-full ${positionColorClass}">
+                        ${bid.player.position}
+                    </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium text-primary">
+                    £${bid.amount.toLocaleString()}
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap text-center">
+                    <button type="button" class="text-xs text-red-500 hover:text-red-700 cancel-bid-btn p-1.5 hover:bg-red-50 rounded-full transition-colors" data-bid-id="${bid.id}" title="Cancel Bid">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </td>
+            `;
+            
+            // Insert the new row in the correct position based on bid amount (descending order)
+            const existingRows = Array.from(newTableBody.querySelectorAll('tr'));
+            let insertPosition = null;
+            
+            for (let i = 0; i < existingRows.length; i++) {
+                const existingAmount = parseFloat(existingRows[i].getAttribute('data-bid-amount') || '0');
+                if (bid.amount > existingAmount) {
+                    insertPosition = existingRows[i];
+                    break;
+                }
+            }
+            
+            if (insertPosition) {
+                newTableBody.insertBefore(newRow, insertPosition);
+            } else {
+                newTableBody.appendChild(newRow);
+            }
+
+            const newCancelBtn = newRow.querySelector('.cancel-bid-btn');
+            if (newCancelBtn) {
+                newCancelBtn.addEventListener('click', function() {
+                    const bidId = this.getAttribute('data-bid-id');
+                    deleteBid(bidId);
+                });
+            }
+
+            setTimeout(() => {
+                newRow.classList.add('bg-green-50');
+                setTimeout(() => {
+                    newRow.classList.remove('bg-green-50');
+                }, 2000);
+            }, 100);
+        }
+        
+        updateBidCounter(roundId);
+    }
+    
+    function updateBidCounter(roundId) {
+        const counterSpan = document.getElementById(`bid-count-${roundId}`);
+        const progressBar = document.getElementById(`bid-progress-bar-${roundId}`);
+        const tableBody = document.getElementById(`bids-table-body-${roundId}`);
+        
+        if (counterSpan && progressBar && tableBody) {
+            const currentBidCount = tableBody.querySelectorAll('tr').length;
+            const maxBids = parseInt(counterSpan.textContent.split('/')[1]);
+            counterSpan.textContent = `${currentBidCount} / ${maxBids}`;
+            
+            const percentage = (currentBidCount / maxBids) * 100;
+            progressBar.style.width = `${percentage}%`;
+        }
+    }
+    
     // Delete bid function
+    function updateUIAfterBidDeletion(data) {
+        const { bid_id, player_id, round_id } = data;
+
+        const bidRowInTable = document.querySelector(`#bids-table-body-${round_id} button.cancel-bid-btn[data-bid-id='${bid_id}']`)?.closest('tr');
+        if (bidRowInTable) {
+            bidRowInTable.remove();
+        }
+
+        const playerCard = document.querySelector(`[data-player-card-id="${player_id}-${round_id}"]`);
+        if (playerCard) {
+            playerCard.classList.remove('ring-2', 'ring-primary');
+
+            const bidIndicatorContainer = playerCard.querySelector('.flex.flex-col.items-end');
+            if (bidIndicatorContainer) {
+                const cancelBtnOnCard = bidIndicatorContainer.querySelector(`button.cancel-bid-btn[data-bid-id='${bid_id}']`);
+                if(cancelBtnOnCard) {
+                    bidIndicatorContainer.innerHTML = '';
+                }
+            }
+
+            const successIndicator = playerCard.querySelector('.bid-success-indicator');
+            if (successIndicator) {
+                successIndicator.remove();
+            }
+
+            const bidFormSection = playerCard.querySelector('.bid-form')?.closest('.mt-4');
+            if (bidFormSection) {
+                bidFormSection.style.display = 'block';
+                const submitBtn = bidFormSection.querySelector('button[type="submit"]');
+                const amountInput = bidFormSection.querySelector('input[name="bid_amount"]');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = 'Bid';
+                    submitBtn.classList.remove('bg-green-600');
+                }
+                if (amountInput) {
+                    amountInput.value = '';
+                }
+            } else {
+                // If the form doesn't exist (e.g., after a refresh), re-create it.
+                const formContainer = document.createElement('div');
+                formContainer.className = 'mt-4 pt-3 border-t border-gray-200';
+                formContainer.innerHTML = `
+                    <form class="bid-form" data-player-id="${player_id}" data-round-id="${round_id}">
+                        <div class="flex items-center gap-2">
+                            <div class="relative rounded-lg flex-grow">
+                                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">£</span>
+                                <input type="number" name="bid_amount" class="block w-full pl-7 pr-12 py-2.5 text-sm rounded-lg border-gray-200 focus:ring-primary focus:border-primary shadow-sm" placeholder="Bid amount" required min="{{ Config.MINIMUM_BID }}" max="{{ current_user.team.balance }}">
+                            </div>
+                            <button type="submit" class="px-4 py-2.5 rounded-lg bg-gradient-to-r from-primary to-primary-dark text-white text-sm font-medium hover:from-primary-dark hover:to-primary shadow-sm">Bid</button>
+                        </div>
+                    </form>
+                `;
+                playerCard.appendChild(formContainer);
+                setupBidForms();
+            }
+        }
+        
+        updateBidCounter(round_id);
+
+        const tableBody = document.getElementById(`bids-table-body-${round_id}`);
+        if (tableBody && tableBody.querySelectorAll('tr').length === 0) {
+            const selectedPlayersSection = document.getElementById(`selected-players-section-${round_id}`);
+            const noBidsMessage = document.getElementById(`no-bids-message-${round_id}`);
+
+            const tableContainer = selectedPlayersSection.querySelector('.glass-card.rounded-xl');
+            if(tableContainer) tableContainer.remove();
+
+            if (noBidsMessage) {
+                noBidsMessage.style.display = 'block';
+            } else if (selectedPlayersSection) {
+                selectedPlayersSection.innerHTML += `
+                <div id="no-bids-message-${round_id}" class="glass-card p-4 rounded-xl backdrop-blur-sm bg-white/30 border border-white/10 text-center mb-5">
+                    <span class="text-sm text-gray-500">You haven't placed any bids in this round yet</span>
+                </div>`;
+            }
+        }
+    }
+
     function deleteBid(bidId) {
         if (confirm('Are you sure you want to cancel this bid?')) {
             fetch(`/delete_bid/${bidId}?_=${Date.now()}`, {
@@ -774,7 +1073,7 @@
                 if (data.error) {
                     alert(data.error);
                 } else {
-                    window.location.reload();
+                    updateUIAfterBidDeletion(data);
                 }
             })
             .catch(error => {

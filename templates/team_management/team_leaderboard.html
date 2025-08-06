@@ -2,6 +2,129 @@
 
 {% block title %}Team Leaderboard{% endblock %}
 
+{% block head_extra %}
+<style>
+    /* Enhanced glassmorphism effects */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+    }
+    
+    .glass-card-hover {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .glass-card-hover:hover {
+        background: rgba(255, 255, 255, 0.35);
+        transform: translateY(-2px);
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+    }
+    
+    /* Mobile optimized leaderboard cards */
+    .leaderboard-card {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.3));
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        transition: all 0.3s ease;
+    }
+    
+    .leaderboard-card:active {
+        transform: scale(0.98);
+        background: rgba(255, 255, 255, 0.4);
+    }
+    
+    /* Position badge styles */
+    .position-1 {
+        background: linear-gradient(135deg, #ffd700, #ffed4a);
+        box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+        animation: gentle-glow 3s ease-in-out infinite;
+    }
+    
+    .position-2 {
+        background: linear-gradient(135deg, #c0c0c0, #e5e5e5);
+        box-shadow: 0 0 15px rgba(192, 192, 192, 0.2);
+    }
+    
+    .position-3 {
+        background: linear-gradient(135deg, #cd7f32, #d2691e);
+        box-shadow: 0 0 15px rgba(205, 127, 50, 0.2);
+    }
+    
+    @keyframes gentle-glow {
+        0%, 100% { box-shadow: 0 0 20px rgba(255, 215, 0, 0.3); }
+        50% { box-shadow: 0 0 25px rgba(255, 215, 0, 0.5); }
+    }
+    
+    /* Enhanced mobile stats chips */
+    .stat-chip {
+        background: rgba(255, 255, 255, 0.6);
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        font-weight: 500;
+        font-size: 0.75rem;
+    }
+    
+    /* Pull to refresh animation */
+    .refresh-indicator {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+    }
+    
+    /* Team avatar gradients */
+    .team-avatar {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    /* Enhanced tab system */
+    .tab-active {
+        background: linear-gradient(135deg, rgba(0, 102, 255, 0.1), rgba(0, 102, 255, 0.05));
+        border-color: rgba(0, 102, 255, 0.3);
+    }
+    
+    /* Desktop table improvements */
+    @media (min-width: 768px) {
+        .desktop-table-row {
+            border-left: 4px solid transparent;
+            transition: all 0.2s ease;
+        }
+        
+        .desktop-table-row:hover {
+            border-left-color: #0066FF;
+            background: linear-gradient(90deg, rgba(0, 102, 255, 0.05), transparent);
+        }
+        
+        .current-team-row {
+            border-left-color: #0066FF;
+            background: linear-gradient(90deg, rgba(0, 102, 255, 0.1), rgba(0, 102, 255, 0.02));
+        }
+    }
+    
+    /* Skeleton loading animation */
+    @keyframes skeleton {
+        0% { opacity: 1; }
+        50% { opacity: 0.4; }
+        100% { opacity: 1; }
+    }
+    
+    .skeleton {
+        animation: skeleton 1.5s ease-in-out infinite;
+        background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+        background-size: 200% 100%;
+        animation: skeleton 1.5s infinite;
+    }
+    
+    @keyframes skeleton {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
 <!-- Loading overlay -->
 <div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-md z-50 flex items-center justify-center transition-opacity duration-700">
@@ -52,92 +175,198 @@
         </div>
     </div>
 
-    <!-- Glass-morphism inspired card for Vision OS -->
+    <!-- Responsive Leaderboard Container -->
     <div class="glass-card backdrop-blur-lg shadow-sm rounded-2xl overflow-hidden border border-white/20">
-        <!-- Mobile-friendly card layout -->
-        <div class="p-4">
-            <!-- Column headers - only visible on larger screens -->
-            <div class="hidden sm:grid sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-9 text-xs font-medium text-gray-600 uppercase mb-3 px-2">
-                <div>Rank</div>
-                <div>Team</div>
-                <div class="hidden sm:block">Played</div>
-                <div class="hidden sm:block">Won</div>
-                <div class="hidden sm:block">Drawn</div>
-                <div class="hidden sm:block">Lost</div>
-                <div class="hidden md:block">GF</div>
-                <div class="hidden md:block">GA</div>
-                <div class="hidden md:block">GD</div>
-                <div>Points</div>
+        <!-- Desktop Table View (Hidden on mobile) -->
+        <div class="hidden md:block">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-white/10 border-b border-white/20">
+                        <tr class="text-xs font-medium text-gray-600 uppercase tracking-wider">
+                            <th class="px-6 py-4 text-left">Rank</th>
+                            <th class="px-6 py-4 text-left">Team</th>
+                            <th class="px-4 py-4 text-center">P</th>
+                            <th class="px-4 py-4 text-center">W</th>
+                            <th class="px-4 py-4 text-center">D</th>
+                            <th class="px-4 py-4 text-center">L</th>
+                            <th class="px-4 py-4 text-center">GF</th>
+                            <th class="px-4 py-4 text-center">GA</th>
+                            <th class="px-4 py-4 text-center">GD</th>
+                            <th class="px-6 py-4 text-center">Points</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-white/10">
+                        {% for stats in team_stats %}
+                        <tr class="desktop-table-row glass-card-hover cursor-pointer {% if current_user.team and current_user.team.id == stats.team.id %}current-team-row{% endif %}"
+                            onclick="window.location.href='{{ url_for('team_management.team_detail', team_name=stats.team.name) }}'">
+                            <!-- Rank -->
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center font-semibold text-sm
+                                        {% if loop.index == 1 %}position-1 text-amber-900
+                                        {% elif loop.index == 2 %}position-2 text-gray-700
+                                        {% elif loop.index == 3 %}position-3 text-amber-900
+                                        {% else %}bg-white/30 text-gray-700{% endif %}">
+                                        {{ loop.index }}
+                                    </div>
+                                </div>
+                            </td>
+                            <!-- Team Name -->
+                            <td class="px-6 py-4">
+                                <div class="flex items-center space-x-3">
+                                    <div class="team-avatar w-10 h-10 rounded-full flex items-center justify-center text-white font-medium shadow-lg">
+                                        {{ stats.team.name[:1] }}
+                                    </div>
+                                    <div>
+                                        <div class="font-semibold text-gray-900">{{ stats.team.name }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <!-- Stats -->
+                            <td class="px-4 py-4 text-center font-medium text-gray-700">{{ stats.played }}</td>
+                            <td class="px-4 py-4 text-center font-medium text-green-600">{{ stats.wins }}</td>
+                            <td class="px-4 py-4 text-center font-medium text-gray-600">{{ stats.draws }}</td>
+                            <td class="px-4 py-4 text-center font-medium text-red-600">{{ stats.losses }}</td>
+                            <td class="px-4 py-4 text-center font-medium text-blue-600">{{ stats.goals_for }}</td>
+                            <td class="px-4 py-4 text-center font-medium text-orange-600">{{ stats.goals_against }}</td>
+                            <td class="px-4 py-4 text-center font-bold {% if stats.goal_difference > 0 %}text-green-600{% elif stats.goal_difference < 0 %}text-red-600{% else %}text-gray-500{% endif %}">
+                                {{ stats.goal_difference }}
+                            </td>
+                            <!-- Points -->
+                            <td class="px-6 py-4 text-center">
+                                <span class="bg-primary text-white font-bold py-2 px-4 rounded-full text-sm shadow-lg">
+                                    {{ stats.points }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="10" class="px-6 py-12 text-center">
+                                <div class="flex flex-col items-center">
+                                    <svg class="h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                    </svg>
+                                    <h3 class="text-lg font-medium text-gray-900 mb-1">No Teams Yet</h3>
+                                    <p class="text-gray-500">Team standings will appear here once matches begin.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
-            
-            <!-- Teams list -->
-            <div class="space-y-3">
-                    {% for stats in team_stats %}
-                <div class="glass-card bg-white/10 backdrop-blur-sm rounded-xl p-3 border border-white/10 hover:border-white/30 transition-all duration-300 ease-in-out{% if current_user.team and current_user.team.id == stats.team.id %} bg-primary/10 hover:bg-primary/20{% endif %} active:bg-white/60 cursor-pointer" 
+        </div>
+        
+        <!-- Mobile and Tablet Card View -->
+        <div class="md:hidden p-4">
+            <div class="space-y-4">
+                {% for stats in team_stats %}
+                <div class="leaderboard-card rounded-xl p-4 border border-white/20 cursor-pointer
+                    {% if current_user.team and current_user.team.id == stats.team.id %}ring-2 ring-primary/30{% endif %}"
                      onclick="window.location.href='{{ url_for('team_management.team_detail', team_name=stats.team.name) }}'"
-                     style="transition: transform 0.2s ease, box-shadow 0.2s ease, background-color 0.3s ease;">
+                     data-team-id="{{ stats.team.id }}">
                     
-                    <!-- Grid layout for team info -->
-                    <div class="flex items-center">
-                        <!-- Rank -->
-                        <div class="w-12 mr-2">
-                            <div class="text-sm font-semibold 
-                                {% if loop.index == 1 %}text-amber-600 text-base
-                                {% elif loop.index == 2 %}text-slate-500
-                                {% elif loop.index == 3 %}text-amber-800
-                                {% else %}text-gray-700{% endif %} relative z-10 flex items-center justify-center
-                                {% if loop.index <= 3 %}w-7 h-7 rounded-full mx-auto 
-                                    {% if loop.index == 1 %}bg-amber-100 border border-amber-200
-                                    {% elif loop.index == 2 %}bg-gray-100 border border-gray-200
-                                    {% elif loop.index == 3 %}bg-amber-50 border border-amber-100
-                                    {% endif %}
-                                {% endif %}">
+                    <!-- Main team info row -->
+                    <div class="flex items-center mb-3">
+                        <!-- Rank Badge -->
+                        <div class="w-10 h-10 mr-4 flex-shrink-0">
+                            <div class="w-full h-full rounded-full flex items-center justify-center font-bold text-sm shadow-lg
+                                {% if loop.index == 1 %}position-1 text-amber-900
+                                {% elif loop.index == 2 %}position-2 text-gray-700
+                                {% elif loop.index == 3 %}position-3 text-amber-900
+                                {% else %}bg-white/40 text-gray-700 border border-white/30{% endif %}">
                                 {{ loop.index }}
                             </div>
                         </div>
                         
-                        <!-- Team info -->
-                        <div class="flex-1">
-                            <div class="flex items-center">
-                                <div class="flex-shrink-0 h-9 w-9 rounded-full bg-gradient-to-br from-primary/80 to-indigo-500/80 text-white flex items-center justify-center shadow-sm backdrop-blur-sm border border-white/20 mr-3">
-                                    <span class="font-medium">{{ stats.team.name[:1] }}</span>
-                                </div>
-                                <div>
-                                    <div class="text-sm font-medium text-gray-700">{{ stats.team.name }}</div>
-                                    <!-- Mobile stats summary -->
-                                    <div class="flex flex-wrap gap-1 mt-1 sm:hidden">
-                                        <span class="inline-block px-1.5 py-0.5 bg-white/40 rounded-md backdrop-blur-sm text-xs">P: {{ stats.played }}</span>
-                                        <span class="inline-block px-1.5 py-0.5 bg-green-50/40 rounded-md backdrop-blur-sm text-xs">W: {{ stats.wins }}</span>
-                                        <span class="inline-block px-1.5 py-0.5 bg-gray-50/40 rounded-md backdrop-blur-sm text-xs">D: {{ stats.draws }}</span>
-                                        <span class="inline-block px-1.5 py-0.5 bg-red-50/40 rounded-md backdrop-blur-sm text-xs">L: {{ stats.losses }}</span>
-                                    </div>
-                                </div>
+                        <!-- Team Avatar and Name -->
+                        <div class="flex-1 flex items-center min-w-0">
+                            <div class="team-avatar w-12 h-12 rounded-full flex items-center justify-center text-white font-semibold text-lg shadow-lg mr-4 flex-shrink-0">
+                                {{ stats.team.name[:1] }}
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h3 class="font-semibold text-gray-900 text-base truncate">{{ stats.team.name }}</h3>
+                                {% if current_user.team and current_user.team.id == stats.team.id %}
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs bg-primary/10 text-primary border border-primary/20">
+                                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                        <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                    </svg>
+                                    Your Team
+                                </span>
+                                {% endif %}
                             </div>
                         </div>
                         
-                        <!-- Points -->
-                        <div class="ml-auto flex items-center">
-                            <div class="text-sm font-bold text-gray-700 bg-white/50 backdrop-blur-sm rounded-full px-3 py-1 inline-block shadow-sm border border-white/20">
+                        <!-- Points Badge -->
+                        <div class="flex-shrink-0">
+                            <div class="bg-primary text-white font-bold py-2 px-4 rounded-full text-lg shadow-lg">
                                 {{ stats.points }}
-                                <svg class="w-4 h-4 ml-0.5 text-gray-400 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                </svg>
                             </div>
                         </div>
                     </div>
                     
-                    <!-- Additional stats - visible on larger screens -->
-                    <div class="hidden sm:grid sm:grid-cols-5 md:grid-cols-7 gap-2 mt-2 px-1">
-                        <div class="col-span-2"></div> <!-- Empty space for alignment -->
-                            <div class="text-sm text-gray-700">{{ stats.played }}</div>
-                            <div class="text-sm text-gray-700">{{ stats.wins }}</div>
-                            <div class="text-sm text-gray-700">{{ stats.draws }}</div>
-                            <div class="text-sm text-gray-700">{{ stats.losses }}</div>
-                        <div class="hidden md:block text-sm text-gray-700">{{ stats.goals_for }}</div>
-                        <div class="hidden md:block text-sm text-gray-700">{{ stats.goals_against }}</div>
-                        <div class="hidden md:block text-sm font-medium {% if stats.goal_difference > 0 %}text-green-600{% elif stats.goal_difference < 0 %}text-red-600{% else %}text-gray-500{% endif %}">
-                                {{ stats.goal_difference }}
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-4 gap-3">
+                        <div class="text-center">
+                            <div class="stat-chip px-2 py-1 rounded-lg">
+                                <div class="text-xs text-gray-600 uppercase tracking-wide">Played</div>
+                                <div class="font-semibold text-gray-800">{{ stats.played }}</div>
                             </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="stat-chip px-2 py-1 rounded-lg">
+                                <div class="text-xs text-green-600 uppercase tracking-wide">Won</div>
+                                <div class="font-semibold text-green-700">{{ stats.wins }}</div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="stat-chip px-2 py-1 rounded-lg">
+                                <div class="text-xs text-gray-600 uppercase tracking-wide">Drew</div>
+                                <div class="font-semibold text-gray-700">{{ stats.draws }}</div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="stat-chip px-2 py-1 rounded-lg">
+                                <div class="text-xs text-red-600 uppercase tracking-wide">Lost</div>
+                                <div class="font-semibold text-red-700">{{ stats.losses }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Goals Row (Only show if there are goals) -->
+                    {% if stats.goals_for is defined or stats.goals_against is defined %}
+                    <div class="grid grid-cols-3 gap-3 mt-3 pt-3 border-t border-white/20">
+                        <div class="text-center">
+                            <div class="stat-chip px-2 py-1 rounded-lg">
+                                <div class="text-xs text-blue-600 uppercase tracking-wide">GF</div>
+                                <div class="font-semibold text-blue-700">{{ stats.goals_for or 0 }}</div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="stat-chip px-2 py-1 rounded-lg">
+                                <div class="text-xs text-orange-600 uppercase tracking-wide">GA</div>
+                                <div class="font-semibold text-orange-700">{{ stats.goals_against or 0 }}</div>
+                            </div>
+                        </div>
+                        <div class="text-center">
+                            <div class="stat-chip px-2 py-1 rounded-lg">
+                                <div class="text-xs text-gray-600 uppercase tracking-wide">GD</div>
+                                <div class="font-semibold {% if stats.goal_difference > 0 %}text-green-600{% elif stats.goal_difference < 0 %}text-red-600{% else %}text-gray-600{% endif %}">
+                                    {{ "+" if stats.goal_difference > 0 }}{{ stats.goal_difference or 0 }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Tap indicator -->
+                    <div class="flex items-center justify-center mt-3 pt-2 border-t border-white/10">
+                        <span class="text-xs text-gray-500 flex items-center">
+                            Tap for details
+                            <svg class="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                            </svg>
+                        </span>
                     </div>
                 </div>
                     {% else %}
@@ -283,7 +512,7 @@
 </div>
 
 <script>
-    // Loading animation
+    // Enhanced loading animation and mobile interactions
     document.addEventListener('DOMContentLoaded', function() {
         // Hide loading overlay and show content with a fade effect
         const loadingOverlay = document.getElementById('loading-overlay');
@@ -311,51 +540,69 @@
             setupPullToRefresh();
         }
         
-        // Make team rows interactive
-        const teamRows = document.querySelectorAll('tbody tr[class*="hover:bg-white"]');
-        
-        teamRows.forEach(row => {
-            // Add cursor pointer to indicate clickability
-            row.classList.add('cursor-pointer');
+        // Enhanced mobile card interactions
+        const mobileCards = document.querySelectorAll('[data-team-id]');
+        mobileCards.forEach(card => {
+            let pressTimer = null;
             
-            // Add subtle hover animation - but only for non-touch devices
+            // Touch start
+            card.addEventListener('touchstart', function(e) {
+                // Add pressed state
+                this.style.transform = 'scale(0.98)';
+                this.style.transition = 'transform 0.1s ease';
+                
+                // Set timer for long press
+                pressTimer = setTimeout(() => {
+                    // Long press action (could show preview or menu)
+                    navigator.vibrate && navigator.vibrate(50);
+                    showToast(`Long press detected for ${this.querySelector('h3').textContent}`);
+                }, 500);
+            });
+            
+            // Touch end/cancel
+            ['touchend', 'touchcancel'].forEach(event => {
+                card.addEventListener(event, function(e) {
+                    // Clear timer
+                    if (pressTimer) {
+                        clearTimeout(pressTimer);
+                        pressTimer = null;
+                    }
+                    
+                    // Reset transform
+                    this.style.transform = 'scale(1)';
+                    this.style.transition = 'transform 0.2s ease';
+                });
+            });
+        });
+        
+        // Desktop table row interactions
+        const desktopRows = document.querySelectorAll('.desktop-table-row');
+        desktopRows.forEach(row => {
             if (!isTouchDevice) {
                 row.addEventListener('mouseenter', function() {
-                    this.style.transform = 'translateY(-2px)';
-                    this.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.05)';
+                    this.style.transform = 'translateY(-1px)';
+                    this.style.transition = 'all 0.2s ease';
                 });
                 
                 row.addEventListener('mouseleave', function() {
                     this.style.transform = 'translateY(0)';
-                    this.style.boxShadow = 'none';
+                    this.style.transition = 'all 0.2s ease';
                 });
-            } else {
-                // Add a subtle indicator for touch devices
-                const pointsCell = row.querySelector('td:last-child');
-                if (pointsCell) {
-                    // Add a subtle right chevron after the points to indicate it's clickable
-                    const chevronIcon = document.createElement('span');
-                    chevronIcon.innerHTML = '<svg class="w-4 h-4 ml-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>';
-                    chevronIcon.className = 'inline-block ml-2 opacity-70';
-                    
-                    const pointsElement = pointsCell.querySelector('.font-bold');
-                    if (pointsElement) {
-                        pointsElement.parentNode.appendChild(chevronIcon);
-                    }
-                }
             }
-            
-            // Add click handler - redirect to team detail page
-            row.addEventListener('click', function() {
-                // Extract team ID from the row data attribute (assuming each row has a data-team-id attribute)
-                // If you don't have team IDs in the HTML, you can use team name as a URL parameter
-                const teamName = this.querySelector('.flex-shrink-0 + div .font-medium').textContent.trim();
+        });
+        
+        // Enhanced click handlers for all interactive elements
+        const clickableElements = document.querySelectorAll('[onclick], .cursor-pointer');
+        clickableElements.forEach(element => {
+            element.addEventListener('click', function(e) {
+                // Add visual feedback
+                const originalBg = this.style.backgroundColor;
+                this.style.backgroundColor = 'rgba(0, 102, 255, 0.1)';
+                this.style.transition = 'background-color 0.15s ease';
                 
-                // Add a visual feedback on click
-                this.style.backgroundColor = 'rgba(255, 255, 255, 0.6)';
-                
-                // Redirect to team detail page
-                window.location.href = `{{ url_for('team_management.team_detail', team_name='') }}${encodeURIComponent(teamName)}`;
+                setTimeout(() => {
+                    this.style.backgroundColor = originalBg;
+                }, 150);
             });
         });
         

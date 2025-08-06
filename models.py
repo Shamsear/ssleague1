@@ -258,6 +258,22 @@ class Bid(db.Model):
     team = db.relationship('Team', backref='bids')
     player = db.relationship('Player', foreign_keys=[player_id], back_populates='bids')
     
+    def to_dict(self):
+        """Convert bid to dictionary for JSON response"""
+        return {
+            'id': self.id,
+            'team_id': self.team_id,
+            'player_id': self.player_id,
+            'round_id': self.round_id,
+            'amount': self.amount,
+            'player': {
+                'id': self.player.id,
+                'name': self.player.name,
+                'position': self.player.position,
+                'team_name': self.player.team_name
+            }
+        }
+    
     @property
     def is_tied(self):
         """Check if this bid is part of a tie in a tiebreaker"""

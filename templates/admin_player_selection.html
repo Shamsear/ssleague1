@@ -16,11 +16,11 @@
                     </a>
                     <div>
                         <h2 class="text-2xl font-bold text-dark gradient-text">Player Selection</h2>
-                        <p class="text-sm text-gray-600 mt-1">Manage which players will appear in auction rounds</p>
+                        <p class="text-sm text-gray-600 mt-1">{{ total_eligible }} of {{ total_players }} players selected for auction</p>
                     </div>
                 </div>
                 
-                <div class="flex items-center mt-3 sm:mt-0">
+                <div class="flex items-center gap-3 mt-3 sm:mt-0">
                     <a href="{{ url_for('admin_export_player_selection') }}" class="px-4 py-2.5 bg-white text-primary border border-primary/20 rounded-lg text-sm font-medium hover:bg-white/90 transition-all duration-300 flex items-center shadow-sm hover:shadow">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -31,28 +31,38 @@
             </div>
         </div>
         
-        <!-- Player Selection Overview -->
+        <!-- Bulk Action Controls -->
         <div class="glass p-5 rounded-xl bg-white/40 backdrop-blur-sm border border-white/10 shadow-sm mb-6">
-            <div class="flex flex-col sm:flex-row justify-between gap-4 mb-5">
-                <div>
-                    <h3 class="text-lg font-semibold text-gray-800 mb-2">Player Selection Status</h3>
-                    <p class="text-sm text-gray-600">Selected players will appear in auction rounds and bulk auction rounds</p>
+            <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div class="flex items-center gap-4">
+                    <h3 class="text-lg font-semibold text-gray-800">Bulk Actions</h3>
+                    <div class="text-sm text-gray-600">
+                        Showing {{ players_pagination.per_page * (players_pagination.page - 1) + 1 }} to 
+                        {{ players_pagination.per_page * (players_pagination.page - 1) + players_pagination.items|length }} 
+                        of {{ players_pagination.total }} players
+                    </div>
                 </div>
-                <div class="flex flex-wrap gap-2">
-                    <button id="selectAllBtn" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors flex items-center shadow-sm">
+                
+                <div class="flex gap-2">
+                    <button type="button" id="selectAllVisibleBtn" class="px-4 py-2 bg-green-100 text-green-800 rounded-lg text-sm font-medium hover:bg-green-200 transition-colors flex items-center shadow-sm">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                         </svg>
-                        Select All
+                        Select Visible
                     </button>
-                    <button id="deselectAllBtn" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors flex items-center shadow-sm">
+                    <button type="button" id="deselectAllVisibleBtn" class="px-4 py-2 bg-red-100 text-red-800 rounded-lg text-sm font-medium hover:bg-red-200 transition-colors flex items-center shadow-sm">
                         <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                         </svg>
-                        Deselect All
+                        Deselect Visible
                     </button>
                 </div>
             </div>
+        </div>
+        
+        <!-- Position Statistics -->
+        <div class="glass p-5 rounded-xl bg-white/40 backdrop-blur-sm border border-white/10 shadow-sm mb-6">
+            <h3 class="text-lg font-semibold text-gray-800 mb-4">Player Selection Statistics</h3>
             
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 {% for position in config.POSITIONS %}
@@ -124,70 +134,133 @@
                 </div>
             </div>
             
-            <!-- Tab Content -->
-            <div id="positionTabContent" class="bg-white/30 rounded-xl overflow-hidden border border-white/20">
-                <div class="p-1" id="all" role="tabpanel" aria-labelledby="all-tab">
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full divide-y divide-gray-200">
-                            <thead class="bg-white/60">
-                                <tr>
-                                    <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
-                                    <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
-                                    <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
-                                    <th class="px-4 py-3.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Include in Auction</th>
-                                </tr>
-                            </thead>
-                            <tbody class="bg-white/20 divide-y divide-gray-200/70">
-                                {% for player in all_players %}
-                                <tr class="hover:bg-white/60 transition-colors duration-200 player-row" data-name="{{ player.name|lower }}" data-position="{{ player.position }}">
-                                    <td class="px-4 py-3.5 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            {% if player.team_id %}
-                                            <span class="w-2 h-2 rounded-full bg-green-500 mr-2 flex-shrink-0"></span>
-                                            {% else %}
-                                            <span class="w-2 h-2 rounded-full bg-gray-300 mr-2 flex-shrink-0"></span>
-                                            {% endif %}
-                                            <div class="text-sm font-medium text-gray-900">{{ player.name }}</div>
+            <!-- Main Player Table -->
+            <div class="bg-white/30 rounded-xl overflow-hidden border border-white/20">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-white/60">
+                            <tr>
+                                <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                                <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                                <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                                <th class="px-4 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                                <th class="px-4 py-3.5 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Include in Auction</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white/20 divide-y divide-gray-200/70">
+                            {% for player in players_pagination.items %}
+                            <tr class="hover:bg-white/60 transition-colors duration-200 player-row" data-name="{{ player.name|lower }}" data-position="{{ player.position }}">
+                                <td class="px-4 py-3.5 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        {% if player.team_id %}
+                                        <span class="w-2 h-2 rounded-full bg-green-500 mr-2 flex-shrink-0" title="Assigned to team"></span>
+                                        {% else %}
+                                        <span class="w-2 h-2 rounded-full bg-gray-300 mr-2 flex-shrink-0" title="Free agent"></span>
+                                        {% endif %}
+                                        <div class="text-sm font-medium text-gray-900">{{ player.name }}</div>
+                                        {% if player.team_name %}
+                                        <div class="text-xs text-gray-500 ml-2">({{ player.team_name }})</div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3.5 whitespace-nowrap">
+                                    <span class="px-2.5 py-1 text-xs rounded-full {{ {'GK': 'bg-yellow-100 text-yellow-800', 'DEF': 'bg-blue-100 text-blue-800', 'MID': 'bg-green-100 text-green-800', 'FWD': 'bg-red-100 text-red-800'}.get(player.position, 'bg-gray-100 text-gray-800') }} font-medium">
+                                        {{ player.position }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3.5 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="text-sm text-gray-900 font-medium">{{ player.overall_rating or 'N/A' }}</div>
+                                        {% if player.overall_rating %}
+                                        <div class="w-16 h-1.5 bg-gray-200 rounded-full ml-2">
+                                            <div class="h-1.5 rounded-full 
+                                                {% if player.overall_rating >= 85 %}
+                                                    bg-green-500
+                                                {% elif player.overall_rating >= 75 %}
+                                                    bg-blue-500
+                                                {% elif player.overall_rating >= 65 %}
+                                                    bg-yellow-500
+                                                {% else %}
+                                                    bg-red-500
+                                                {% endif %}"
+                                                style="width: {{ player.overall_rating }}%;"></div>
                                         </div>
-                                    </td>
-                                    <td class="px-4 py-3.5 whitespace-nowrap">
-                                        <span class="px-2.5 py-1 text-xs rounded-full {{ {'GK': 'bg-yellow-100 text-yellow-800', 'DEF': 'bg-blue-100 text-blue-800', 'MID': 'bg-green-100 text-green-800', 'FWD': 'bg-red-100 text-red-800'}.get(player.position, 'bg-gray-100 text-gray-800') }} font-medium">
-                                            {{ player.position }}
-                                        </span>
-                                    </td>
-                                    <td class="px-4 py-3.5 whitespace-nowrap">
-                                        <div class="flex items-center">
-                                            <div class="text-sm text-gray-900 font-medium">{{ player.overall_rating }}</div>
-                                            <div class="w-16 h-1.5 bg-gray-200 rounded-full ml-2">
-                                                <div class="h-1.5 rounded-full 
-                                                    {% if player.overall_rating >= 85 %}
-                                                        bg-green-500
-                                                    {% elif player.overall_rating >= 75 %}
-                                                        bg-blue-500
-                                                    {% elif player.overall_rating >= 65 %}
-                                                        bg-yellow-500
-                                                    {% else %}
-                                                        bg-red-500
-                                                    {% endif %}"
-                                                    style="width: {{ player.overall_rating }}%;"></div>
-                                            </div>
-                                        </div>
-                                    </td>
-                                    <td class="px-4 py-3.5 whitespace-nowrap text-center">
-                                        <label class="relative inline-flex items-center cursor-pointer">
-                                            <input type="checkbox" class="sr-only peer player-toggle" 
-                                                   data-player-id="{{ player.id }}"
-                                                   data-position="{{ player.position }}"
-                                                   {% if player.is_auction_eligible %}checked{% endif %}>
-                                            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                        </label>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td class="px-4 py-3.5 whitespace-nowrap">
+                                    {% if player.team_id %}
+                                    <span class="px-2 py-1 text-xs bg-green-100 text-green-800 rounded-md font-medium">
+                                        {{ player.team.name if player.team else 'Assigned' }}
+                                    </span>
+                                    {% else %}
+                                    <span class="px-2 py-1 text-xs bg-gray-100 text-gray-600 rounded-md">
+                                        Free Agent
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-4 py-3.5 whitespace-nowrap text-center">
+                                    <label class="relative inline-flex items-center cursor-pointer">
+                                        <input type="checkbox" class="sr-only peer player-toggle" 
+                                               data-player-id="{{ player.id }}"
+                                               data-position="{{ player.position }}"
+                                               {% if player.is_auction_eligible %}checked{% endif %}>
+                                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                    </label>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Pagination -->
+                {% if players_pagination.pages > 1 %}
+                <div class="px-6 py-4 bg-white/40 border-t border-gray-200">
+                    <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                        <div class="text-sm text-gray-700">
+                            Showing {{ players_pagination.per_page * (players_pagination.page - 1) + 1 }} to 
+                            {{ players_pagination.per_page * (players_pagination.page - 1) + players_pagination.items|length }} 
+                            of {{ players_pagination.total }} players
+                        </div>
+                        
+                        <div class="flex items-center gap-2">
+                            {% if players_pagination.has_prev %}
+                            <a href="{{ url_for('admin_player_selection', page=players_pagination.prev_num, per_page=current_per_page, position=current_position, q=current_search, eligibility=current_eligibility, sort=current_sort) }}" 
+                               class="px-3 py-2 text-sm text-gray-600 bg-white rounded-md hover:bg-gray-50 border border-gray-300 transition-colors">
+                                Previous
+                            </a>
+                            {% endif %}
+                            
+                            <!-- Page numbers -->
+                            {% for page_num in players_pagination.iter_pages(left_edge=1, right_edge=1, left_current=2, right_current=2) %}
+                                {% if page_num %}
+                                    {% if page_num != players_pagination.page %}
+                                    <a href="{{ url_for('admin_player_selection', page=page_num, per_page=current_per_page, position=current_position, q=current_search, eligibility=current_eligibility, sort=current_sort) }}" 
+                                       class="px-3 py-2 text-sm text-gray-600 bg-white rounded-md hover:bg-gray-50 border border-gray-300 transition-colors">
+                                        {{ page_num }}
+                                    </a>
+                                    {% else %}
+                                    <span class="px-3 py-2 text-sm text-white bg-primary rounded-md border border-primary font-medium">
+                                        {{ page_num }}
+                                    </span>
+                                    {% endif %}
+                                {% else %}
+                                <span class="px-3 py-2 text-sm text-gray-400">…</span>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            {% if players_pagination.has_next %}
+                            <a href="{{ url_for('admin_player_selection', page=players_pagination.next_num, per_page=current_per_page, position=current_position, q=current_search, eligibility=current_eligibility, sort=current_sort) }}" 
+                               class="px-3 py-2 text-sm text-gray-600 bg-white rounded-md hover:bg-gray-50 border border-gray-300 transition-colors">
+                                Next
+                            </a>
+                            {% endif %}
+                        </div>
                     </div>
                 </div>
+                {% endif %}
+            </div>
                 
                 {% for position in config.POSITIONS %}
                 <div class="hidden p-1" id="{{ position }}" role="tabpanel" aria-labelledby="{{ position }}-tab">
@@ -434,8 +507,8 @@ document.addEventListener('DOMContentLoaded', function() {
         emptySearch.classList.add('hidden');
     });
     
-    // Select/Deselect All buttons (optimized)
-    document.getElementById('selectAllBtn').addEventListener('click', function() {
+    // Select/Deselect Visible buttons (for current page only)
+    document.getElementById('selectAllVisibleBtn')?.addEventListener('click', function() {
         // Disable the button to prevent multiple clicks
         this.disabled = true;
         this.classList.add('opacity-50');
@@ -444,27 +517,28 @@ document.addEventListener('DOMContentLoaded', function() {
         bulkOperationInProgress = true;
         
         try {
-            // First, update UI (checkbox states) without triggering change events
-            const playerIds = [];
-            playerToggles.forEach(toggle => {
-                toggle.checked = true;
-                playerIds.push(toggle.dataset.playerId);
-            });
+            // Only select visible players on current page
+            const visiblePlayerIds = [];
+            const visibleToggles = document.querySelectorAll('.player-toggle');
             
-            // Get unique player IDs (since same player can appear in multiple tabs)
-            const uniquePlayerIds = [...new Set(playerIds)];
+            visibleToggles.forEach(toggle => {
+                if (!toggle.closest('tr').classList.contains('hidden')) {
+                    toggle.checked = true;
+                    visiblePlayerIds.push(toggle.dataset.playerId);
+                }
+            });
             
             // Update all position counters
             updateAllPositionCounters();
             
-            // Then send bulk AJAX request
-            bulkUpdatePlayerEligibility(uniquePlayerIds, true)
+            // Then send bulk AJAX request for visible players only
+            bulkUpdatePlayerEligibility(visiblePlayerIds, true)
                 .then(() => {
-                    showToast('All players selected successfully', 'success');
+                    showToast(`${visiblePlayerIds.length} visible players selected successfully`, 'success');
                 })
                 .catch(error => {
                     console.error('Error in bulk selection:', error);
-                    showToast('Error selecting all players', 'error');
+                    showToast('Error selecting visible players', 'error');
                 })
                 .finally(() => {
                     bulkOperationInProgress = false;
@@ -480,7 +554,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     
-    document.getElementById('deselectAllBtn').addEventListener('click', function() {
+    document.getElementById('deselectAllVisibleBtn')?.addEventListener('click', function() {
         // Disable the button to prevent multiple clicks
         this.disabled = true;
         this.classList.add('opacity-50');
@@ -489,27 +563,28 @@ document.addEventListener('DOMContentLoaded', function() {
         bulkOperationInProgress = true;
         
         try {
-            // First, update UI (checkbox states) without triggering change events
-            const playerIds = [];
-            playerToggles.forEach(toggle => {
-                toggle.checked = false;
-                playerIds.push(toggle.dataset.playerId);
-            });
+            // Only deselect visible players on current page
+            const visiblePlayerIds = [];
+            const visibleToggles = document.querySelectorAll('.player-toggle');
             
-            // Get unique player IDs (since same player can appear in multiple tabs)
-            const uniquePlayerIds = [...new Set(playerIds)];
+            visibleToggles.forEach(toggle => {
+                if (!toggle.closest('tr').classList.contains('hidden')) {
+                    toggle.checked = false;
+                    visiblePlayerIds.push(toggle.dataset.playerId);
+                }
+            });
             
             // Update all position counters
             updateAllPositionCounters();
             
-            // Then send bulk AJAX request
-            bulkUpdatePlayerEligibility(uniquePlayerIds, false)
+            // Then send bulk AJAX request for visible players only
+            bulkUpdatePlayerEligibility(visiblePlayerIds, false)
                 .then(() => {
-                    showToast('All players deselected successfully', 'success');
+                    showToast(`${visiblePlayerIds.length} visible players deselected successfully`, 'success');
                 })
                 .catch(error => {
                     console.error('Error in bulk deselection:', error);
-                    showToast('Error deselecting all players', 'error');
+                    showToast('Error deselecting visible players', 'error');
                 })
                 .finally(() => {
                     bulkOperationInProgress = false;
