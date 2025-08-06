@@ -331,16 +331,6 @@ class PasswordResetRequest(db.Model):
     def get_by_token(cls, token):
         return cls.query.filter_by(reset_token=token, status='approved').first()
 
-class PushSubscription(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    subscription_json = db.Column(db.Text, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    user = db.relationship('User', backref=db.backref('push_subscriptions', lazy=True))
-    
-    def __repr__(self):
-        return f'<PushSubscription {self.id} for User {self.user_id}>'
 
 class AuctionSettings(db.Model):
     id = db.Column(db.Integer, primary_key=True)

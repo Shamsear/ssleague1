@@ -19,7 +19,6 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/a11y.css') }}"/>
-    <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tooltips.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
     <script src="{{ url_for('static', filename='js/smoothscroll.js') }}"></script>
@@ -398,10 +397,6 @@
 
         {% block content %}{% endblock %}
         
-        <!-- Include Notification Center for authenticated users -->
-        {% if current_user.is_authenticated %}
-            {% include 'partials/notification_center.html' %}
-        {% endif %}
 
         <!-- Screen reader announcer element -->
         <div id="screen-reader-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>

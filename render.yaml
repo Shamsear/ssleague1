@@ -24,10 +24,3 @@ services:
         value: false
       - key: SKIP_BUILD_DB_INIT
         value: false
-      # VAPID keys for push notifications - ADD THESE MANUALLY IN RENDER DASHBOARD
-      # - key: VAPID_PRIVATE_KEY
-      #   value: your_vapid_private_key_here
-      # - key: VAPID_PUBLIC_KEY
-      #   value: your_vapid_public_key_here
-      # - key: VAPID_CLAIMS_SUB
-      #   value: mailto:admin@yourdomain.com
