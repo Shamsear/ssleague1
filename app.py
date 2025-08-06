@@ -2077,6 +2077,8 @@ def admin_users_update():
 @login_required
 def approve_user(user_id):
     if not current_user.is_admin:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Unauthorized'}), 403
         flash('You do not have permission to perform this action')
         return redirect(url_for('dashboard'))
     
@@ -2084,11 +2086,17 @@ def approve_user(user_id):
     
     # Don't approve admin users
     if user.is_admin:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Admin users do not need approval'}), 400
         flash('Admin users do not need approval')
         return redirect(url_for('admin_users'))
         
     user.is_approved = True
     db.session.commit()
+    
+    # Handle AJAX requests
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'message': f'User {user.username} has been approved'})
     
     flash(f'User {user.username} has been approved')
     return redirect(url_for('admin_users'))
@@ -2097,6 +2105,8 @@ def approve_user(user_id):
 @login_required
 def delete_user(user_id):
     if not current_user.is_admin:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'Unauthorized'}), 403
         flash('You do not have permission to perform this action')
         return redirect(url_for('dashboard'))
     
@@ -2104,6 +2114,8 @@ def delete_user(user_id):
     
     # Prevent deleting yourself
     if user.id == current_user.id:
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': 'You cannot delete yourself'}), 400
         flash('You cannot delete yourself')
         return redirect(url_for('admin_users'))
     
@@ -2116,13 +2128,20 @@ def delete_user(user_id):
             db.session.delete(user.team)
         
         # Delete the user
+        username = user.username  # Store username before deletion
         db.session.delete(user)
         db.session.commit()
         
-        flash(f'User {user.username} has been deleted')
+        # Handle AJAX requests
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'message': f'User {username} has been deleted'})
+        
+        flash(f'User {username} has been deleted')
         return redirect(url_for('admin_users'))
     except Exception as e:
         db.session.rollback()
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({'error': f'Error deleting user: {str(e)}'}), 500
         flash(f'Error deleting user: {str(e)}', 'error')
         return redirect(url_for('admin_users'))
 

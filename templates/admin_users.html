@@ -283,6 +283,30 @@
             <p class="text-gray-600">No users match your search</p>
         </div>
     </div>
+
+    <!-- Real-time update indicator -->
+    <div id="updateIndicator" class="fixed top-4 right-4 z-50 hidden">
+        <div class="glass rounded-lg p-3 border border-white/20 bg-green-100/90 text-green-700">
+            <div class="flex items-center">
+                <svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Updating...
+            </div>
+        </div>
+    </div>
+
+    <!-- Success notification -->
+    <div id="successNotification" class="fixed top-4 right-4 z-50 hidden">
+        <div class="glass rounded-lg p-3 border border-white/20 bg-green-100/90 text-green-700">
+            <div class="flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span id="successMessage">Action completed successfully</span>
+            </div>
+        </div>
+    </div>
 </div>
 
 <!-- Delete confirmation modal (hidden by default) -->
@@ -313,73 +337,381 @@
 </div>
 
 <script>
-    // Search functionality
-    document.addEventListener('DOMContentLoaded', function() {
+class RealTimeUserManager {
+    constructor() {
+        this.updateInterval = 5000; // 5 seconds
+        this.isUpdating = false;
+        this.intervalId = null;
+        this.lastUpdateTime = new Date().getTime();
+        
+        this.init();
+    }
+
+    init() {
+        this.setupSearch();
+        this.setupRealTimeUpdates();
+        this.setupFormInterception();
+        this.startPeriodicUpdates();
+        
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.stopPeriodicUpdates();
+            } else {
+                this.startPeriodicUpdates();
+                this.updateUserList(); // Update immediately when page becomes visible
+            }
+        });
+    }
+
+    setupSearch() {
         const searchInput = document.getElementById('userSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => this.performSearch(e.target.value));
+        }
+    }
+
+    performSearch(searchTerm) {
         const userRows = document.querySelectorAll('.user-row');
         const userCards = document.querySelectorAll('.user-card');
         const noResultsMessage = document.getElementById('noResultsMessage');
+        let visibleCount = 0;
         
-        searchInput.addEventListener('input', function() {
-            const searchTerm = this.value.toLowerCase();
-            let visibleCount = 0;
+        searchTerm = searchTerm.toLowerCase();
+        
+        // Search in table rows (desktop)
+        userRows.forEach(row => {
+            const username = row.querySelector('td:first-child')?.textContent?.toLowerCase() || '';
+            const status = row.querySelector('td:nth-child(2)')?.textContent?.toLowerCase() || '';
+            const team = row.querySelector('td:nth-child(3)')?.textContent?.toLowerCase() || '';
             
-            // Search in table rows (desktop)
-            userRows.forEach(row => {
-                const username = row.querySelector('td:first-child').textContent.toLowerCase();
-                const isAdmin = row.querySelector('td:nth-child(2)').textContent.toLowerCase().includes('admin');
-                const team = row.querySelector('td:nth-child(3)').textContent.toLowerCase();
-                
-                if (username.includes(searchTerm) || team.includes(searchTerm) || 
-                    (searchTerm === 'admin' && isAdmin) || (searchTerm === 'pending' && !isAdmin)) {
-                    row.classList.remove('hidden');
-                    visibleCount++;
-                } else {
-                    row.classList.add('hidden');
-                }
-            });
-            
-            // Search in cards (mobile)
-            userCards.forEach(card => {
-                const username = card.textContent.toLowerCase();
-                const isAdmin = card.textContent.toLowerCase().includes('administrator');
-                const team = card.textContent.toLowerCase();
-                
-                if (username.includes(searchTerm) || team.includes(searchTerm) || 
-                    (searchTerm === 'admin' && isAdmin) || (searchTerm === 'pending' && card.textContent.toLowerCase().includes('pending'))) {
-                    card.classList.remove('hidden');
-                    visibleCount++;
-                } else {
-                    card.classList.add('hidden');
-                }
-            });
-            
-            // Show/hide no results message
-            if (visibleCount === 0) {
+            if (username.includes(searchTerm) || team.includes(searchTerm) || status.includes(searchTerm)) {
+                row.classList.remove('hidden');
+                visibleCount++;
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+        
+        // Search in cards (mobile)
+        userCards.forEach(card => {
+            const content = card.textContent.toLowerCase();
+            if (content.includes(searchTerm)) {
+                card.classList.remove('hidden');
+                visibleCount++;
+            } else {
+                card.classList.add('hidden');
+            }
+        });
+        
+        // Show/hide no results message
+        if (noResultsMessage) {
+            if (visibleCount === 0 && searchTerm.length > 0) {
                 noResultsMessage.classList.remove('hidden');
             } else {
                 noResultsMessage.classList.add('hidden');
             }
+        }
+    }
+
+    setupFormInterception() {
+        // Intercept approve forms
+        document.addEventListener('submit', (e) => {
+            if (e.target.classList.contains('approve-form')) {
+                e.preventDefault();
+                this.handleApproveUser(e.target);
+            }
         });
-    });
-    
-    // Delete confirmation modal
-    function showDeleteConfirmation(userId, username) {
+
+        // Intercept delete form
+        const deleteForm = document.getElementById('deleteForm');
+        if (deleteForm) {
+            deleteForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleDeleteUser(e.target);
+            });
+        }
+    }
+
+    async handleApproveUser(form) {
+        try {
+            this.showUpdateIndicator();
+            
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (response.ok) {
+                this.showSuccessNotification('User approved successfully');
+                await this.updateUserList();
+            } else {
+                throw new Error('Failed to approve user');
+            }
+        } catch (error) {
+            console.error('Error approving user:', error);
+            this.showErrorNotification('Failed to approve user');
+        } finally {
+            this.hideUpdateIndicator();
+        }
+    }
+
+    async handleDeleteUser(form) {
+        try {
+            this.showUpdateIndicator();
+            this.hideDeleteConfirmation();
+            
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (response.ok) {
+                this.showSuccessNotification('User deleted successfully');
+                await this.updateUserList();
+            } else {
+                throw new Error('Failed to delete user');
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            this.showErrorNotification('Failed to delete user');
+        } finally {
+            this.hideUpdateIndicator();
+        }
+    }
+
+    async updateUserList() {
+        if (this.isUpdating) return;
+        
+        this.isUpdating = true;
+        
+        try {
+            const response = await fetch('/admin/users_update', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch user updates');
+            }
+
+            const data = await response.json();
+            
+            // Update statistics
+            this.updateStatistics(data.total_users, data.admin_count, data.pending_approvals);
+            
+            // Update desktop table
+            const tableBody = document.getElementById('userTableBody');
+            if (tableBody && data.desktop_html) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = data.desktop_html;
+                const newTableContent = tempDiv.querySelector('tbody');
+                if (newTableContent) {
+                    tableBody.innerHTML = newTableContent.innerHTML;
+                }
+            }
+            
+            // Update mobile cards
+            const mobileContainer = document.getElementById('mobileUserCards');
+            if (mobileContainer && data.mobile_html) {
+                mobileContainer.innerHTML = data.mobile_html;
+            }
+            
+            // Re-apply current search if any
+            const searchInput = document.getElementById('userSearchInput');
+            if (searchInput && searchInput.value) {
+                this.performSearch(searchInput.value);
+            }
+            
+            // Update pending approvals notification
+            this.updatePendingApprovalsNotification(data.pending_approvals);
+            
+            this.lastUpdateTime = new Date().getTime();
+            
+        } catch (error) {
+            console.error('Error updating user list:', error);
+        } finally {
+            this.isUpdating = false;
+        }
+    }
+
+    updateStatistics(totalUsers, adminCount, pendingApprovals) {
+        // Update total users
+        const totalUsersElement = document.querySelector('.text-primary.font-bold');
+        if (totalUsersElement) {
+            totalUsersElement.textContent = totalUsers;
+        }
+        
+        // Update admin count
+        const adminCountElement = document.querySelector('.text-secondary.font-bold');
+        if (adminCountElement) {
+            adminCountElement.textContent = adminCount;
+        }
+        
+        // Update pending approvals
+        const pendingElement = document.querySelector('.text-accent.font-bold, .text-green-700.font-bold');
+        if (pendingElement) {
+            pendingElement.textContent = pendingApprovals;
+            // Update color based on whether there are pending approvals
+            if (pendingApprovals > 0) {
+                pendingElement.className = pendingElement.className.replace('text-green-700', 'text-accent');
+            } else {
+                pendingElement.className = pendingElement.className.replace('text-accent', 'text-green-700');
+            }
+        }
+    }
+
+    updatePendingApprovalsNotification(pendingCount) {
+        const notification = document.querySelector('.bg-accent\\/10');
+        if (notification) {
+            if (pendingCount > 0) {
+                notification.classList.remove('hidden');
+                const countText = notification.querySelector('p');
+                if (countText) {
+                    countText.textContent = `${pendingCount} user(s) pending approval.`;
+                }
+            } else {
+                notification.classList.add('hidden');
+            }
+        }
+    }
+
+    setupRealTimeUpdates() {
+        // Update on window focus
+        window.addEventListener('focus', () => {
+            if (new Date().getTime() - this.lastUpdateTime > 3000) {
+                this.updateUserList();
+            }
+        });
+    }
+
+    startPeriodicUpdates() {
+        if (!this.intervalId) {
+            this.intervalId = setInterval(() => {
+                if (!document.hidden) {
+                    this.updateUserList();
+                }
+            }, this.updateInterval);
+        }
+    }
+
+    stopPeriodicUpdates() {
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+    }
+
+    showUpdateIndicator() {
+        const indicator = document.getElementById('updateIndicator');
+        if (indicator) {
+            indicator.classList.remove('hidden');
+        }
+    }
+
+    hideUpdateIndicator() {
+        const indicator = document.getElementById('updateIndicator');
+        if (indicator) {
+            indicator.classList.add('hidden');
+        }
+    }
+
+    showSuccessNotification(message) {
+        const notification = document.getElementById('successNotification');
+        const messageElement = document.getElementById('successMessage');
+        
+        if (notification && messageElement) {
+            messageElement.textContent = message;
+            notification.classList.remove('hidden');
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        }
+    }
+
+    showErrorNotification(message) {
+        // Create error notification if it doesn't exist
+        let errorNotification = document.getElementById('errorNotification');
+        if (!errorNotification) {
+            errorNotification = document.createElement('div');
+            errorNotification.id = 'errorNotification';
+            errorNotification.className = 'fixed top-4 right-4 z-50 hidden';
+            errorNotification.innerHTML = `
+                <div class="glass rounded-lg p-3 border border-white/20 bg-red-100/90 text-red-700">
+                    <div class="flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span id="errorMessage">Error occurred</span>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(errorNotification);
+        }
+        
+        const messageElement = document.getElementById('errorMessage');
+        if (messageElement) {
+            messageElement.textContent = message;
+        }
+        
+        errorNotification.classList.remove('hidden');
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            errorNotification.classList.add('hidden');
+        }, 5000);
+    }
+
+    // Delete modal methods (keeping existing functionality)
+    showDeleteConfirmation(userId, username) {
         const modal = document.getElementById('deleteModal');
         const form = document.getElementById('deleteForm');
         const usernameSpan = document.getElementById('deleteUsername');
         
-        form.action = "{{ url_for('delete_user', user_id=0) }}".replace('0', userId);
-        usernameSpan.textContent = username;
+        if (form && usernameSpan) {
+            form.action = `/delete_user/${userId}`;
+            usernameSpan.textContent = username;
+        }
         
-        modal.classList.remove('hidden');
-        document.body.classList.add('overflow-hidden');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
     }
-    
-    function hideDeleteConfirmation() {
+
+    hideDeleteConfirmation() {
         const modal = document.getElementById('deleteModal');
-        modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
     }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    window.userManager = new RealTimeUserManager();
+});
+
+// Global functions for modal (keeping backward compatibility)
+function showDeleteConfirmation(userId, username) {
+    if (window.userManager) {
+        window.userManager.showDeleteConfirmation(userId, username);
+    }
+}
+
+function hideDeleteConfirmation() {
+    if (window.userManager) {
+        window.userManager.hideDeleteConfirmation();
+    }
+}
 </script>
 {% endblock %}
