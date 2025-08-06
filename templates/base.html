@@ -21,7 +21,6 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/a11y.css') }}"/>
     <script src="{{ url_for('static', filename='js/notifications.js') }}"></script>
     <script src="{{ url_for('static', filename='js/tooltips.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/whats_new.js') }}"></script>
     <script src="{{ url_for('static', filename='js/pwa.js') }}"></script>
     <script src="{{ url_for('static', filename='js/smoothscroll.js') }}"></script>
     <script src="{{ url_for('static', filename='js/scrollTo.js') }}"></script>
@@ -402,7 +401,6 @@
         <!-- Include Notification Center for authenticated users -->
         {% if current_user.is_authenticated %}
             {% include 'partials/notification_center.html' %}
-            {% include 'whats_new.html' %}
         {% endif %}
 
         <!-- Screen reader announcer element -->

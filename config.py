@@ -68,15 +68,18 @@ class Config:
     SQLALCHEMY_TRACK_MODIFICATIONS = False
     
     # Database connection pool settings for cloud databases
+    # Optimized for Supabase connection pooler
     SQLALCHEMY_ENGINE_OPTIONS = {
-        'pool_size': 10,
-        'pool_recycle': 300,
+        'pool_size': 5,  # Reduced for Supabase pooler
+        'pool_recycle': 1800,  # 30 minutes
         'pool_pre_ping': True,
-        'max_overflow': 20,
+        'max_overflow': 10,  # Reduced overflow
         'pool_timeout': 30,
         'connect_args': {
-            'connect_timeout': 10,
-            'application_name': 'ss_auction_app'
+            'connect_timeout': 30,
+            'application_name': 'ss_auction_app',
+            'sslmode': 'require',
+            'options': '-c statement_timeout=30000'  # 30 second statement timeout
         }
     }
     INITIAL_BALANCE = 15000

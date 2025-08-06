@@ -141,23 +141,35 @@
         
         // Add animation to login card
         const loginCard = document.querySelector('.glass');
-        loginCard.classList.add('animate-fade-in');
+        if (loginCard) {
+            loginCard.classList.add('animate-fade-in');
+        }
         
-        togglePassword.addEventListener('click', function() {
-            // Toggle the type attribute
-            const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-            password.setAttribute('type', type);
-            
-            // Toggle icon
-            eyeIcon.classList.toggle('hidden');
-            eyeOffIcon.classList.toggle('hidden');
-            
-            // Add a subtle animation
-            togglePassword.classList.add('animate-pulse');
-            setTimeout(() => {
-                togglePassword.classList.remove('animate-pulse');
-            }, 500);
-        });
+        // Check if elements exist before adding event listener
+        if (togglePassword && password && eyeIcon && eyeOffIcon) {
+            togglePassword.addEventListener('click', function(e) {
+                e.preventDefault(); // Prevent form submission
+                
+                // Toggle the type attribute
+                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
+                password.setAttribute('type', type);
+                
+                // Toggle icon visibility
+                if (type === 'text') {
+                    eyeIcon.classList.add('hidden');
+                    eyeOffIcon.classList.remove('hidden');
+                } else {
+                    eyeIcon.classList.remove('hidden');
+                    eyeOffIcon.classList.add('hidden');
+                }
+                
+                // Add a subtle animation
+                togglePassword.classList.add('animate-pulse');
+                setTimeout(() => {
+                    togglePassword.classList.remove('animate-pulse');
+                }, 500);
+            });
+        }
         
         // Focus animation for input fields
         const inputFields = document.querySelectorAll('input');
