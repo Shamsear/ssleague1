@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     buildCommand: pip install -r requirements.txt && python init_db.py
-    startCommand: gunicorn app:app
+    startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1
     healthCheckPath: /
     envVars:
       - key: PYTHON_VERSION
@@ -23,6 +23,13 @@ services:
         value: production
       - key: FLASK_DEBUG
         value: false
+      # VAPID keys for push notifications - ADD THESE MANUALLY IN RENDER DASHBOARD
+      # - key: VAPID_PRIVATE_KEY
+      #   value: LS0tLS1CRUdJTiBQUklWQVRFIEtFWS0tLS0tCk1JR0hBZ0VBTUJNR0J5cUdTTTQ5QWdFR0NDcUdTTTQ5QXdFSEJHMHdhd0lCQVFRZ3p5ZDRIOCt6eDZFRUQ5TDMKUkRTZ3E0S1p2NEFQWTJ3SmE5QUhPK3Jmd2wyaFJBTkNBQVQzdmdHWXpDcUQ4VnovRkh4V3BRQ1NYZUhPNnVqSQp3VXB2aTk2L3d6OXJQRkJZSzhDWGd4YzZKZ0ZXdlFaQ2JPb2gvNHhROGR0WTNIN1o4cjU0dlJvWQotLS0tLUVORCBQUklWQVRFIEtFWS0tLS0tCg==
+      # - key: VAPID_PUBLIC_KEY
+      #   value: LS0tLS1CRUdJTiBQVUJMSUMgS0VZLS0tLS0KTUZrd0V3WUhLb1pJemowQ0FRWUlLb1pJemowREFRY0RRZ0FFOTc0Qm1Nd3FnL0ZjL3hSOFZxVUFrbDNoenVybwp5TUZLYjR2ZXY4TS9henhRV0N2QWw0TVhPaVlCVnIwR1FtenFJZitNVVBIYldOeCsyZksrZUwwYUdBPT0KLS0tLS1FTkQgUFVCTElDIEtFWS0tLS0tCg==
+      # - key: VAPID_CLAIMS_SUB
+      #   value: mailto:admin@yourdomain.com
 
 databases:
   - name: efootball-auction-db
