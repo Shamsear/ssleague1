@@ -23,14 +23,22 @@ class Config:
             # Remove 'schema' parameter as it's not valid for psycopg2
             if 'schema' in params:
                 del params['schema']
-            # Rebuild URL with valid parameters only
-            if params:
-                new_query = urlencode(params, doseq=True)
-                database_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, 
-                                         parsed.params, new_query, parsed.fragment))
-            else:
-                database_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, 
-                                         parsed.params, '', parsed.fragment))
+        else:
+            params = {}
+        
+        # Add SSL requirement for Supabase and other cloud providers
+        if 'supabase.co' in database_url or 'render.com' in database_url:
+            if 'sslmode' not in params:
+                params['sslmode'] = ['require']
+        
+        # Rebuild URL with valid parameters
+        if params:
+            new_query = urlencode(params, doseq=True)
+            database_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, 
+                                     parsed.params, new_query, parsed.fragment))
+        else:
+            database_url = urlunparse((parsed.scheme, parsed.netloc, parsed.path, 
+                                     parsed.params, '', parsed.fragment))
     except Exception as e:
         # If URL parsing fails, fall back to simple string replacement
         print(f"Warning: Could not parse DATABASE_URL: {e}")
@@ -42,9 +50,27 @@ class Config:
                 database_url = base_url + '?' + '&'.join(valid_params)
             else:
                 database_url = base_url
+        
+        # Add SSL for Supabase as fallback
+        if 'supabase.co' in database_url and 'sslmode=' not in database_url:
+            separator = '&' if '?' in database_url else '?'
+            database_url += f'{separator}sslmode=require'
     
     SQLALCHEMY_DATABASE_URI = database_url
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    
+    # Database connection pool settings for cloud databases
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 10,
+        'pool_recycle': 300,
+        'pool_pre_ping': True,
+        'max_overflow': 20,
+        'pool_timeout': 30,
+        'connect_args': {
+            'connect_timeout': 10,
+            'application_name': 'ss_auction_app'
+        }
+    }
     INITIAL_BALANCE = 15000
     MINIMUM_BID = 10
     MAX_PLAYERS_PER_TEAM = 25

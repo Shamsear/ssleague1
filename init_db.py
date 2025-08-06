@@ -12,6 +12,35 @@ def init_database():
         print("Initializing database...")
         print(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI'][:50]}...")
         
+        # Test database connection with retries
+        max_retries = 5
+        retry_delay = 2
+        
+        for attempt in range(max_retries):
+            try:
+                print(f"Attempt {attempt + 1}/{max_retries}: Testing database connection...")
+                # Test connection by running a simple query
+                with db.engine.connect() as conn:
+                    conn.execute(db.text("SELECT 1"))
+                print("Database connection successful!")
+                break
+            except Exception as e:
+                print(f"Database connection attempt {attempt + 1} failed: {e}")
+                if attempt < max_retries - 1:
+                    print(f"Retrying in {retry_delay} seconds...")
+                    import time
+                    time.sleep(retry_delay)
+                    retry_delay *= 2  # Exponential backoff
+                else:
+                    print("All database connection attempts failed.")
+                    if "Network is unreachable" in str(e) or "connection to server" in str(e):
+                        print("Network connectivity issue detected. This might be temporary.")
+                        print("Skipping database initialization for now - will retry at runtime.")
+                        return
+                    else:
+                        print(f"Fatal database error: {repr(e)}")
+                        raise
+        
         try:
             print("Creating database tables...")
             db.create_all()

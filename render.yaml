@@ -3,7 +3,7 @@ services:
     name: ssleague
     env: python
     plan: free
-    buildCommand: pip install -r requirements.txt && mkdir -p /opt/render/project/src/data && cp -f efootball_real.db /opt/render/project/src/data/ && python init_db.py
+    buildCommand: pip install -r requirements.txt && python init_db.py
     startCommand: gunicorn app:app
     healthCheckPath: /
     envVars:
@@ -19,13 +19,13 @@ services:
         value: 1
       - key: FLASK_APP
         value: app.py
-    disk:
-      name: sqlite-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
+      - key: FLASK_ENV
+        value: production
+      - key: FLASK_DEBUG
+        value: false
 
 databases:
   - name: efootball-auction-db
     plan: free
     databaseName: auction_db
-    ipAllowList: [] 
+    ipAllowList: []

@@ -22,18 +22,21 @@ import re
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Apply SQLAlchemy engine options from config
+if hasattr(Config, 'SQLALCHEMY_ENGINE_OPTIONS'):
+    for key, value in Config.SQLALCHEMY_ENGINE_OPTIONS.items():
+        app.config[f'SQLALCHEMY_{key.upper()}'] = value
+
 # Register blueprints
 app.register_blueprint(team_management, url_prefix='/team_management')
 
 # VAPID keys configuration
-# In production, these should be stored securely and generated only once
-if not hasattr(Config, 'VAPID_PRIVATE_KEY') or not Config.VAPID_PRIVATE_KEY:
-    # This is a placeholder for demo. In production, generate and store these securely
-    app.config['VAPID_PRIVATE_KEY'] = os.environ.get('VAPID_PRIVATE_KEY', 'your_vapid_private_key_here')
-    app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY', 'your_vapid_public_key_here')
-    app.config['VAPID_CLAIMS'] = {
-        "sub": "mailto:admin@example.com"  # Replace with actual email
-    }
+# Get VAPID keys from environment variables
+app.config['VAPID_PRIVATE_KEY'] = os.environ.get('VAPID_PRIVATE_KEY')
+app.config['VAPID_PUBLIC_KEY'] = os.environ.get('VAPID_PUBLIC_KEY') 
+app.config['VAPID_CLAIMS'] = {
+    "sub": os.environ.get('VAPID_CLAIMS_SUB', "mailto:admin@example.com")
+}
 
 db.init_app(app)
 migrate = Migrate(app, db)
