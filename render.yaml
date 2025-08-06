@@ -4,7 +4,7 @@ services:
     env: python
     plan: free
     runtime: python
-    buildCommand: pip install -r requirements.txt && python test_db_connection_simple.py && python init_db.py
+    buildCommand: pip install -r requirements.txt && python init_db.py
     startCommand: gunicorn app:app --bind 0.0.0.0:$PORT --timeout 120 --workers 1 --worker-class eventlet
     healthCheckPath: /
     envVars:
