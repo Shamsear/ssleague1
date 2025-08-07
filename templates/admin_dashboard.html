@@ -83,8 +83,6 @@
 
     <div class="glass rounded-3xl p-4 sm:p-6 mb-6 shadow-lg backdrop-blur-md border border-white/20">
         <div class="flex flex-col gap-5 mb-6">
-            <h2 class="text-2xl font-bold gradient-text">Admin Dashboard</h2>
-            
             <!-- Navigation Cards -->
             <div class="glass rounded-2xl p-5 mb-8 shadow-lg backdrop-blur-md border border-white/20">
                 <div class="mb-6">
@@ -455,12 +453,27 @@
                 <div class="glass rounded-2xl p-4 sm:p-5 border border-white/10 transition-all duration-300 hover:shadow-lg group hover:border-primary/20">
                     <!-- Mobile-optimized header -->
                     <div class="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3 mb-4">
-                        <h3 class="text-base sm:text-lg font-semibold text-gray-800 group-hover:text-primary transition-colors flex items-center">
-                            <svg class="w-4 h-4 mr-1.5 text-primary opacity-70 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-                            </svg>
-                            <span class="truncate">{{ team.name }}</span>
-                        </h3>
+                        <div class="flex items-center flex-1 min-w-0">
+                            <!-- Team Logo -->
+                            <div class="mr-3 relative group flex-shrink-0">
+                                {% if team.logo_url %}
+                                    <img src="{{ url_for('uploaded_logo', filename=team.logo_url.split('/')[-1]) }}" 
+                                         alt="{{ team.name }} logo" 
+                                         class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover border-2 border-primary/20 shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:scale-105">
+                                    <div class="absolute inset-0 rounded-lg bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                {% else %}
+                                    <div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary/20 to-primary/30 rounded-lg flex items-center justify-center border-2 border-primary/20 shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:scale-105">
+                                        <svg class="w-4 h-4 sm:w-5 sm:h-5 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                        </svg>
+                                    </div>
+                                    <div class="absolute inset-0 rounded-lg bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                {% endif %}
+                            </div>
+                            <h3 class="text-base sm:text-lg font-semibold text-gray-800 group-hover:text-primary transition-colors min-w-0">
+                                <span class="truncate">{{ team.name }}</span>
+                            </h3>
+                        </div>
                         <div class="flex gap-1.5 self-start">
                             <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium {{ 'bg-green-100 text-green-700' if team.players|length > 0 else 'bg-gray-100 text-gray-700' }}">
                                 {{ team.players|length }} Players

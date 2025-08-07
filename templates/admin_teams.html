@@ -47,7 +47,7 @@
                             <div class="flex items-center">
                                 <div class="h-8 w-8 flex-shrink-0 bg-primary/10 rounded-md flex items-center justify-center text-primary mr-3 overflow-hidden">
                                     {% if team_data.team.logo_url %}
-                                    <img src="{{ team_data.team.logo_url }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
+                                    <img src="{{ url_for('uploaded_logo', filename=team_data.team.logo_url.split('/')[-1]) }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
                                     {% else %}
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
@@ -169,7 +169,7 @@
                     <div class="flex items-center">
                         <div class="h-10 w-10 flex-shrink-0 bg-primary/10 rounded-md flex items-center justify-center text-primary mr-3 overflow-hidden">
                             {% if team_data.team.logo_url %}
-                            <img src="{{ team_data.team.logo_url }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
+                            <img src="{{ url_for('uploaded_logo', filename=team_data.team.logo_url.split('/')[-1]) }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
                             {% else %}
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
@@ -471,6 +471,15 @@
                                 <span class="text-sm font-medium text-gray-700">Choose Logo</span>
                                 <span class="text-xs text-gray-500">PNG, JPG (Max 2MB)</span>
                                 <input type="file" id="teamLogo" name="logo" accept="image/*" class="hidden">
+                                <!-- Progress Bar for Add Modal -->
+                                <div id="uploadProgressAdd" class="hidden absolute inset-0 bg-primary/10 rounded-xl flex items-center justify-center">
+                                    <div class="w-full max-w-xs">
+                                        <div class="bg-white/50 rounded-full h-2 mb-2">
+                                            <div id="progressBarAdd" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                        </div>
+                                        <p id="progressTextAdd" class="text-xs text-center text-primary font-medium">Uploading...</p>
+                                    </div>
+                                </div>
                             </label>
                         </div>
                     </div>
@@ -542,6 +551,15 @@
                                 <span class="text-sm font-medium text-gray-700">Choose Logo</span>
                                 <span class="text-xs text-gray-500">PNG, JPG (Max 2MB)</span>
                                 <input type="file" id="editTeamLogo" name="logo" accept="image/*" class="hidden">
+                                <!-- Progress Bar for Edit Modal -->
+                                <div id="uploadProgressEdit" class="hidden absolute inset-0 bg-primary/10 rounded-xl flex items-center justify-center">
+                                    <div class="w-full max-w-xs">
+                                        <div class="bg-white/50 rounded-full h-2 mb-2">
+                                            <div id="progressBarEdit" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                        </div>
+                                        <p id="progressTextEdit" class="text-xs text-center text-primary font-medium">Uploading...</p>
+                                    </div>
+                                </div>
                             </label>
                         </div>
                     </div>

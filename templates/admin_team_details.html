@@ -17,7 +17,71 @@
 
     <!-- Team Details Card -->
     <div class="glass rounded-3xl p-6 mb-8 shadow-lg border border-gray-100/30">
-        <form id="teamDetailsForm" method="POST" action="{{ url_for('admin_update_team', team_id=team.id) }}">
+        <form id="teamDetailsForm" method="POST" action="{{ url_for('admin_update_team', team_id=team.id) }}" enctype="multipart/form-data">
+            <!-- Team Logo Section -->
+            <div class="mb-8">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                    <!-- Current Logo Display -->
+                    <div class="flex-shrink-0">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Current Team Logo</label>
+                        <div class="w-24 h-24 sm:w-32 sm:h-32 rounded-xl border-2 border-gray-200 overflow-hidden shadow-lg relative group">
+                            {% if team.logo_url %}
+                                <img src="{{ url_for('uploaded_logo', filename=team.logo_url.split('/')[-1]) }}" 
+                                     alt="{{ team.name }} logo" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </div>
+                            {% else %}
+                                <div class="w-full h-full bg-gradient-to-br from-primary/10 to-primary/20 flex items-center justify-center">
+                                    <svg class="w-12 h-12 sm:w-16 sm:h-16 text-primary/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Logo Upload Section -->
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Update Team Logo</label>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0">
+                                <div id="logoPreview" class="w-20 h-20 rounded-xl bg-gray-100/80 backdrop-blur-sm border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+                                    <svg id="uploadIcon" class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <img id="previewImg" class="hidden w-full h-full object-cover" src="#" alt="Team logo preview">
+                                </div>
+                            </div>
+                            <div class="flex-grow">
+                                <label for="teamLogo" class="w-full flex flex-col items-center px-4 py-3 bg-white/60 text-primary rounded-xl border border-gray-200 cursor-pointer hover:bg-primary/5 transition-colors duration-300 relative">
+                                    <svg class="w-5 h-5 mb-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                    <span class="text-sm font-medium text-gray-700">Choose New Logo</span>
+                                    <span class="text-xs text-gray-500">PNG, JPG (Max 2MB)</span>
+                                    <input type="file" id="teamLogo" name="logo" accept="image/*" class="hidden">
+                                    <!-- Progress Bar (hidden by default) -->
+                                    <div id="uploadProgress" class="hidden absolute inset-0 bg-primary/10 rounded-xl flex items-center justify-center">
+                                        <div class="w-full max-w-xs">
+                                            <div class="bg-white/50 rounded-full h-2 mb-2">
+                                                <div id="progressBar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                            </div>
+                                            <p id="progressText" class="text-xs text-center text-primary font-medium">Uploading...</p>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Upload a new logo to replace the current one. Leave empty to keep existing logo.</p>
+                    </div>
+                </div>
+            </div>
+            
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Team Name -->
                 <div>
@@ -301,51 +365,265 @@
         }
     }
 
-    // Form submission handling with improved feedback
+    // Logo file input handling with progress tracking
+    function setupLogoUpload() {
+        const teamLogo = document.getElementById('teamLogo');
+        const logoPreview = document.getElementById('logoPreview');
+        const previewImg = document.getElementById('previewImg');
+        const uploadIcon = document.getElementById('uploadIcon');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        if (teamLogo) {
+            teamLogo.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                
+                if (file) {
+                    // Validate file size (max 2MB)
+                    if (file.size > 2 * 1024 * 1024) {
+                        showToast('Logo file is too large. Maximum size is 2MB.', 'error');
+                        teamLogo.value = '';
+                        return;
+                    }
+                    
+                    // Validate file type
+                    if (!file.type.match('image.*')) {
+                        showToast('Please select an image file (PNG, JPG, JPEG).', 'error');
+                        teamLogo.value = '';
+                        return;
+                    }
+                    
+                    // Show progress bar
+                    uploadProgress.classList.remove('hidden');
+                    uploadIcon.classList.add('hidden');
+                    progressBar.style.width = '0%';
+                    progressText.textContent = 'Processing...';
+                    
+                    // Simulate upload progress for file reading
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        progress += Math.random() * 15;
+                        if (progress > 85) {
+                            clearInterval(progressInterval);
+                            progress = 85;
+                        }
+                        progressBar.style.width = progress + '%';
+                        progressText.textContent = `Processing... ${Math.round(progress)}%`;
+                    }, 100);
+                    
+                    // Read and preview the file
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        // Complete the progress
+                        clearInterval(progressInterval);
+                        progressBar.style.width = '100%';
+                        progressText.textContent = 'Complete!';
+                        
+                        // Show the preview after a short delay
+                        setTimeout(() => {
+                            uploadProgress.classList.add('hidden');
+                            previewImg.src = e.target.result;
+                            previewImg.classList.remove('hidden');
+                            
+                            // Change border style to show selection
+                            logoPreview.classList.remove('border-dashed', 'border-gray-300');
+                            logoPreview.classList.add('border-solid', 'border-primary');
+                            
+                            // Add animation
+                            logoPreview.classList.add('animate-logo-appear');
+                            setTimeout(() => {
+                                logoPreview.classList.remove('animate-logo-appear');
+                            }, 500);
+                            
+                            showToast('Logo selected successfully! Save changes to upload.', 'success');
+                        }, 500);
+                    };
+                    
+                    reader.onerror = function() {
+                        clearInterval(progressInterval);
+                        uploadProgress.classList.add('hidden');
+                        uploadIcon.classList.remove('hidden');
+                        showToast('Error reading the file. Please try again.', 'error');
+                        teamLogo.value = '';
+                    };
+                    
+                    reader.readAsDataURL(file);
+                } else {
+                    // Reset preview if no file selected
+                    resetLogoPreview();
+                }
+            });
+        }
+    }
+    
+    // Reset logo preview to default state
+    function resetLogoPreview() {
+        const previewImg = document.getElementById('previewImg');
+        const uploadIcon = document.getElementById('uploadIcon');
+        const logoPreview = document.getElementById('logoPreview');
+        const uploadProgress = document.getElementById('uploadProgress');
+        
+        if (previewImg && uploadIcon && logoPreview) {
+            previewImg.classList.add('hidden');
+            uploadIcon.classList.remove('hidden');
+            uploadProgress.classList.add('hidden');
+            logoPreview.classList.add('border-dashed', 'border-gray-300');
+            logoPreview.classList.remove('border-solid', 'border-primary');
+        }
+    }
+    
+    // Show toast notification
+    function showToast(message, type = 'success') {
+        // Remove any existing toast
+        const existingToast = document.querySelector('.toast-notification');
+        if (existingToast) {
+            existingToast.remove();
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg z-50 toast-notification transform translate-y-2 opacity-0 transition-all duration-300 max-w-sm`;
+        
+        if (type === 'success') {
+            toast.classList.add('bg-green-500', 'text-white');
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    ${message}
+                </div>
+            `;
+        } else {
+            toast.classList.add('bg-red-500', 'text-white');
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    ${message}
+                </div>
+            `;
+        }
+        
+        document.body.appendChild(toast);
+        
+        // Animate in
+        setTimeout(() => {
+            toast.classList.remove('translate-y-2', 'opacity-0');
+        }, 100);
+        
+        // Auto remove after 4 seconds
+        setTimeout(() => {
+            toast.classList.add('translate-y-2', 'opacity-0');
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 300);
+        }, 4000);
+    }
+    
+    // Form submission handling with improved feedback and upload progress
     document.getElementById('teamDetailsForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const submitBtn = this.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
-        
         const formData = new FormData(this);
         
-        fetch(this.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-CSRFToken': '{{ csrf_token() }}'
+        // Check if a logo is being uploaded
+        const logoFile = document.getElementById('teamLogo').files[0];
+        const isUploadingLogo = logoFile && logoFile.size > 0;
+        
+        submitBtn.disabled = true;
+        
+        if (isUploadingLogo) {
+            submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Uploading Logo...';
+        } else {
+            submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
+        }
+        
+        // Create XMLHttpRequest for progress tracking
+        const xhr = new XMLHttpRequest();
+        
+        // Track upload progress
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable && isUploadingLogo) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                submitBtn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Uploading... ${Math.round(percentComplete)}%`;
             }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Show success message with a toast notification
-                const toast = document.createElement('div');
-                toast.className = 'fixed bottom-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg';
-                toast.innerHTML = 'Team details updated successfully';
-                document.body.appendChild(toast);
-                
-                setTimeout(() => {
-                    toast.remove();
-                }, 3000);
-                
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
+        });
+        
+        xhr.addEventListener('load', function() {
+            if (xhr.status === 200) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        showToast(isUploadingLogo ? 'Team details and logo updated successfully!' : 'Team details updated successfully!', 'success');
+                        
+                        // Refresh the page after a short delay to show the new logo
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showToast('Failed to update team details: ' + (data.message || 'Unknown error'), 'error');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    }
+                } catch (error) {
+                    showToast('Invalid response from server', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
             } else {
-                // Show error message
-                alert('Failed to update team details: ' + data.message);
+                showToast('Server error occurred. Please try again.', 'error');
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
             }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('An error occurred while updating team details');
+        });
+        
+        xhr.addEventListener('error', function() {
+            showToast('Network error. Please check your connection and try again.', 'error');
             submitBtn.disabled = false;
             submitBtn.innerHTML = originalText;
         });
+        
+        xhr.open('POST', this.action);
+        xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token() }}');
+        xhr.send(formData);
+    });
+    
+    // Initialize logo upload functionality when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        setupLogoUpload();
+        
+        // Add required CSS animations
+        if (!document.getElementById('logo-animation-styles')) {
+            const style = document.createElement('style');
+            style.id = 'logo-animation-styles';
+            style.textContent = `
+                @keyframes logoAppear {
+                    0% { transform: scale(0.8); opacity: 0.7; }
+                    50% { transform: scale(1.05); opacity: 1; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                
+                .animate-logo-appear {
+                    animation: logoAppear 0.5s ease-out forwards;
+                }
+                
+                /* Progress bar animations */
+                #progressBar {
+                    transition: width 0.3s ease-in-out;
+                }
+                
+                /* Toast animations */
+                .toast-notification {
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+            `;
+            document.head.appendChild(style);
+        }
     });
 </script>
 {% endblock %}
