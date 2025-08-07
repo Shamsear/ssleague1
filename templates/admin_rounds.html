@@ -166,7 +166,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                             <div class="glass rounded-xl p-3 backdrop-blur-sm flex items-center gap-4">
                                 <div class="relative flex-1 max-w-[120px]">
-                                    <input type="number" id="update-duration-{{ round.id }}" min="1" value="1"
+                                    <input type="number" id="update-duration-{{ round.id }}" min="5" value="10"
                                         class="w-full py-2.5 px-3 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-base shadow-sm">
                                     <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">min</span>
                                 </div>
@@ -626,8 +626,8 @@ async function updateRoundTimer(roundId) {
     // Get duration in minutes (the input value is in minutes)
     const durationMinutes = document.getElementById(`update-duration-${roundId}`).value;
     
-    if (parseInt(durationMinutes) < 1) {
-        showToast('Duration must be at least 1 minute', 'error');
+    if (parseInt(durationMinutes) < 5) {
+        showToast('Duration must be at least 5 minutes', 'error');
         return;
     }
     
@@ -844,6 +844,8 @@ function forceTimerRefresh() {
                     const timerElement = document.getElementById(`timer-remaining-${roundId}`);
                     if (timerElement) {
                         timerElement.textContent = formatTime(data.remaining);
+                        // Log timer info for debugging
+                        console.log(`Timer update for round ${roundId} - remaining: ${data.remaining}, duration: ${data.duration}`);
                     }
                 }
             })
@@ -899,6 +901,7 @@ async function initTimer(roundId) {
         if (timerElement && initialData.active) {
             timerElement.textContent = formatTime(initialData.remaining);
             console.log(`Updated initial timer for round ${roundId}: ${formatTime(initialData.remaining)}`);
+            console.log(`Timer data - duration: ${initialData.duration}, start_time: ${initialData.start_time}, end_time: ${initialData.end_time}`);
             
             // Set visual indicators based on remaining time
             const timerContainer = document.getElementById(`timer-${roundId}`);

@@ -25,9 +25,9 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div class="glass rounded-xl p-3 backdrop-blur-sm flex items-center gap-4">
                 <div class="relative flex-1 max-w-[120px]">
-                    <input type="number" id="update-duration-{{ round.id }}" min="30" value="60"
+                    <input type="number" id="update-duration-{{ round.id }}" min="5" value="10"
                         class="w-full py-2.5 px-3 rounded-xl bg-white border border-gray-200 focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none text-base shadow-sm">
-                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">sec</span>
+                    <span class="absolute right-3 top-1/2 transform -translate-y-1/2 text-xs text-gray-500">min</span>
                 </div>
                 <button onclick="updateRoundTimer({{ round.id }})"
                     class="bg-primary/90 text-white px-4 py-2.5 rounded-xl hover:bg-primary transition-all duration-200 text-sm whitespace-nowrap flex items-center justify-center">
