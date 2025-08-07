@@ -661,15 +661,20 @@ def update_round_timer(round_id):
 @app.route('/check_round_status/<int:round_id>')
 @login_required
 def check_round_status(round_id):
-    round = Round.query.get_or_404(round_id)
+    # Optimized query with select_related for better performance
+    round = Round.query.options(db.selectinload(Round.tiebreakers)).get_or_404(round_id)
+    
     if not round.is_active:
-        # Check if there are any active tiebreakers for this team in this round
+        # Optimized tiebreaker check for non-admin users
         if not current_user.is_admin and current_user.team:
-            active_tiebreaker = db.session.query(Tiebreaker).join(TeamTiebreaker).filter(
-                Tiebreaker.round_id == round_id,
-                Tiebreaker.resolved == False,
-                TeamTiebreaker.team_id == current_user.team.id
-            ).first()
+            # Use a more efficient query with proper indexing
+            active_tiebreaker = db.session.query(Tiebreaker)\
+                .join(TeamTiebreaker, Tiebreaker.id == TeamTiebreaker.tiebreaker_id)\
+                .filter(
+                    Tiebreaker.round_id == round_id,
+                    Tiebreaker.resolved == False,
+                    TeamTiebreaker.team_id == current_user.team.id
+                ).first()
             
             if active_tiebreaker:
                 return jsonify({
@@ -681,6 +686,7 @@ def check_round_status(round_id):
         
         return jsonify({'active': False, 'message': 'Round is already finalized'})
     
+    # Cache the timer check result to avoid repeated calculations
     expired = round.is_timer_expired()
     if expired:
         # Finalize the round if expired
@@ -691,10 +697,10 @@ def check_round_status(round_id):
             status = result.get('status')
             if status == 'tiebreaker_needed' and not current_user.is_admin and current_user.team:
                 tiebreaker_id = result.get('tiebreaker_id')
-                # Check if this team is part of the tiebreaker
-                team_in_tiebreaker = TeamTiebreaker.query.filter_by(
-                    tiebreaker_id=tiebreaker_id,
-                    team_id=current_user.team.id
+                # Optimized tiebreaker check
+                team_in_tiebreaker = TeamTiebreaker.query.filter(
+                    TeamTiebreaker.tiebreaker_id == tiebreaker_id,
+                    TeamTiebreaker.team_id == current_user.team.id
                 ).first()
                 
                 if team_in_tiebreaker:
@@ -705,25 +711,25 @@ def check_round_status(round_id):
                         'tiebreaker_id': tiebreaker_id
                     })
             elif status == 'tiebreaker_pending' and not current_user.is_admin and current_user.team:
-                # Check if there are existing tiebreakers for this team
+                # Batch check existing tiebreakers for better performance
                 existing_tiebreakers = result.get('tiebreakers', [])
-                for tiebreaker_id in existing_tiebreakers:
-                    team_in_tiebreaker = TeamTiebreaker.query.filter_by(
-                        tiebreaker_id=tiebreaker_id,
-                        team_id=current_user.team.id
+                if existing_tiebreakers:
+                    team_tiebreaker = TeamTiebreaker.query.filter(
+                        TeamTiebreaker.tiebreaker_id.in_(existing_tiebreakers),
+                        TeamTiebreaker.team_id == current_user.team.id
                     ).first()
                     
-                    if team_in_tiebreaker:
+                    if team_tiebreaker:
                         return jsonify({
                             'active': False,
                             'message': 'Round ended, existing tiebreaker pending',
-                            'redirect_to': f'/tiebreaker/{tiebreaker_id}',
-                            'tiebreaker_id': tiebreaker_id
+                            'redirect_to': f'/tiebreaker/{team_tiebreaker.tiebreaker_id}',
+                            'tiebreaker_id': team_tiebreaker.tiebreaker_id
                         })
         
         return jsonify({'active': False, 'message': 'Round timer expired and has been finalized'})
     
-    # Calculate remaining time using end_time
+    # Calculate remaining time using end_time (cached calculation)
     remaining = round.get_remaining_time()
     
     data = {

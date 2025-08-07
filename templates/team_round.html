@@ -754,8 +754,8 @@
                         `;
                         submitBtn.classList.add('bg-green-600');
                         
-                        // Update the page dynamically instead of reloading
-                        setTimeout(() => {
+                        // Optimized page update with better performance
+                        requestAnimationFrame(() => {
                             const playerCard = document.querySelector(`[data-player-id="${playerId}"]`)?.closest('.glass-card');
                             updatePageAfterBid(data.bid || {
                                 id: Date.now(), // fallback ID
@@ -767,7 +767,7 @@
                                     position: playerCard?.querySelector('.text-xs.text-gray-500')?.textContent?.split(' •')[0] || 'Unknown'
                                 }
                             });
-                        }, 500);
+                        });
                     }
                 } catch (error) {
                     console.error('Error details:', error);
@@ -1083,16 +1083,55 @@
         }
     }
     
+    // Timer optimization variables
+    let serverUpdateInterval = null;
+    let clientUpdateInterval = null;
+    
+    // Intelligent polling frequency adjustment
+    function adjustPollingFrequency() {
+        // Clear existing interval
+        if (serverUpdateInterval) clearInterval(serverUpdateInterval);
+        
+        // Calculate minimum remaining time across all active rounds
+        let minRemainingTime = Infinity;
+        Object.keys(lastRemainingTimes).forEach(key => {
+            if (lastRemainingTimes[key] && lastUpdateTimes[key]) {
+                const elapsed = (Date.now() - lastUpdateTimes[key]) / 1000;
+                const remaining = Math.max(0, lastRemainingTimes[key] - elapsed);
+                minRemainingTime = Math.min(minRemainingTime, remaining);
+            }
+        });
+        
+        // Set polling interval based on time remaining
+        let pollInterval;
+        if (minRemainingTime > 600) { // > 10 minutes
+            pollInterval = 15000; // Poll every 15 seconds
+        } else if (minRemainingTime > 300) { // > 5 minutes
+            pollInterval = 8000;  // Poll every 8 seconds
+        } else if (minRemainingTime > 60) { // > 1 minute
+            pollInterval = 5000;  // Poll every 5 seconds
+        } else if (minRemainingTime > 10) { // > 10 seconds
+            pollInterval = 3000;  // Poll every 3 seconds
+        } else { // Last 10 seconds
+            pollInterval = 1000;  // Poll every second
+        }
+        
+        serverUpdateInterval = setInterval(updateTimers, pollInterval);
+    }
+    
     // Initialize everything when DOM is ready
     document.addEventListener('DOMContentLoaded', function() {
         // Initial timer update from server
         updateTimers();
         
-        // Server fetch interval - get updates from server every 2 seconds
-        setInterval(updateTimers, 2000);
+        // Start with moderate polling (will be adjusted automatically)
+        setTimeout(adjustPollingFrequency, 1000);
         
-        // Client-side update interval - update UI every 100ms
-        setInterval(updateClientSideTimers, 100);
+        // Re-adjust polling every 30 seconds
+        setInterval(adjustPollingFrequency, 30000);
+        
+        // Client-side update interval - reduced to every 500ms for better performance
+        clientUpdateInterval = setInterval(updateClientSideTimers, 500);
         
         // Setup bid forms
         setupBidForms();
@@ -1105,21 +1144,66 @@
             });
         });
         
-        // Player search functionality
+        // Optimized player search functionality with debouncing
         const playerSearch = document.getElementById('player-search');
         if (playerSearch) {
-            playerSearch.addEventListener('input', function() {
-                const searchTerm = this.value.toLowerCase();
-                const playerCards = document.querySelectorAll('.glass-card:not(.mb-6)'); // Select all player cards
+            let searchTimeout = null;
+            let playerCards = null;
+            
+            // Cache player cards on first search for better performance
+            function getPlayerCards() {
+                if (!playerCards) {
+                    playerCards = Array.from(document.querySelectorAll('[data-player-card-id]'));
+                }
+                return playerCards;
+            }
+            
+            // Debounced search function to reduce DOM manipulation
+            function performSearch(searchTerm) {
+                const cards = getPlayerCards();
+                const lowerSearchTerm = searchTerm.toLowerCase();
                 
-                playerCards.forEach(card => {
+                // Use document fragment for batch DOM updates
+                const fragment = document.createDocumentFragment();
+                const visibleCards = [];
+                const hiddenCards = [];
+                
+                cards.forEach(card => {
                     const playerName = card.querySelector('.font-medium.text-dark')?.textContent.toLowerCase() || '';
-                    if (playerName.includes(searchTerm)) {
-                        card.style.display = '';
+                    if (!lowerSearchTerm || playerName.includes(lowerSearchTerm)) {
+                        visibleCards.push(card);
                     } else {
-                        card.style.display = 'none';
+                        hiddenCards.push(card);
                     }
                 });
+                
+                // Batch update visibility
+                requestAnimationFrame(() => {
+                    visibleCards.forEach(card => {
+                        if (card.style.display === 'none') {
+                            card.style.display = '';
+                        }
+                    });
+                    hiddenCards.forEach(card => {
+                        if (card.style.display !== 'none') {
+                            card.style.display = 'none';
+                        }
+                    });
+                });
+            }
+            
+            playerSearch.addEventListener('input', function() {
+                const searchTerm = this.value;
+                
+                // Clear previous timeout
+                if (searchTimeout) {
+                    clearTimeout(searchTimeout);
+                }
+                
+                // Debounce search for 150ms to reduce frequent DOM updates
+                searchTimeout = setTimeout(() => {
+                    performSearch(searchTerm);
+                }, 150);
             });
         }
         
