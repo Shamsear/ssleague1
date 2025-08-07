@@ -700,9 +700,11 @@
                                 let uiHeight;
                                 
                                 if (isChrome) {
-                                    // Chrome-specific: Address bar is typically 56px, but can vary
-                                    // Use a fixed reasonable offset for Chrome instead of calculated difference
-                                    uiHeight = 60; // Fixed 60px for Chrome address bar
+                                    // Chrome-specific: Try to use a more accurate measurement
+                                    // Calculate based on the actual height difference, but with Chrome-specific limits
+                                    const chromeUIHeight = Math.max(heightDiff, innerHeightDiff);
+                                    // Chrome address bar is typically 40-56px, clamp to this range
+                                    uiHeight = Math.max(30, Math.min(chromeUIHeight, 50));
                                 } else {
                                     // Other browsers: use calculated height with limits
                                     const estimatedUIHeight = Math.min(Math.max(heightDiff, innerHeightDiff), 100);
