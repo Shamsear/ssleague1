@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}Team Profile - {{ team.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+    <!-- Header Section -->
+    <div class="glass rounded-3xl p-6 sm:p-8 mb-6 sm:mb-8 hover:shadow-lg transition-all duration-300">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center gap-6">
+            <!-- Team Logo Section -->
+            <div class="relative group">
+                {% if team.get_logo_url() %}
+                    <img src="{{ team.get_logo_url() }}" 
+                         alt="{{ team.name }} logo" 
+                         class="w-32 h-32 rounded-2xl object-cover border-4 border-primary/20 shadow-xl group-hover:shadow-2xl transition-all duration-300 group-hover:scale-105">
+                {% else %}
+                    <div class="w-32 h-32 bg-gradient-to-br from-primary to-primary-dark rounded-2xl flex items-center justify-center border-4 border-primary/20 shadow-xl group-hover:shadow-2xl transition-all duration-300 group-hover:scale-105">
+                        <svg class="w-16 h-16 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        </svg>
+                    </div>
+                {% endif %}
+                <!-- Edit button overlay -->
+                <a href="{{ url_for('team_profile_edit') }}" class="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                </a>
+            </div>
+
+            <!-- Team Information -->
+            <div class="flex-grow">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-4 mb-4">
+                    <h1 class="text-3xl sm:text-4xl font-bold text-dark">{{ team.name }}</h1>
+                    <a href="{{ url_for('team_profile_edit') }}" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors text-sm font-medium flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit Profile
+                    </a>
+                </div>
+                
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div class="bg-white/50 rounded-xl p-3">
+                        <p class="text-xs text-gray-600 mb-1">Manager</p>
+                        <p class="text-lg font-semibold text-dark">{{ manager_name }}</p>
+                    </div>
+                    <div class="bg-white/50 rounded-xl p-3">
+                        <p class="text-xs text-gray-600 mb-1">Players</p>
+                        <p class="text-lg font-semibold text-dark">{{ team.players|length }}/{{ config.MAX_PLAYERS_PER_TEAM }}</p>
+                    </div>
+                    <div class="bg-white/50 rounded-xl p-3">
+                        <p class="text-xs text-gray-600 mb-1">Total Bids</p>
+                        <p class="text-lg font-semibold text-dark">{{ total_bids }}</p>
+                    </div>
+                    <div class="bg-white/50 rounded-xl p-3">
+                        <p class="text-xs text-gray-600 mb-1">Won Bids</p>
+                        <p class="text-lg font-semibold text-dark">{{ won_bids }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Financial Statistics -->
+    <div class="glass rounded-3xl p-6 sm:p-8 mb-6 sm:mb-8 hover:shadow-lg transition-all duration-300">
+        <div class="flex items-center mb-6">
+            <svg class="w-6 h-6 text-primary mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <h2 class="text-2xl font-bold text-dark">Financial Overview</h2>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-6 text-white">
+                <div class="flex items-center justify-between mb-3">
+                    <svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span class="text-3xl font-bold">£{{ "{:,}".format(remaining_balance) }}</span>
+                </div>
+                <p class="text-white/90 font-medium">Current Balance</p>
+            </div>
+            
+            <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-6 text-white">
+                <div class="flex items-center justify-between mb-3">
+                    <svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span class="text-3xl font-bold">£{{ "{:,}".format(total_spent) }}</span>
+                </div>
+                <p class="text-white/90 font-medium">Total Spent</p>
+            </div>
+            
+            <div class="bg-gradient-to-br from-orange-500 to-orange-600 rounded-2xl p-6 text-white">
+                <div class="flex items-center justify-between mb-3">
+                    <svg class="w-10 h-10 text-white/80" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    <span class="text-3xl font-bold">£{{ "{:,}".format(total_spent + remaining_balance) }}</span>
+                </div>
+                <p class="text-white/90 font-medium">Initial Budget</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team Achievements/Badges -->
+    {% if achievements %}
+    <div class="glass rounded-3xl p-6 sm:p-8 mb-6 sm:mb-8 hover:shadow-lg transition-all duration-300">
+        <div class="flex items-center mb-6">
+            <svg class="w-6 h-6 text-primary mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+            </svg>
+            <h2 class="text-2xl font-bold text-dark">Team Achievements</h2>
+        </div>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {% for achievement in achievements %}
+            <div class="bg-white/50 rounded-xl p-4 text-center hover:bg-white/70 transition-all duration-300 hover:scale-105">
+                <div class="w-16 h-16 mx-auto mb-3 bg-gradient-to-br 
+                    {% if achievement.color == 'gold' %}from-yellow-400 to-yellow-600
+                    {% elif achievement.color == 'green' %}from-green-400 to-green-600
+                    {% elif achievement.color == 'blue' %}from-blue-400 to-blue-600
+                    {% elif achievement.color == 'purple' %}from-purple-400 to-purple-600
+                    {% else %}from-gray-400 to-gray-600{% endif %}
+                    rounded-full flex items-center justify-center shadow-lg">
+                    <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        {% if achievement.icon == 'star' %}
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                        {% elif achievement.icon == 'currency-pound' %}
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        {% elif achievement.icon == 'users' %}
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                        {% elif achievement.icon == 'shield-check' %}
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        {% else %}
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                        {% endif %}
+                    </svg>
+                </div>
+                <h3 class="font-bold text-dark mb-1">{{ achievement.name }}</h3>
+                <p class="text-xs text-gray-600">{{ achievement.description }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Position Breakdown -->
+    <div class="glass rounded-3xl p-6 sm:p-8 mb-6 sm:mb-8 hover:shadow-lg transition-all duration-300">
+        <div class="flex items-center mb-6">
+            <svg class="w-6 h-6 text-primary mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l3-3 3 3 4-4M8 21l4-4 4 4M3 4h18M4 4h16v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4z" />
+            </svg>
+            <h2 class="text-2xl font-bold text-dark">Squad Composition</h2>
+        </div>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-7 gap-4">
+            {% for position in config.POSITIONS %}
+            <div class="bg-white/50 rounded-xl p-4 text-center hover:bg-white/70 transition-all duration-300">
+                <div class="w-14 h-14 mx-auto mb-2 
+                    {% if position_counts[position] == 0 %}bg-gray-200
+                    {% elif position_counts[position] >= 2 %}bg-green-500
+                    {% else %}bg-blue-500{% endif %}
+                    rounded-full flex items-center justify-center text-white font-bold text-xl">
+                    {{ position_counts[position] }}
+                </div>
+                <p class="text-sm font-medium text-dark">{{ position }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Match Statistics (if available) -->
+    {% if team_stats %}
+    <div class="glass rounded-3xl p-6 sm:p-8 mb-6 sm:mb-8 hover:shadow-lg transition-all duration-300">
+        <div class="flex items-center mb-6">
+            <svg class="w-6 h-6 text-primary mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            <h2 class="text-2xl font-bold text-dark">Match Statistics</h2>
+        </div>
+        
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+            <div class="bg-white/50 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-dark">{{ team_stats.played }}</p>
+                <p class="text-sm text-gray-600">Played</p>
+            </div>
+            <div class="bg-white/50 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-green-600">{{ team_stats.wins }}</p>
+                <p class="text-sm text-gray-600">Wins</p>
+            </div>
+            <div class="bg-white/50 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-yellow-600">{{ team_stats.draws }}</p>
+                <p class="text-sm text-gray-600">Draws</p>
+            </div>
+            <div class="bg-white/50 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-red-600">{{ team_stats.losses }}</p>
+                <p class="text-sm text-gray-600">Losses</p>
+            </div>
+            <div class="bg-white/50 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-primary">{{ team_stats.points }}</p>
+                <p class="text-sm text-gray-600">Points</p>
+            </div>
+            <div class="bg-white/50 rounded-xl p-4 text-center">
+                <p class="text-2xl font-bold text-dark">{{ team_stats.goal_difference }}</p>
+                <p class="text-sm text-gray-600">GD</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Acquisitions and Top Players -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- Recent Acquisitions -->
+        <div class="glass rounded-3xl p-6 hover:shadow-lg transition-all duration-300">
+            <div class="flex items-center mb-4">
+                <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 class="text-xl font-bold text-dark">Recent Acquisitions</h3>
+            </div>
+            
+            {% if recent_players %}
+            <div class="space-y-3">
+                {% for player in recent_players %}
+                <div class="bg-white/50 rounded-xl p-3 flex items-center justify-between hover:bg-white/70 transition-all">
+                    <div>
+                        <p class="font-medium text-dark">{{ player.name }}</p>
+                        <p class="text-sm text-gray-600">{{ player.position }} • Rating: {{ player.overall_rating }}</p>
+                    </div>
+                    <p class="font-bold text-primary">£{{ "{:,}".format(player.acquisition_value or 0) }}</p>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-center py-8">No players acquired yet</p>
+            {% endif %}
+        </div>
+
+        <!-- Top Rated Players -->
+        <div class="glass rounded-3xl p-6 hover:shadow-lg transition-all duration-300">
+            <div class="flex items-center mb-4">
+                <svg class="w-5 h-5 text-primary mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+                </svg>
+                <h3 class="text-xl font-bold text-dark">Top Rated Players</h3>
+            </div>
+            
+            {% if top_players %}
+            <div class="space-y-3">
+                {% for player in top_players %}
+                <div class="bg-white/50 rounded-xl p-3 flex items-center justify-between hover:bg-white/70 transition-all">
+                    <div class="flex items-center">
+                        <div class="w-8 h-8 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-full flex items-center justify-center text-white font-bold text-sm mr-3">
+                            {{ loop.index }}
+                        </div>
+                        <div>
+                            <p class="font-medium text-dark">{{ player.name }}</p>
+                            <p class="text-sm text-gray-600">{{ player.position }}</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <div class="flex items-center">
+                            <svg class="w-4 h-4 text-yellow-500 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                            </svg>
+                            <span class="font-bold text-dark">{{ player.overall_rating }}</span>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-gray-500 text-center py-8">No players in squad yet</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="glass rounded-3xl p-6 hover:shadow-lg transition-all duration-300">
+        <h3 class="text-xl font-bold text-dark mb-4">Quick Actions</h3>
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <a href="{{ url_for('team_players') }}" class="px-4 py-3 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all text-center font-medium">
+                View Squad
+            </a>
+            <a href="{{ url_for('team_bids') }}" class="px-4 py-3 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all text-center font-medium">
+                Bid History
+            </a>
+            <a href="{{ url_for('team_round') }}" class="px-4 py-3 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all text-center font-medium">
+                Current Round
+            </a>
+            <a href="{{ url_for('team_management.team_leaderboard') }}" class="px-4 py-3 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all text-center font-medium">
+                Leaderboard
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="px-4 py-3 bg-primary/10 text-primary rounded-xl hover:bg-primary hover:text-white transition-all text-center font-medium">
+                Dashboard
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

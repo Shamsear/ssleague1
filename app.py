@@ -19,6 +19,7 @@ import time
 from team_management_routes import team_management
 from bs4 import BeautifulSoup
 import re
+from github_service import github_service
 
 app = Flask(__name__)
 app.config.from_object(Config)
@@ -37,6 +38,23 @@ migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Add template global functions
+@app.template_global()
+def get_team_logo_url(team):
+    """Template global function to safely get team logo URL"""
+    if not team:
+        return None
+    try:
+        return team.get_logo_url()
+    except Exception as e:
+        # Fallback for any errors
+        if team.logo_url and team.logo_storage_type == 'github':
+            return team.logo_url
+        elif team.logo_url:
+            filename = team.logo_url.split('/')[-1]
+            return f'/uploads/logos/{filename}'
+        return None
 
 # Runtime database initialization check
 def check_and_init_database():
@@ -2514,6 +2532,328 @@ def unstar_player(player_id):
         db.session.rollback()
         return jsonify({'success': False, 'message': str(e)}), 500
 
+@app.route('/team/profile')
+@login_required
+def team_profile():
+    """
+    Display the team profile page with team information, stats, and achievements.
+    """
+    if current_user.is_admin:
+        flash('Admin users do not have team profiles', 'error')
+        return redirect(url_for('dashboard'))
+    
+    if not current_user.team:
+        flash('You do not have a team', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get team data
+    team = current_user.team
+    
+    # Calculate team statistics
+    total_spent = sum(player.acquisition_value or 0 for player in team.players)
+    remaining_balance = team.balance
+    
+    # Count players by position
+    position_counts = {}
+    for position in Config.POSITIONS:
+        position_counts[position] = sum(1 for player in team.players if player.position == position)
+    
+    # Get team match statistics from TeamStats if available
+    team_stats = TeamStats.query.filter_by(team_id=team.id).first()
+    
+    # Calculate achievements/badges
+    achievements = []
+    
+    # First Team Achievement - if user was among first 5 teams registered
+    if team.id <= 5:
+        achievements.append({
+            'name': 'Early Adopter',
+            'description': 'Among the first 5 teams to join',
+            'icon': 'star',
+            'color': 'gold'
+        })
+    
+    # Big Spender Achievement - if spent more than 10000
+    if total_spent > 10000:
+        achievements.append({
+            'name': 'Big Spender',
+            'description': 'Spent over £10,000 in auctions',
+            'icon': 'currency-pound',
+            'color': 'green'
+        })
+    
+    # Squad Builder Achievement - if has 15+ players
+    if len(team.players) >= 15:
+        achievements.append({
+            'name': 'Squad Builder',
+            'description': 'Built a squad of 15+ players',
+            'icon': 'users',
+            'color': 'blue'
+        })
+    
+    # Balanced Team Achievement - if has at least 1 player in each position
+    has_all_positions = all(position_counts.get(pos, 0) > 0 for pos in ['GK', 'CB', 'CMF', 'CF'])
+    if has_all_positions:
+        achievements.append({
+            'name': 'Balanced Squad',
+            'description': 'Has players in all key positions',
+            'icon': 'shield-check',
+            'color': 'purple'
+        })
+    
+    # Get recent acquisitions (last 5 players)
+    recent_players = sorted(team.players, 
+                           key=lambda p: p.id, 
+                           reverse=True)[:5]
+    
+    # Get top rated players
+    top_players = sorted(team.players, 
+                        key=lambda p: p.overall_rating or 0, 
+                        reverse=True)[:5]
+    
+    # Get manager/user info
+    manager_name = current_user.username
+    
+    # Count total bids placed
+    total_bids = Bid.query.filter_by(team_id=team.id).count()
+    
+    # Count won bids (players acquired)
+    won_bids = len(team.players)
+    
+    return render_template('team_profile.html',
+                         team=team,
+                         total_spent=total_spent,
+                         remaining_balance=remaining_balance,
+                         position_counts=position_counts,
+                         team_stats=team_stats,
+                         achievements=achievements,
+                         recent_players=recent_players,
+                         top_players=top_players,
+                         manager_name=manager_name,
+                         total_bids=total_bids,
+                         won_bids=won_bids,
+                         config=Config)
+
+@app.route('/team/profile/edit', methods=['GET', 'POST'])
+@login_required
+def team_profile_edit():
+    """
+    Edit team profile information and logo.
+    """
+    if current_user.is_admin:
+        flash('Admin users do not have team profiles', 'error')
+        return redirect(url_for('dashboard'))
+    
+    if not current_user.team:
+        flash('You do not have a team', 'error')
+        return redirect(url_for('dashboard'))
+    
+    team = current_user.team
+    
+    if request.method == 'POST':
+        # Update team name
+        new_name = request.form.get('team_name', '').strip()
+        if new_name and new_name != team.name:
+            # Check if name is already taken
+            existing_team = Team.query.filter_by(name=new_name).first()
+            if existing_team and existing_team.id != team.id:
+                flash('Team name already taken', 'error')
+                return redirect(url_for('team_profile_edit'))
+            team.name = new_name
+        
+        # Handle logo upload
+        if 'team_logo' in request.files:
+            logo_file = request.files['team_logo']
+            if logo_file and logo_file.filename != '':
+                # Check if file is an image
+                allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+                file_extension = logo_file.filename.rsplit('.', 1)[1].lower() if '.' in logo_file.filename else ''
+                
+                if file_extension in allowed_extensions:
+                    try:
+                        # Read the logo file content
+                        logo_content = logo_file.read()
+                        
+                        # Try GitHub upload first if configured
+                        if github_service.is_configured():
+                            # Delete old GitHub logo if exists
+                            if team.logo_storage_type == 'github' and team.logo_url:
+                                # Extract info from current logo to delete
+                                old_extension = team.logo_url.split('.')[-1] if '.' in team.logo_url else 'png'
+                                github_service.delete_team_logo(team.id, team.name, old_extension)
+                            
+                            # Upload to GitHub
+                            github_result = github_service.upload_team_logo(
+                                team.id, 
+                                team.name, 
+                                logo_content, 
+                                logo_file.filename
+                            )
+                            
+                            if github_result and github_result.get('success'):
+                                # Store GitHub URL and metadata
+                                team.logo_url = github_result['download_url']
+                                team.logo_storage_type = 'github'
+                                team.github_logo_sha = github_result.get('sha')
+                                flash('Logo uploaded to GitHub successfully', 'success')
+                            else:
+                                # GitHub upload failed, fall back to local storage
+                                flash('GitHub upload failed, using local storage', 'warning')
+                                raise Exception("GitHub upload failed")
+                        else:
+                            # GitHub not configured, use local storage
+                            raise Exception("GitHub not configured")
+                    
+                    except Exception as github_error:
+                        # Fall back to local storage
+                        try:
+                            # Reset file pointer for local upload
+                            logo_file.seek(0)
+                            
+                            # Create uploads directory if it doesn't exist
+                            upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'logos')
+                            os.makedirs(upload_dir, exist_ok=True)
+                            
+                            # Delete old local logo if exists
+                            if team.logo_storage_type == 'local' and team.logo_url:
+                                old_logo_path = os.path.join(app.root_path, 'static', team.logo_url)
+                                if os.path.exists(old_logo_path):
+                                    try:
+                                        os.remove(old_logo_path)
+                                    except:
+                                        pass  # Ignore errors when deleting old logo
+                            
+                            # Generate unique filename to avoid conflicts
+                            filename = secure_filename(logo_file.filename)
+                            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                            file_path = os.path.join(upload_dir, unique_filename)
+                            
+                            # Save the file locally
+                            logo_file.save(file_path)
+                            
+                            # Store local path and metadata
+                            team.logo_url = f"uploads/logos/{unique_filename}"
+                            team.logo_storage_type = 'local'
+                            team.github_logo_sha = None  # Clear GitHub metadata
+                            
+                            if not github_service.is_configured():
+                                flash('Logo uploaded locally (GitHub not configured)', 'info')
+                            
+                        except Exception as local_error:
+                            flash('Logo could not be uploaded to either GitHub or local storage', 'error')
+                else:
+                    flash('Invalid logo file format. Please use PNG, JPG, JPEG, GIF, or WEBP', 'error')
+        
+        # Save changes
+        try:
+            db.session.commit()
+            flash('Team profile updated successfully', 'success')
+            return redirect(url_for('team_profile'))
+        except Exception as e:
+            db.session.rollback()
+            flash('Failed to update team profile', 'error')
+    
+    return render_template('team_profile_edit.html', team=team)
+
+@app.route('/team_transfers')
+@login_required
+def team_transfers():
+    """
+    Display the complete transfer market history for all teams.
+    Shows all completed player transfers with filtering and analytics.
+    """
+    if current_user.is_admin:
+        flash('Admin users should use the admin panel to view transfers', 'info')
+        return redirect(url_for('dashboard'))
+    
+    if not current_user.team:
+        flash('You must have a team to view transfer history', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get all teams for filter dropdown
+    teams = Team.query.all()
+    
+    return render_template('team_transfers.html', 
+                          teams=teams,
+                          config=Config)
+
+@app.route('/api/transfers')
+@login_required
+def api_transfers():
+    """
+    API endpoint to get all transfer data for the Transfer Market History page.
+    Returns JSON with all completed transfers.
+    """
+    transfers = []
+    
+    # Get all players with teams (completed transfers)
+    transferred_players = Player.query.filter(Player.team_id != None).all()
+    
+    for player in transferred_players:
+        # Get the transfer details
+        transfer_data = {
+            'id': player.id,
+            'player_name': player.name,
+            'position': player.position,
+            'to_team': player.team.name if player.team else 'Unknown',
+            'to_team_id': player.team_id,
+            'price': player.acquisition_value or 0,
+            'from_team': None,  # We don't track previous teams in current model
+            'date': None,  # We'll use bid timestamp or a default
+            'type': 'Auction',  # Default type
+            'round': None
+        }
+        
+        # Try to find the winning bid to get more details
+        winning_bid = Bid.query.filter_by(
+            player_id=player.id,
+            team_id=player.team_id
+        ).first()
+        
+        if winning_bid:
+            transfer_data['date'] = winning_bid.timestamp.isoformat() if winning_bid.timestamp else datetime.utcnow().isoformat()
+            transfer_data['price'] = winning_bid.amount
+            if winning_bid.round:
+                transfer_data['round'] = winning_bid.round.position
+                
+            # Get competing bids for this player in the same round
+            if winning_bid.round_id:
+                competing_bids = Bid.query.filter(
+                    Bid.player_id == player.id,
+                    Bid.round_id == winning_bid.round_id,
+                    Bid.team_id != player.team_id
+                ).all()
+                
+                transfer_data['competing_bids'] = [
+                    {
+                        'team': bid.team.name,
+                        'amount': bid.amount
+                    } for bid in competing_bids
+                ]
+        else:
+            # Check if it was a bulk bid transfer
+            bulk_bid = BulkBid.query.filter_by(
+                player_id=player.id,
+                team_id=player.team_id,
+                is_resolved=True
+            ).first()
+            
+            if bulk_bid:
+                transfer_data['date'] = bulk_bid.timestamp.isoformat() if bulk_bid.timestamp else datetime.utcnow().isoformat()
+                transfer_data['type'] = 'Bulk'
+                if bulk_bid.bulk_round:
+                    transfer_data['price'] = bulk_bid.bulk_round.base_price
+            else:
+                # Use a default date if no bid found
+                transfer_data['date'] = datetime.utcnow().isoformat()
+        
+        transfers.append(transfer_data)
+    
+    # Sort by date (newest first)
+    transfers.sort(key=lambda x: x['date'], reverse=True)
+    
+    return jsonify({'transfers': transfers})
+
 @app.route('/team_bids')
 @login_required
 def team_bids():
@@ -2815,6 +3155,121 @@ def admin_auction_settings_update():
         'completed_rounds': completed_rounds,
         'remaining_rounds': remaining_rounds
     })
+
+@app.route('/budget')
+@login_required
+def budget_planner():
+    if not current_user.team:
+        flash('You must have a team to access this page.', 'error')
+        return redirect(url_for('dashboard'))
+    
+    # Get auction settings
+    auction_settings = AuctionSettings.get_settings()
+    
+    # Get completed rounds count
+    completed_rounds_count = Round.query.filter_by(is_active=False).count()
+    
+    # Get active rounds
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    
+    # Calculate remaining rounds
+    remaining_rounds = auction_settings.max_rounds - completed_rounds_count
+    
+    # Get team's current players by position
+    players_by_position = {}
+    for player in current_user.team.players:
+        if player.position not in players_by_position:
+            players_by_position[player.position] = []
+        players_by_position[player.position].append(player)
+    
+    # Get team's bid history
+    bid_history = Bid.query.filter_by(team_id=current_user.team.id).order_by(Bid.timestamp.desc()).all()
+    
+    # Calculate spending by position
+    spending_by_position = {}
+    for position in Config.POSITIONS:
+        spending = sum(p.acquisition_value or 0 for p in current_user.team.players if p.position == position)
+        spending_by_position[position] = spending
+    
+    # Calculate average bid amounts by position from all teams
+    position_averages = {}
+    for position in Config.POSITIONS:
+        avg_result = db.session.query(func.avg(Player.acquisition_value)).filter(
+            Player.position == position,
+            Player.acquisition_value != None
+        ).scalar()
+        position_averages[position] = int(avg_result) if avg_result else 0
+    
+    # Get recent round results for budget tracking
+    recent_rounds = Round.query.filter_by(is_active=False).order_by(Round.id.desc()).limit(5).all()
+    
+    # Calculate budget recommendations
+    budget_recommendations = calculate_budget_recommendations(
+        current_user.team.balance,
+        remaining_rounds,
+        auction_settings.min_balance_per_round,
+        players_by_position,
+        position_averages
+    )
+    
+    return render_template('budget_planner.html',
+                          auction_settings=auction_settings,
+                          completed_rounds_count=completed_rounds_count,
+                          remaining_rounds=remaining_rounds,
+                          active_rounds=active_rounds,
+                          players_by_position=players_by_position,
+                          bid_history=bid_history,
+                          spending_by_position=spending_by_position,
+                          position_averages=position_averages,
+                          recent_rounds=recent_rounds,
+                          budget_recommendations=budget_recommendations,
+                          config=Config)
+
+def calculate_budget_recommendations(balance, remaining_rounds, min_per_round, players_by_position, position_averages):
+    """Calculate budget recommendations based on team needs and market data"""
+    recommendations = {}
+    
+    # Calculate safe spending amount for next round
+    if remaining_rounds > 0:
+        safe_reserve = min_per_round * (remaining_rounds - 1)
+        safe_spending = max(0, balance - safe_reserve)
+        recommendations['safe_spending'] = safe_spending
+        recommendations['max_bid'] = int(safe_spending * 0.8)  # Recommend keeping 20% buffer
+    else:
+        recommendations['safe_spending'] = balance
+        recommendations['max_bid'] = balance
+    
+    # Recommend positions to focus on based on gaps
+    position_needs = []
+    for position in Config.POSITIONS:
+        current_count = len(players_by_position.get(position, []))
+        
+        # High Priority - Essential positions that MUST be filled
+        if position in ['GK'] and current_count < 1:
+            position_needs.append({'position': position, 'priority': 'High', 'suggested_budget': position_averages.get(position, 80)})
+        elif position in ['CB', 'CF'] and current_count < 2:
+            position_needs.append({'position': position, 'priority': 'High', 'suggested_budget': position_averages.get(position, 70)})
+        
+        # Medium Priority - Important positions for team balance  
+        elif position in ['RB', 'LB', 'DMF', 'CMF', 'AMF'] and current_count < 1:
+            position_needs.append({'position': position, 'priority': 'Medium', 'suggested_budget': position_averages.get(position, 60)})
+        elif position in ['LMF', 'RMF', 'LWF', 'RWF', 'SS'] and current_count < 1:
+            position_needs.append({'position': position, 'priority': 'Medium', 'suggested_budget': position_averages.get(position, 50)})
+        
+        # Depth Options - Adding squad depth
+        elif position in ['CB', 'CF'] and current_count < 3 and current_count >= 2:
+            position_needs.append({'position': position, 'priority': 'Low', 'suggested_budget': position_averages.get(position, 40)})
+        elif position in ['RB', 'LB', 'DMF', 'CMF'] and current_count < 2 and current_count >= 1:
+            position_needs.append({'position': position, 'priority': 'Low', 'suggested_budget': position_averages.get(position, 35)})
+    
+    recommendations['position_needs'] = position_needs
+    
+    # Calculate optimal bid distribution
+    if remaining_rounds > 0:
+        avg_per_round = safe_spending / remaining_rounds if remaining_rounds > 0 else safe_spending
+        recommendations['avg_per_round'] = int(avg_per_round)
+    
+    return recommendations
 
 @app.route('/team_bulk_round')
 @login_required
@@ -4260,6 +4715,125 @@ def team_squad(team_id):
                           total_team_value=total_team_value,
                           current_position=position_filter,
                           sort_by=sort_by,
+                          config=Config)
+
+@app.route('/team/compare')
+@login_required
+def team_compare():
+    """
+    Team Comparison Tool - Compare two teams side by side
+    """
+    # Get all teams for the selection dropdowns
+    teams = Team.query.all()
+    
+    # Get team IDs from query parameters
+    team1_id = request.args.get('team1', type=int)
+    team2_id = request.args.get('team2', type=int)
+    
+    # Initialize comparison data
+    team1 = None
+    team2 = None
+    team1_stats = None
+    team2_stats = None
+    team1_positions = {}
+    team2_positions = {}
+    h2h_results = []
+    h2h_stats = {'team1_wins': 0, 'team2_wins': 0}
+    
+    if team1_id and team2_id and team1_id != team2_id:
+        # Get the teams
+        team1 = Team.query.get_or_404(team1_id)
+        team2 = Team.query.get_or_404(team2_id)
+        
+        # Get players for both teams
+        team1_players = Player.query.filter_by(team_id=team1_id).all()
+        team2_players = Player.query.filter_by(team_id=team2_id).all()
+        
+        # Calculate team statistics
+        def calculate_team_stats(team, players):
+            total_spent = sum(p.acquisition_value or 0 for p in players)
+            player_count = len(players)
+            avg_rating = sum(p.overall_rating or 0 for p in players) / player_count if player_count > 0 else 0
+            avg_player_cost = total_spent / player_count if player_count > 0 else 0
+            
+            return {
+                'balance': team.balance,
+                'total_spent': total_spent,
+                'player_count': player_count,
+                'avg_rating': avg_rating,
+                'avg_player_cost': avg_player_cost
+            }
+        
+        team1_stats = calculate_team_stats(team1, team1_players)
+        team2_stats = calculate_team_stats(team2, team2_players)
+        
+        # Calculate position breakdown for both teams
+        for position in Config.POSITIONS:
+            # Team 1 position stats
+            position_players1 = [p for p in team1_players if p.position == position]
+            team1_positions[position] = {
+                'count': len(position_players1),
+                'avg_rating': sum(p.overall_rating or 0 for p in position_players1) / len(position_players1) if position_players1 else 0
+            }
+            
+            # Team 2 position stats
+            position_players2 = [p for p in team2_players if p.position == position]
+            team2_positions[position] = {
+                'count': len(position_players2),
+                'avg_rating': sum(p.overall_rating or 0 for p in position_players2) / len(position_players2) if position_players2 else 0
+            }
+        
+        # Get head-to-head auction results
+        # Find players where both teams bid
+        from sqlalchemy import and_, or_
+        
+        # Get all completed rounds
+        completed_rounds = Round.query.filter_by(is_active=False).all()
+        
+        for round in completed_rounds:
+            # Get bids from both teams in this round
+            team1_bids = Bid.query.filter_by(team_id=team1_id, round_id=round.id).all()
+            team2_bids = Bid.query.filter_by(team_id=team2_id, round_id=round.id).all()
+            
+            # Find common players both teams bid on
+            team1_player_ids = {bid.player_id for bid in team1_bids}
+            team2_player_ids = {bid.player_id for bid in team2_bids}
+            common_player_ids = team1_player_ids.intersection(team2_player_ids)
+            
+            for player_id in common_player_ids:
+                player = Player.query.get(player_id)
+                if player and player.team_id in [team1_id, team2_id]:
+                    # This player was won by one of these two teams
+                    team1_bid = next((b for b in team1_bids if b.player_id == player_id), None)
+                    team2_bid = next((b for b in team2_bids if b.player_id == player_id), None)
+                    
+                    winner_id = player.team_id
+                    winner_name = team1.name if winner_id == team1_id else team2.name
+                    winning_bid = team1_bid.amount if winner_id == team1_id else team2_bid.amount
+                    
+                    h2h_results.append({
+                        'player_name': player.name,
+                        'position': player.position,
+                        'winner_id': winner_id,
+                        'winner_name': winner_name,
+                        'winning_bid': winning_bid
+                    })
+                    
+                    if winner_id == team1_id:
+                        h2h_stats['team1_wins'] += 1
+                    else:
+                        h2h_stats['team2_wins'] += 1
+    
+    return render_template('team_compare.html',
+                          teams=teams,
+                          team1=team1,
+                          team2=team2,
+                          team1_stats=team1_stats,
+                          team2_stats=team2_stats,
+                          team1_positions=team1_positions,
+                          team2_positions=team2_positions,
+                          h2h_results=h2h_results,
+                          h2h_stats=h2h_stats,
                           config=Config)
 
 @app.route('/teams')

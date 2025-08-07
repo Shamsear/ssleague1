@@ -65,12 +65,36 @@ class Team(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     balance = db.Column(db.Integer, default=15000)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    logo_url = db.Column(db.String(255), nullable=True)
+    logo_url = db.Column(db.String(500), nullable=True)  # Increased length for GitHub URLs
+    logo_storage_type = db.Column(db.String(20), default='local')  # 'local' or 'github'
+    github_logo_sha = db.Column(db.String(100), nullable=True)  # SHA hash for GitHub file updates
     players = db.relationship('Player', backref='team', lazy=True)
     team_members = db.relationship('TeamMember', backref='team', lazy=True)
     home_matches = db.relationship('Match', foreign_keys='Match.home_team_id', backref='home_team', lazy=True)
     away_matches = db.relationship('Match', foreign_keys='Match.away_team_id', backref='away_team', lazy=True)
     team_stats = db.relationship('TeamStats', backref='team', uselist=False, lazy=True)
+    
+    def get_logo_url(self):
+        """Get the appropriate logo URL based on storage type"""
+        if self.logo_storage_type == 'github' and self.logo_url:
+            return self.logo_url  # GitHub URLs are stored directly
+        elif self.logo_storage_type == 'local' and self.logo_url:
+            try:
+                from flask import url_for, has_request_context
+                # Only use url_for if we're in a request context
+                if has_request_context():
+                    filename = self.logo_url.split('/')[-1]
+                    return url_for('uploaded_logo', filename=filename)
+                else:
+                    # Fallback: return relative path for local files when not in request context
+                    filename = self.logo_url.split('/')[-1]
+                    return f'/uploads/logos/{filename}'
+            except Exception as e:
+                # Fallback in case of any error
+                filename = self.logo_url.split('/')[-1]
+                return f'/uploads/logos/{filename}'
+        else:
+            return None
 
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
