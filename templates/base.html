@@ -682,47 +682,10 @@
                     let isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
                     
                     function handleViewportChange() {
-                        const currentViewportHeight = window.visualViewport?.height || window.innerHeight;
-                        const currentInnerHeight = window.innerHeight;
-                        const screenHeight = window.screen.height;
-                        
-                        // Detect Chrome mobile browser
-                        const isChrome = /Chrome/.test(navigator.userAgent) && /Mobile/.test(navigator.userAgent);
-                        
-                        // Calculate the difference in viewport heights
-                        const heightDiff = lastViewportHeight - currentViewportHeight;
-                        const innerHeightDiff = lastInnerHeight - currentInnerHeight;
-                        
-                        // Only adjust for significant height changes (browser UI show/hide)
-                        if (Math.abs(heightDiff) > 50 || Math.abs(innerHeightDiff) > 50) {
-                            if (currentViewportHeight < lastViewportHeight || currentInnerHeight < lastInnerHeight) {
-                                // Browser UI became visible - position nav just above it
-                                let uiHeight;
-                                
-                                if (isChrome) {
-                                    // Chrome-specific: Try to use a more accurate measurement
-                                    // Calculate based on the actual height difference, but with Chrome-specific limits
-                                    const chromeUIHeight = Math.max(heightDiff, innerHeightDiff);
-                                    // Chrome address bar is typically 40-56px, clamp to this range
-                                    uiHeight = Math.max(30, Math.min(chromeUIHeight, 50));
-                                } else {
-                                    // Other browsers: use calculated height with limits
-                                    const estimatedUIHeight = Math.min(Math.max(heightDiff, innerHeightDiff), 100);
-                                    uiHeight = Math.min(estimatedUIHeight, 80);
-                                }
-                                
-                                mobileNav.style.transform = 'translateY(0)';
-                                mobileNav.style.bottom = `${uiHeight}px`;
-                            } else {
-                                // Browser UI hidden - nav goes to absolute bottom
-                                mobileNav.style.transform = 'translateY(0)';
-                                mobileNav.style.bottom = '0';
-                            }
-                            
-                            // Update stored values
-                            lastViewportHeight = currentViewportHeight;
-                            lastInnerHeight = currentInnerHeight;
-                        }
+                        // Keep nav bar always at the bottom of the viewport
+                        // No dynamic positioning - just ensure it stays at bottom
+                        mobileNav.style.transform = 'translateY(0)';
+                        mobileNav.style.bottom = '0';
                     }
                     
                     // Handle orientation changes
