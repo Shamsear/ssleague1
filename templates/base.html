@@ -297,6 +297,12 @@
                 right: 0;
                 padding: 12px;
                 z-index: 50;
+                /* Safe area inset for devices with home indicators */
+                padding-bottom: max(12px, env(safe-area-inset-bottom));
+                /* Smooth transition for browser UI changes */
+                transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+                /* Ensure proper positioning */
+                transform: translateY(0);
             }
             
             .mobile-nav-content {
@@ -347,6 +353,21 @@
             .mobile-nav svg {
                 width: 1.25rem;
                 height: 1.25rem;
+            }
+            
+            /* Disable transitions for users who prefer reduced motion */
+            @media (prefers-reduced-motion: reduce) {
+                .mobile-nav {
+                    transition: none !important;
+                }
+            }
+            
+            /* PWA standalone mode adjustments */
+            @media (display-mode: standalone) {
+                .mobile-nav {
+                    /* Additional padding for PWA mode */
+                    padding-bottom: max(16px, env(safe-area-inset-bottom));
+                }
             }
         }
     </style>
@@ -651,6 +672,91 @@
                     // We don't prevent default because we want the actual logout to happen
                 });
             });
+            
+            // Mobile Navigation Browser UI Detection
+            if (window.innerWidth <= 640) {
+                const mobileNav = document.querySelector('.mobile-nav');
+                if (mobileNav) {
+                    let lastViewportHeight = window.visualViewport?.height || window.innerHeight;
+                    let lastInnerHeight = window.innerHeight;
+                    let isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
+                    
+                    function handleViewportChange() {
+                        const currentViewportHeight = window.visualViewport?.height || window.innerHeight;
+                        const currentInnerHeight = window.innerHeight;
+                        
+                        // Calculate the difference in viewport heights
+                        const heightDiff = lastViewportHeight - currentViewportHeight;
+                        const innerHeightDiff = lastInnerHeight - currentInnerHeight;
+                        
+                        // Only adjust for significant height changes (browser UI show/hide)
+                        if (Math.abs(heightDiff) > 50 || Math.abs(innerHeightDiff) > 50) {
+                            if (currentViewportHeight < lastViewportHeight || currentInnerHeight < lastInnerHeight) {
+                                // Browser UI became visible - move nav up
+                                const offset = Math.max(heightDiff, innerHeightDiff);
+                                mobileNav.style.transform = `translateY(-${Math.min(offset, 100)}px)`;
+                            } else {
+                                // Browser UI hidden - nav goes to bottom
+                                mobileNav.style.transform = 'translateY(0)';
+                            }
+                            
+                            // Update stored values
+                            lastViewportHeight = currentViewportHeight;
+                            lastInnerHeight = currentInnerHeight;
+                        }
+                    }
+                    
+                    // Handle orientation changes
+                    function handleOrientationChange() {
+                        setTimeout(() => {
+                            lastViewportHeight = window.visualViewport?.height || window.innerHeight;
+                            lastInnerHeight = window.innerHeight;
+                            mobileNav.style.transform = 'translateY(0)';
+                        }, 500); // Delay to let orientation change complete
+                    }
+                    
+                    // Listen for viewport changes (modern browsers)
+                    if (window.visualViewport) {
+                        window.visualViewport.addEventListener('resize', handleViewportChange);
+                        window.visualViewport.addEventListener('scroll', handleViewportChange);
+                    }
+                    
+                    // Fallback for older browsers
+                    window.addEventListener('resize', handleViewportChange);
+                    
+                    // Handle orientation changes
+                    window.addEventListener('orientationchange', handleOrientationChange);
+                    
+                    // Handle scroll events for additional UI hiding detection
+                    let scrollTimeout;
+                    window.addEventListener('scroll', () => {
+                        clearTimeout(scrollTimeout);
+                        scrollTimeout = setTimeout(handleViewportChange, 100);
+                    }, { passive: true });
+                    
+                    // Reset position on focus events (input fields, etc.)
+                    document.addEventListener('focusin', () => {
+                        setTimeout(() => {
+                            const currentHeight = window.visualViewport?.height || window.innerHeight;
+                            if (currentHeight < lastViewportHeight * 0.75) {
+                                // Likely keyboard is showing
+                                mobileNav.style.transform = `translateY(-${lastViewportHeight - currentHeight}px)`;
+                            }
+                        }, 300);
+                    });
+                    
+                    document.addEventListener('focusout', () => {
+                        setTimeout(() => {
+                            mobileNav.style.transform = 'translateY(0)';
+                            lastViewportHeight = window.visualViewport?.height || window.innerHeight;
+                            lastInnerHeight = window.innerHeight;
+                        }, 300);
+                    });
+                    
+                    // Initial setup
+                    mobileNav.style.transform = 'translateY(0)';
+                }
+            }
         });
     </script>
 
