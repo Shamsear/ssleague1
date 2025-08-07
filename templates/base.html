@@ -686,6 +686,9 @@
                         const currentInnerHeight = window.innerHeight;
                         const screenHeight = window.screen.height;
                         
+                        // Detect Chrome mobile browser
+                        const isChrome = /Chrome/.test(navigator.userAgent) && /Mobile/.test(navigator.userAgent);
+                        
                         // Calculate the difference in viewport heights
                         const heightDiff = lastViewportHeight - currentViewportHeight;
                         const innerHeightDiff = lastInnerHeight - currentInnerHeight;
@@ -694,12 +697,20 @@
                         if (Math.abs(heightDiff) > 50 || Math.abs(innerHeightDiff) > 50) {
                             if (currentViewportHeight < lastViewportHeight || currentInnerHeight < lastInnerHeight) {
                                 // Browser UI became visible - position nav just above it
-                                // Use a more conservative offset - typically browser UI is 50-100px
-                                const estimatedUIHeight = Math.min(Math.max(heightDiff, innerHeightDiff), 100);
-                                // Further limit to reasonable browser UI heights (40-80px typically)
-                                const safeUIHeight = Math.min(estimatedUIHeight, 80);
+                                let uiHeight;
+                                
+                                if (isChrome) {
+                                    // Chrome-specific: Address bar is typically 56px, but can vary
+                                    // Use a fixed reasonable offset for Chrome instead of calculated difference
+                                    uiHeight = 60; // Fixed 60px for Chrome address bar
+                                } else {
+                                    // Other browsers: use calculated height with limits
+                                    const estimatedUIHeight = Math.min(Math.max(heightDiff, innerHeightDiff), 100);
+                                    uiHeight = Math.min(estimatedUIHeight, 80);
+                                }
+                                
                                 mobileNav.style.transform = 'translateY(0)';
-                                mobileNav.style.bottom = `${safeUIHeight}px`;
+                                mobileNav.style.bottom = `${uiHeight}px`;
                             } else {
                                 // Browser UI hidden - nav goes to absolute bottom
                                 mobileNav.style.transform = 'translateY(0)';
