@@ -1,7 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 
 db = SQLAlchemy()
@@ -242,15 +242,76 @@ class Round(db.Model):
     players = db.relationship('Player', backref='round', lazy=True)
     bids = db.relationship('Bid', backref='round', lazy=True)
     start_time = db.Column(db.DateTime, default=datetime.utcnow)
-    duration = db.Column(db.Integer, default=300)
+    end_time = db.Column(db.DateTime, nullable=True)  # New field for server-based timer
+    duration = db.Column(db.Integer, default=300)  # Keep for backward compatibility
     status = db.Column(db.String(20), default="active")  # active, processing, completed
     max_bids_per_team = db.Column(db.Integer, default=5)  # Maximum bids each team can place
 
     def is_timer_expired(self):
-        if not self.start_time:
-            return False
-        elapsed = (datetime.utcnow() - self.start_time).total_seconds()
-        return elapsed >= self.duration
+        """Check if round timer has expired using server-based end_time"""
+        now = datetime.now(timezone.utc)
+        
+        if not self.end_time:
+            # Fallback to old logic for backward compatibility
+            if not self.start_time:
+                return False
+            # Ensure start_time is timezone aware for consistent comparison
+            start_time = self.start_time
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=timezone.utc)
+            elapsed = (now - start_time).total_seconds()
+            return elapsed >= self.duration
+        
+        # New server-based logic with timezone awareness
+        # Ensure end_time is timezone aware
+        end_time = self.end_time
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=timezone.utc)
+        
+        return now >= end_time
+    
+    def get_remaining_time(self):
+        """Get remaining time in seconds for this round"""
+        now = datetime.now(timezone.utc)
+        
+        if not self.end_time:
+            # Fallback to old logic for backward compatibility
+            if not self.start_time:
+                return 0
+            # Ensure start_time is timezone aware for consistent comparison
+            start_time = self.start_time
+            if start_time.tzinfo is None:
+                start_time = start_time.replace(tzinfo=timezone.utc)
+            elapsed = (now - start_time).total_seconds()
+            return max(0, self.duration - elapsed)
+        
+        # New server-based logic with timezone awareness
+        # Ensure end_time is timezone aware
+        end_time = self.end_time
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=timezone.utc)
+            
+        remaining_seconds = (end_time - now).total_seconds()
+        return max(0, remaining_seconds)
+    
+    def validate_end_time(self):
+        """Validate that end_time is set and reasonable"""
+        if not self.end_time:
+            return False, "End time is not set"
+        
+        now = datetime.now(timezone.utc)
+        end_time = self.end_time
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=timezone.utc)
+        
+        if end_time < now:
+            return False, "End time is in the past"
+        
+        # Check if end time is too far in the future (more than 24 hours)
+        if (end_time - now).total_seconds() > 86400:  # 24 hours
+            return False, "End time is too far in the future"
+        
+        return True, "End time is valid"
 
 class Bid(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -370,7 +431,12 @@ class BulkBidRound(db.Model):
     def is_timer_expired(self):
         if not self.start_time:
             return False
-        elapsed = (datetime.utcnow() - self.start_time).total_seconds()
+        now = datetime.now(timezone.utc)
+        # Ensure start_time is timezone aware for consistent comparison
+        start_time = self.start_time
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=timezone.utc)
+        elapsed = (now - start_time).total_seconds()
         return elapsed >= self.duration
 
 class BulkBid(db.Model):
