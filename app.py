@@ -75,9 +75,13 @@ check_and_init_database()
 # Add a before_request handler to prevent browser back button for authenticated users
 @app.before_request
 def before_request():
+    # Force authentication check to happen early (this triggers load_user if needed)
+    # This ensures remember token authentication happens before we check if user is authenticated
+    user_authenticated = current_user.is_authenticated
+    
     # Check if authenticated user is trying to access public pages
-    if current_user.is_authenticated:
-        public_routes = ['index', 'login', 'register', 'reset_password_request']
+    if user_authenticated:
+        public_routes = ['index', 'login', 'register', 'reset_password_request', 'reset_password_form']
         if request.endpoint in public_routes:
             return redirect(url_for('dashboard'))
 
@@ -163,17 +167,26 @@ def add_header(response):
 
 @login_manager.user_loader
 def load_user(user_id):
-    # First try to load the user by ID
-    user = User.query.get(int(user_id))
-    if user:
-        return user
+    # This function is called by Flask-Login to load a user from the session
+    # It can receive either a user ID from the session or a remember token
+    
+    # First try to load the user by ID (normal session case)
+    try:
+        user = User.query.get(int(user_id))
+        if user:
+            return user
+    except (ValueError, TypeError):
+        # user_id might be invalid, fall through to remember token check
+        pass
     
     # If user not found by ID, check for remember token in cookies
     remember_token = request.cookies.get('remember_token')
     if remember_token:
         # Try to find and validate user by remember token
         user = User.get_by_remember_token(remember_token)
-        return user
+        if user:
+            # Return the user - Flask-Login will handle the session
+            return user
     
     return None
 
