@@ -226,16 +226,24 @@ def login():
                     # Save the changes to the database
                     db.session.commit()
                     
-                    # Set a secure cookie with the token
-                    # secure=True ensures the cookie is only sent over HTTPS
-                    # httponly=True prevents JavaScript from accessing the cookie (security against XSS)
+                    # Calculate expiry date for persistent cookie (GMT format for better compatibility)
+                    from datetime import datetime, timedelta
+                    import time
+                    expires = datetime.utcnow() + timedelta(days=30)
+                    expires_timestamp = int(time.mktime(expires.timetuple()))
+                    
+                    # Set a persistent cookie with the token
+                    # Using both expires and max_age for maximum compatibility
                     response.set_cookie(
                         'remember_token', 
                         token, 
-                        max_age=30*24*60*60,  # 30 days in seconds
-                        httponly=True,
-                        samesite='Strict',    # Protection against CSRF
-                        secure=request.is_secure  # Only set to True if using HTTPS
+                        expires=expires,          # Explicit expiry date for persistence
+                        max_age=30*24*60*60,     # 30 days in seconds (backup)
+                        httponly=True,           # XSS protection
+                        samesite='Lax',          # Cross-site compatibility
+                        secure=request.is_secure,# HTTPS only if using secure connection
+                        path='/',                # Available across entire site
+                        domain=None              # Let browser determine domain
                     )
                 
                 return response

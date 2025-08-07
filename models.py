@@ -54,6 +54,11 @@ class User(UserMixin, db.Model):
             db.session.commit()
             
         return None
+    
+    def clear_remember_token(self):
+        """Clear the remember token for this user"""
+        self.remember_token = None
+        self.token_expires_at = None
 
 class Team(db.Model):
     id = db.Column(db.Integer, primary_key=True)
