@@ -300,7 +300,7 @@
                 /* Safe area inset for devices with home indicators */
                 padding-bottom: max(12px, env(safe-area-inset-bottom));
                 /* Smooth transition for browser UI changes */
-                transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+                transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), bottom 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
                 /* Ensure proper positioning */
                 transform: translateY(0);
             }
@@ -684,6 +684,7 @@
                     function handleViewportChange() {
                         const currentViewportHeight = window.visualViewport?.height || window.innerHeight;
                         const currentInnerHeight = window.innerHeight;
+                        const screenHeight = window.screen.height;
                         
                         // Calculate the difference in viewport heights
                         const heightDiff = lastViewportHeight - currentViewportHeight;
@@ -692,12 +693,16 @@
                         // Only adjust for significant height changes (browser UI show/hide)
                         if (Math.abs(heightDiff) > 50 || Math.abs(innerHeightDiff) > 50) {
                             if (currentViewportHeight < lastViewportHeight || currentInnerHeight < lastInnerHeight) {
-                                // Browser UI became visible - move nav up
-                                const offset = Math.max(heightDiff, innerHeightDiff);
-                                mobileNav.style.transform = `translateY(-${Math.min(offset, 100)}px)`;
-                            } else {
-                                // Browser UI hidden - nav goes to bottom
+                                // Browser UI became visible - position nav just above it
+                                // Calculate how much the viewport shrunk
+                                const uiHeight = Math.max(heightDiff, innerHeightDiff);
+                                // Keep nav at bottom but account for browser UI height
                                 mobileNav.style.transform = 'translateY(0)';
+                                mobileNav.style.bottom = `${uiHeight}px`;
+                            } else {
+                                // Browser UI hidden - nav goes to absolute bottom
+                                mobileNav.style.transform = 'translateY(0)';
+                                mobileNav.style.bottom = '0';
                             }
                             
                             // Update stored values
@@ -712,6 +717,7 @@
                             lastViewportHeight = window.visualViewport?.height || window.innerHeight;
                             lastInnerHeight = window.innerHeight;
                             mobileNav.style.transform = 'translateY(0)';
+                            mobileNav.style.bottom = '0';
                         }, 500); // Delay to let orientation change complete
                     }
                     
