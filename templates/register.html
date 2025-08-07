@@ -153,6 +153,8 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function() {
+        console.log('Register page password toggle initialization...');
+        
         const togglePassword = document.getElementById('togglePassword');
         const password = document.getElementById('password');
         const eyeIcon = document.getElementById('eyeIcon');
@@ -164,29 +166,86 @@
             registerCard.classList.add('animate-fade-in');
         }
         
+        // Debug: Log element existence
+        console.log('Password toggle elements:', {
+            togglePassword: !!togglePassword,
+            password: !!password,
+            eyeIcon: !!eyeIcon,
+            eyeOffIcon: !!eyeOffIcon
+        });
+        
         // Check if elements exist before adding event listener
         if (togglePassword && password && eyeIcon && eyeOffIcon) {
+            console.log('Setting up password toggle event listener...');
+            
+            // Helper functions for more reliable visibility toggle
+            function hideElement(element) {
+                element.style.display = 'none';
+                element.classList.add('hidden');
+            }
+            
+            function showElement(element) {
+                element.style.display = 'block';
+                element.classList.remove('hidden');
+            }
+            
+            // Set initial state
+            showElement(eyeIcon);
+            hideElement(eyeOffIcon);
+            togglePassword.setAttribute('aria-label', 'Show password');
+            
             togglePassword.addEventListener('click', function(e) {
                 e.preventDefault(); // Prevent form submission
+                e.stopPropagation(); // Prevent event bubbling
                 
-                // Toggle the type attribute
-                const type = password.getAttribute('type') === 'password' ? 'text' : 'password';
-                password.setAttribute('type', type);
+                console.log('Password toggle clicked');
                 
-                // Toggle icon visibility
-                if (type === 'text') {
-                    eyeIcon.classList.add('hidden');
-                    eyeOffIcon.classList.remove('hidden');
-                } else {
-                    eyeIcon.classList.remove('hidden');
-                    eyeOffIcon.classList.add('hidden');
+                try {
+                    // Toggle the type attribute
+                    const currentType = password.getAttribute('type');
+                    const newType = currentType === 'password' ? 'text' : 'password';
+                    password.setAttribute('type', newType);
+                    
+                    console.log(`Password type changed from ${currentType} to ${newType}`);
+                    
+                    // Toggle icon visibility with more reliable method
+                    if (newType === 'text') {
+                        hideElement(eyeIcon);
+                        showElement(eyeOffIcon);
+                        togglePassword.setAttribute('aria-label', 'Hide password');
+                    } else {
+                        showElement(eyeIcon);
+                        hideElement(eyeOffIcon);
+                        togglePassword.setAttribute('aria-label', 'Show password');
+                    }
+                    
+                    // Add visual feedback
+                    togglePassword.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        togglePassword.style.transform = 'scale(1)';
+                    }, 150);
+                    
+                    console.log('Password toggle completed successfully');
+                } catch (error) {
+                    console.error('Error in password toggle:', error);
                 }
-                
-                // Add a subtle animation
-                togglePassword.classList.add('animate-pulse');
-                setTimeout(() => {
-                    togglePassword.classList.remove('animate-pulse');
-                }, 500);
+            });
+            
+            // Add keyboard support
+            togglePassword.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    togglePassword.click();
+                }
+            });
+            
+            console.log('Password toggle setup completed successfully');
+        } else {
+            console.error('Password toggle setup failed - missing elements:', {
+                togglePassword: !!togglePassword,
+                password: !!password,
+                eyeIcon: !!eyeIcon,
+                eyeOffIcon: !!eyeOffIcon
             });
         }
         

@@ -172,6 +172,13 @@
             background-clip: text;
             color: transparent;
         }
+        
+        /* Ensure hidden class works reliably for password toggles */
+        .password-toggle .hidden,
+        button[id*="togglePassword"] .hidden,
+        button[id*="Password"] .hidden {
+            display: none !important;
+        }
 
         /* Golden gradient for admin headers */
         .admin-gradient-text {
@@ -413,7 +420,7 @@
                     <span class="gradient-text font-bold vision-text-shadow">SS League Auction</span>
                 </div>
                 <div class="text-center md:text-right">
-                    <p class="text-gray-400">&copy; 2024 SS League Auction. All rights reserved.</p>
+                    <p class="text-gray-400">&copy; 2025 SS League Auction. All rights reserved.</p>
                 </div>
             </div>
         </div>
