@@ -694,11 +694,12 @@
                         if (Math.abs(heightDiff) > 50 || Math.abs(innerHeightDiff) > 50) {
                             if (currentViewportHeight < lastViewportHeight || currentInnerHeight < lastInnerHeight) {
                                 // Browser UI became visible - position nav just above it
-                                // Calculate how much the viewport shrunk
-                                const uiHeight = Math.max(heightDiff, innerHeightDiff);
-                                // Keep nav at bottom but account for browser UI height
+                                // Use a more conservative offset - typically browser UI is 50-100px
+                                const estimatedUIHeight = Math.min(Math.max(heightDiff, innerHeightDiff), 100);
+                                // Further limit to reasonable browser UI heights (40-80px typically)
+                                const safeUIHeight = Math.min(estimatedUIHeight, 80);
                                 mobileNav.style.transform = 'translateY(0)';
-                                mobileNav.style.bottom = `${uiHeight}px`;
+                                mobileNav.style.bottom = `${safeUIHeight}px`;
                             } else {
                                 // Browser UI hidden - nav goes to absolute bottom
                                 mobileNav.style.transform = 'translateY(0)';
