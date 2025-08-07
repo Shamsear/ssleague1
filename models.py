@@ -65,6 +65,7 @@ class Team(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     balance = db.Column(db.Integer, default=15000)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    logo_url = db.Column(db.String(255), nullable=True)
     players = db.relationship('Player', backref='team', lazy=True)
     team_members = db.relationship('TeamMember', backref='team', lazy=True)
     home_matches = db.relationship('Match', foreign_keys='Match.home_team_id', backref='home_team', lazy=True)

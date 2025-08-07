@@ -1,4 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory, session, make_response, Response
+from werkzeug.utils import secure_filename
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest, AuctionSettings, BulkBidTiebreaker, BulkBidRound, BulkBid, TeamBulkTiebreaker
 from models import TeamMember, Category, Match, PlayerMatchup, TeamStats, PlayerStats, StarredPlayer
@@ -12,6 +13,7 @@ import io
 from flask_migrate import Migrate
 import os
 import base64
+import uuid
 from sqlalchemy import func
 import time
 from team_management_routes import team_management
@@ -198,6 +200,19 @@ def service_worker():
 def offline():
     return send_from_directory('static', 'offline.html')
 
+@app.route('/uploads/logos/<filename>')
+def uploaded_logo(filename):
+    """Serve uploaded team logo files"""
+    try:
+        return send_from_directory(
+            os.path.join(app.root_path, 'static', 'uploads', 'logos'),
+            filename
+        )
+    except:
+        # Return a default/placeholder image if logo not found
+        # You can create a placeholder image or return a 404
+        return send_from_directory('static/img', 'default-team-logo.png')
+
 @app.route('/')
 def index():
     # Redirect authenticated users to dashboard
@@ -297,6 +312,41 @@ def register():
         # Only create a team if the user is not an admin
         if not is_admin:
             team = Team(name=team_name, user=user)
+            
+            # Handle team logo upload
+            logo_url = None
+            if 'team_logo' in request.files:
+                logo_file = request.files['team_logo']
+                if logo_file and logo_file.filename != '':
+                    # Check if file is an image
+                    allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+                    file_extension = logo_file.filename.rsplit('.', 1)[1].lower() if '.' in logo_file.filename else ''
+                    
+                    if file_extension in allowed_extensions:
+                        try:
+                            # Create uploads directory if it doesn't exist
+                            upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'logos')
+                            os.makedirs(upload_dir, exist_ok=True)
+                            
+                            # Generate unique filename to avoid conflicts
+                            filename = secure_filename(logo_file.filename)
+                            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                            file_path = os.path.join(upload_dir, unique_filename)
+                            
+                            # Save the file
+                            logo_file.save(file_path)
+                            
+                            # Store relative path for database
+                            logo_url = f"uploads/logos/{unique_filename}"
+                            
+                        except Exception as e:
+                            # If file upload fails, continue without logo but show warning
+                            flash('Team logo could not be uploaded, but registration was successful', 'warning')
+                    else:
+                        flash('Invalid logo file format. Please use PNG, JPG, JPEG, GIF, or WEBP', 'warning')
+            
+            # Set the logo URL on the team
+            team.logo_url = logo_url
             db.session.add(team)
         
         db.session.commit()

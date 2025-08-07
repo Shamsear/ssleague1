@@ -1,5 +1,12 @@
 from app import app, db
-from models import User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker
+# Import all models to ensure they're registered with SQLAlchemy
+from models import (
+    User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker,
+    PasswordResetRequest, AuctionSettings, BulkBidTiebreaker, 
+    BulkBidRound, BulkBid, TeamBulkTiebreaker, TeamMember, 
+    Category, Match, PlayerMatchup, TeamStats, PlayerStats, 
+    StarredPlayer
+)
 from werkzeug.security import generate_password_hash
 import os
 import pandas as pd
@@ -257,7 +264,43 @@ def init_database():
         else:
             print(f"Player import skipped. Found {Player.query.count()} existing players.")
         
+        # Create uploads directory for team logos if it doesn't exist
+        try:
+            uploads_dir = os.path.join(app.root_path, 'static', 'uploads', 'logos')
+            os.makedirs(uploads_dir, exist_ok=True)
+            print(f"Ensured uploads directory exists: {uploads_dir}")
+            
+            # Create a simple placeholder logo if it doesn't exist
+            placeholder_path = os.path.join(app.root_path, 'static', 'img', 'default-team-logo.png')
+            img_dir = os.path.dirname(placeholder_path)
+            os.makedirs(img_dir, exist_ok=True)
+            
+            # Only create placeholder if it doesn't exist
+            if not os.path.exists(placeholder_path):
+                print(f"Creating default team logo placeholder at: {placeholder_path}")
+                # Note: You should replace this with an actual logo file
+                # For now, we'll just create a text file as a placeholder
+                # In production, you'd want to have an actual PNG image
+                print("Note: Please add a default-team-logo.png file to static/img/ directory")
+                
+        except Exception as e:
+            print(f"Warning: Could not set up uploads directory: {e}")
+        
+        # Initialize auction settings if they don't exist
+        try:
+            if not AuctionSettings.query.first():
+                print("Creating default auction settings...")
+                default_settings = AuctionSettings(
+                    max_rounds=25,
+                    min_balance_per_round=30
+                )
+                db.session.add(default_settings)
+                db.session.commit()
+                print("Default auction settings created")
+        except Exception as e:
+            print(f"Warning: Could not create default auction settings: {e}")
+        
         print("Database initialization complete")
 
 if __name__ == '__main__':
-    init_database() 
+    init_database()
