@@ -5,7 +5,7 @@ from models import TeamMember, Category, Match, PlayerMatchup, TeamStats, Player
 from config import Config
 from werkzeug.security import generate_password_hash
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import sqlite3
 import pandas as pd
 import io
@@ -533,7 +533,7 @@ def start_round():
             'remaining_rounds': remaining_rounds
         }), 400
     
-    # Create new round with server-based timer
+    # Create new round with timer
     start_time = datetime.utcnow()
     end_time = start_time + timedelta(seconds=duration)
     
@@ -541,7 +541,7 @@ def start_round():
         position=position, 
         start_time=start_time,
         end_time=end_time,
-        duration=duration,  # Keep for backward compatibility
+        duration=duration,
         max_bids_per_team=max_bids_per_team
     )
     db.session.add(round)
@@ -583,196 +583,107 @@ def update_round_timer(round_id):
     
     try:
         duration = int(duration)
-        if duration < 30:  # Minimum duration of 30 seconds
-            return jsonify({'error': 'Duration must be at least 30 seconds'}), 400
+        if duration < 300:  # Minimum duration of 5 minutes (300 seconds)
+            return jsonify({'error': 'Duration must be at least 5 minutes (300 seconds)'}), 400
         # No maximum limit, allowing admin to set any reasonable duration
     except ValueError:
         return jsonify({'error': 'Invalid duration value'}), 400
     
-    # For server-based timer: extend the end_time by adding extra duration
+    # Extend the round by adding duration to end_time instead of resetting start_time
     if round.end_time:
-        # Add extra time to the existing end_time
         round.end_time = round.end_time + timedelta(seconds=duration)
-        # Extend the duration as well (don't overwrite it)
-        round.duration = round.duration + duration
     else:
-        # Fallback: if end_time is not set, calculate it from start_time + new duration
-        if round.start_time:
-            round.end_time = round.start_time + timedelta(seconds=duration)
-        else:
-            # Double fallback: set both start_time and end_time
-            round.start_time = datetime.utcnow()
-            round.end_time = round.start_time + timedelta(seconds=duration)
-        # Set the duration (this is a new round or fallback)
-        round.duration = duration
+        # Fallback: if no end_time exists, create it from current time + duration
+        round.end_time = datetime.utcnow() + timedelta(seconds=duration)
+    
+    # Update the stored duration for backward compatibility
+    round.duration = round.calculated_duration
     db.session.commit()
     
     return jsonify({
-        'message': 'Round timer updated successfully (time extended)',
-        'duration': duration,
-        'expires_at': (round.end_time.isoformat() if round.end_time else None)
+        'message': 'Round timer extended successfully',
+        'duration_added': duration,
+        'new_end_time': round.end_time.isoformat(),
+        'total_duration': round.calculated_duration,
+        'remaining_time': round.get_remaining_time()
     })
 
 @app.route('/check_round_status/<int:round_id>')
 @login_required
 def check_round_status(round_id):
-    try:
-        # Get round with proper error handling
-        round = Round.query.get_or_404(round_id)
+    round = Round.query.get_or_404(round_id)
+    if not round.is_active:
+        # Check if there are any active tiebreakers for this team in this round
+        if not current_user.is_admin and current_user.team:
+            active_tiebreaker = db.session.query(Tiebreaker).join(TeamTiebreaker).filter(
+                Tiebreaker.round_id == round_id,
+                Tiebreaker.resolved == False,
+                TeamTiebreaker.team_id == current_user.team.id
+            ).first()
+            
+            if active_tiebreaker:
+                return jsonify({
+                    'active': False,
+                    'message': 'Round finalized with tiebreaker',
+                    'redirect_to': f'/tiebreaker/{active_tiebreaker.id}',
+                    'tiebreaker_id': active_tiebreaker.id
+                })
         
-        # Standardized response structure
-        base_response = {
-            'round_id': round_id,
-            'position': round.position,
-            'status': round.status,
-            'server_time': datetime.now(timezone.utc).isoformat()
-        }
+        return jsonify({'active': False, 'message': 'Round is already finalized'})
+    
+    expired = round.is_timer_expired()
+    if expired:
+        # Finalize the round if expired
+        result = finalize_round_internal(round_id)
         
-        # If round is not active, handle tiebreaker logic
-        if not round.is_active:
-            # Check for active tiebreakers if user has a team
-            if not current_user.is_admin and current_user.team:
-                # Optimize tiebreaker query with single join
-                active_tiebreaker = db.session.query(Tiebreaker).join(TeamTiebreaker).filter(
-                    Tiebreaker.round_id == round_id,
-                    Tiebreaker.resolved == False,
-                    TeamTiebreaker.team_id == current_user.team.id
+        # Check the result to see if a tiebreaker was created
+        if isinstance(result, dict):
+            status = result.get('status')
+            if status == 'tiebreaker_needed' and not current_user.is_admin and current_user.team:
+                tiebreaker_id = result.get('tiebreaker_id')
+                # Check if this team is part of the tiebreaker
+                team_in_tiebreaker = TeamTiebreaker.query.filter_by(
+                    tiebreaker_id=tiebreaker_id,
+                    team_id=current_user.team.id
                 ).first()
                 
-                if active_tiebreaker:
-                    base_response.update({
+                if team_in_tiebreaker:
+                    return jsonify({
                         'active': False,
-                        'message': 'Round finalized with tiebreaker',
-                        'redirect_to': f'/tiebreaker/{active_tiebreaker.id}',
-                        'tiebreaker_id': active_tiebreaker.id
+                        'message': 'Round ended, tiebreaker needed',
+                        'redirect_to': f'/tiebreaker/{tiebreaker_id}',
+                        'tiebreaker_id': tiebreaker_id
                     })
-                    return jsonify(base_response)
-            
-            base_response.update({
-                'active': False,
-                'message': 'Round is already finalized'
-            })
-            return jsonify(base_response)
-        
-        # Validate end_time if present
-        if round.end_time:
-            is_valid, validation_msg = round.validate_end_time()
-            if not is_valid:
-                # Log the validation error but continue with fallback logic
-                print(f"End time validation failed for round {round_id}: {validation_msg}")
-        
-        # Use the Round model's method for consistent timer checking
-        expired = round.is_timer_expired()
-        remaining = round.get_remaining_time()
-        
-        # Handle race condition: check again after calculating
-        if expired and round.is_active:
-            try:
-                # Use database transaction for finalization
-                with db.session.begin():
-                    # Refresh round data to prevent race conditions
-                    round = Round.query.with_for_update().get(round_id)
+            elif status == 'tiebreaker_pending' and not current_user.is_admin and current_user.team:
+                # Check if there are existing tiebreakers for this team
+                existing_tiebreakers = result.get('tiebreakers', [])
+                for tiebreaker_id in existing_tiebreakers:
+                    team_in_tiebreaker = TeamTiebreaker.query.filter_by(
+                        tiebreaker_id=tiebreaker_id,
+                        team_id=current_user.team.id
+                    ).first()
                     
-                    if round and round.is_active:
-                        result = finalize_round_internal(round_id)
-                        
-                        # Handle finalization results
-                        if isinstance(result, dict):
-                            status = result.get('status')
-                            
-                            if status == 'tiebreaker_needed' and not current_user.is_admin and current_user.team:
-                                tiebreaker_id = result.get('tiebreaker_id')
-                                if tiebreaker_id:
-                                    # Check if this team is part of the tiebreaker
-                                    team_in_tiebreaker = TeamTiebreaker.query.filter_by(
-                                        tiebreaker_id=tiebreaker_id,
-                                        team_id=current_user.team.id
-                                    ).first()
-                                    
-                                    if team_in_tiebreaker:
-                                        base_response.update({
-                                            'active': False,
-                                            'message': 'Round ended, tiebreaker needed',
-                                            'redirect_to': f'/tiebreaker/{tiebreaker_id}',
-                                            'tiebreaker_id': tiebreaker_id
-                                        })
-                                        return jsonify(base_response)
-                            
-                            elif status == 'tiebreaker_pending' and not current_user.is_admin and current_user.team:
-                                existing_tiebreakers = result.get('tiebreakers', [])
-                                for tiebreaker_id in existing_tiebreakers:
-                                    team_in_tiebreaker = TeamTiebreaker.query.filter_by(
-                                        tiebreaker_id=tiebreaker_id,
-                                        team_id=current_user.team.id
-                                    ).first()
-                                    
-                                    if team_in_tiebreaker:
-                                        base_response.update({
-                                            'active': False,
-                                            'message': 'Round ended, existing tiebreaker pending',
-                                            'redirect_to': f'/tiebreaker/{tiebreaker_id}',
-                                            'tiebreaker_id': tiebreaker_id
-                                        })
-                                        return jsonify(base_response)
-                
-                base_response.update({
-                    'active': False,
-                    'message': 'Round timer expired and has been finalized'
-                })
-                return jsonify(base_response)
-                
-            except Exception as e:
-                # Log the error but don't crash the endpoint
-                print(f"Error finalizing round {round_id}: {str(e)}")
-                db.session.rollback()
-                
-                # Return expired status even if finalization failed
-                base_response.update({
-                    'active': False,
-                    'message': 'Round timer expired',
-                    'error': 'Finalization in progress'
-                })
-                return jsonify(base_response)
+                    if team_in_tiebreaker:
+                        return jsonify({
+                            'active': False,
+                            'message': 'Round ended, existing tiebreaker pending',
+                            'redirect_to': f'/tiebreaker/{tiebreaker_id}',
+                            'tiebreaker_id': tiebreaker_id
+                        })
         
-        # Round is active, return timer information
-        # Calculate expiration time for client
-        if round.end_time:
-            expires_at = round.end_time
-            if expires_at.tzinfo is None:
-                expires_at = expires_at.replace(tzinfo=timezone.utc)
-            expires_at = expires_at.isoformat()
-        else:
-            # Fallback calculation
-            if round.start_time:
-                start_time = round.start_time
-                if start_time.tzinfo is None:
-                    start_time = start_time.replace(tzinfo=timezone.utc)
-                expires_at = (start_time + timedelta(seconds=round.duration)).isoformat()
-            else:
-                expires_at = None
-        
-        # Prepare final response with all timer data
-        base_response.update({
-            'active': True,
-            'remaining': remaining,
-            'duration': round.duration,
-            'start_time': round.start_time.isoformat() if round.start_time else None,
-            'end_time': round.end_time.isoformat() if round.end_time else None,
-            'expires_at': expires_at,
-            'max_bids_per_team': round.max_bids_per_team
-        })
-        
-        return jsonify(base_response)
-        
-    except Exception as e:
-        # Comprehensive error handling
-        print(f"Error in check_round_status for round {round_id}: {str(e)}")
-        return jsonify({
-            'error': 'Internal server error',
-            'round_id': round_id,
-            'active': False,
-            'message': 'Error checking round status'
-        }), 500
+        return jsonify({'active': False, 'message': 'Round timer expired and has been finalized'})
+    
+    # Calculate remaining time using end_time
+    remaining = round.get_remaining_time()
+    
+    data = {
+        'active': True,
+        'remaining': remaining,
+        'duration': round.calculated_duration,
+        'start_time': round.start_time.isoformat() if round.start_time else None,
+        'end_time': round.end_time.isoformat() if round.end_time else None
+    }
+    return jsonify(data)
 
 def finalize_round_internal(round_id):
     """Internal function to finalize a round, can be called programmatically"""
@@ -3114,14 +3025,9 @@ def check_bulk_round_status(round_id):
         db.session.commit()
         print(f"[DEBUG] Round {round_id} start_time set to {bulk_round.start_time}")
     
-    # Calculate elapsed and remaining time using timezone-aware datetime
-    now = datetime.now(timezone.utc)
-    # Ensure start_time is timezone aware for consistent comparison
-    start_time = bulk_round.start_time
-    if start_time.tzinfo is None:
-        start_time = start_time.replace(tzinfo=timezone.utc)
-    
-    elapsed = (now - start_time).total_seconds()
+    # Calculate elapsed and remaining time
+    now = datetime.utcnow()
+    elapsed = (now - bulk_round.start_time).total_seconds()
     remaining = bulk_round.duration - elapsed
     
     print(f"[DEBUG] Time calculations for round {round_id}:")
@@ -3132,20 +3038,11 @@ def check_bulk_round_status(round_id):
     # Check if timer has expired
     if remaining <= 0:
         print(f"[DEBUG] Round {round_id} timer expired, deactivating")
-        # Use transaction to prevent race condition
-        try:
-            with db.session.begin():
-                # Re-fetch and lock the round to prevent race conditions
-                bulk_round = BulkBidRound.query.with_for_update().get(round_id)
-                if bulk_round and bulk_round.is_active:
-                    bulk_round.is_active = False
-                    bulk_round.status = "completed"
-                    db.session.commit()
-            return jsonify({'active': False, 'expired': True})
-        except Exception as e:
-            print(f"[ERROR] Failed to deactivate round {round_id}: {e}")
-            db.session.rollback()
-            return jsonify({'active': False, 'expired': True, 'error': 'Race condition detected'})
+        # Timer expired, deactivate the round
+        bulk_round.is_active = False
+        bulk_round.status = "completed"
+        db.session.commit()
+        return jsonify({'active': False, 'expired': True})
     
     # Return the remaining time
     data = {

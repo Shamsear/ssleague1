@@ -1,7 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 import secrets
 
 db = SQLAlchemy()
@@ -242,76 +242,29 @@ class Round(db.Model):
     players = db.relationship('Player', backref='round', lazy=True)
     bids = db.relationship('Bid', backref='round', lazy=True)
     start_time = db.Column(db.DateTime, default=datetime.utcnow)
-    end_time = db.Column(db.DateTime, nullable=True)  # New field for server-based timer
-    duration = db.Column(db.Integer, default=300)  # Keep for backward compatibility
+    end_time = db.Column(db.DateTime, nullable=True)  # New field for absolute end time
+    duration = db.Column(db.Integer, default=300)  # Keep for backward compatibility, now calculated dynamically
     status = db.Column(db.String(20), default="active")  # active, processing, completed
     max_bids_per_team = db.Column(db.Integer, default=5)  # Maximum bids each team can place
 
     def is_timer_expired(self):
-        """Check if round timer has expired using server-based end_time"""
-        now = datetime.now(timezone.utc)
-        
         if not self.end_time:
-            # Fallback to old logic for backward compatibility
-            if not self.start_time:
-                return False
-            # Ensure start_time is timezone aware for consistent comparison
-            start_time = self.start_time
-            if start_time.tzinfo is None:
-                start_time = start_time.replace(tzinfo=timezone.utc)
-            elapsed = (now - start_time).total_seconds()
-            return elapsed >= self.duration
-        
-        # New server-based logic with timezone awareness
-        # Ensure end_time is timezone aware
-        end_time = self.end_time
-        if end_time.tzinfo is None:
-            end_time = end_time.replace(tzinfo=timezone.utc)
-        
-        return now >= end_time
+            return False
+        return datetime.utcnow() >= self.end_time
+    
+    @property
+    def calculated_duration(self):
+        """Calculate duration from start_time and end_time"""
+        if self.start_time and self.end_time:
+            return int((self.end_time - self.start_time).total_seconds())
+        return self.duration  # Fallback to stored duration for backward compatibility
     
     def get_remaining_time(self):
-        """Get remaining time in seconds for this round"""
-        now = datetime.now(timezone.utc)
-        
+        """Get remaining time in seconds"""
         if not self.end_time:
-            # Fallback to old logic for backward compatibility
-            if not self.start_time:
-                return 0
-            # Ensure start_time is timezone aware for consistent comparison
-            start_time = self.start_time
-            if start_time.tzinfo is None:
-                start_time = start_time.replace(tzinfo=timezone.utc)
-            elapsed = (now - start_time).total_seconds()
-            return max(0, self.duration - elapsed)
-        
-        # New server-based logic with timezone awareness
-        # Ensure end_time is timezone aware
-        end_time = self.end_time
-        if end_time.tzinfo is None:
-            end_time = end_time.replace(tzinfo=timezone.utc)
-            
-        remaining_seconds = (end_time - now).total_seconds()
-        return max(0, remaining_seconds)
-    
-    def validate_end_time(self):
-        """Validate that end_time is set and reasonable"""
-        if not self.end_time:
-            return False, "End time is not set"
-        
-        now = datetime.now(timezone.utc)
-        end_time = self.end_time
-        if end_time.tzinfo is None:
-            end_time = end_time.replace(tzinfo=timezone.utc)
-        
-        if end_time < now:
-            return False, "End time is in the past"
-        
-        # Check if end time is too far in the future (more than 24 hours)
-        if (end_time - now).total_seconds() > 86400:  # 24 hours
-            return False, "End time is too far in the future"
-        
-        return True, "End time is valid"
+            return 0
+        remaining = (self.end_time - datetime.utcnow()).total_seconds()
+        return max(0, remaining)
 
 class Bid(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -420,7 +373,8 @@ class BulkBidRound(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     is_active = db.Column(db.Boolean, default=True)
     start_time = db.Column(db.DateTime, default=datetime.utcnow)
-    duration = db.Column(db.Integer, default=300)  # Duration in seconds
+    end_time = db.Column(db.DateTime, nullable=True)  # New field for absolute end time
+    duration = db.Column(db.Integer, default=300)  # Keep for backward compatibility, now calculated dynamically
     base_price = db.Column(db.Integer, default=10)  # Base price for all bids in this round
     status = db.Column(db.String(20), default="active")  # active, processing, completed
     
@@ -429,15 +383,23 @@ class BulkBidRound(db.Model):
     tiebreakers = db.relationship('BulkBidTiebreaker', backref='bulk_round', lazy=True)
     
     def is_timer_expired(self):
-        if not self.start_time:
+        if not self.end_time:
             return False
-        now = datetime.now(timezone.utc)
-        # Ensure start_time is timezone aware for consistent comparison
-        start_time = self.start_time
-        if start_time.tzinfo is None:
-            start_time = start_time.replace(tzinfo=timezone.utc)
-        elapsed = (now - start_time).total_seconds()
-        return elapsed >= self.duration
+        return datetime.utcnow() >= self.end_time
+    
+    @property
+    def calculated_duration(self):
+        """Calculate duration from start_time and end_time"""
+        if self.start_time and self.end_time:
+            return int((self.end_time - self.start_time).total_seconds())
+        return self.duration  # Fallback to stored duration for backward compatibility
+    
+    def get_remaining_time(self):
+        """Get remaining time in seconds"""
+        if not self.end_time:
+            return 0
+        remaining = (self.end_time - datetime.utcnow()).total_seconds()
+        return max(0, remaining)
 
 class BulkBid(db.Model):
     __tablename__ = 'bulk_bid'

@@ -479,7 +479,139 @@
         return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
     }
     
-    // Legacy timer functions now handled by TimerUtils
+    // Update timer display
+    function updateTimerDisplay() {
+        console.log("Updating timer display...");
+        const countdownElement = document.getElementById('countdown');
+        const timerBarElement = document.getElementById('timer-bar');
+        
+        if (!countdownElement || !timerBarElement) {
+            console.warn("Timer elements not found");
+            return;
+        }
+        
+        // Add cache prevention parameters and timestamp
+        fetch(`/check_bulk_round_status/{{ bulk_round.id }}?_=${Date.now()}`, {
+            cache: 'no-store', // Prevent caching
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log("Timer data response:", data);
+                
+                if (!data.active) {
+                    // Reload page with loading overlay
+                    console.log("Round no longer active, refreshing page...");
+                    showLoading('Round status changed, refreshing page...');
+                    setTimeout(() => window.location.reload(), 1000);
+                    return;
+                }
+                
+                // Store the server time value (for more accurate counting)
+                window.lastServerTime = data.remaining;
+                window.lastUpdateTime = Date.now();
+                
+                const percent = (data.remaining / {{ bulk_round.duration }}) * 100;
+                
+                console.log(`Updating timer: ${formatTime(data.remaining)}, ${percent.toFixed(1)}%`);
+                
+                // Animate countdown
+                countdownElement.textContent = formatTime(data.remaining);
+                
+                // Update timer bar with smooth transition
+                timerBarElement.style.width = `${Math.max(percent, 0)}%`;
+                
+                // Add visual indicators for low time
+                if (data.remaining < 60) {
+                    countdownElement.classList.add('text-red-600', 'animate-pulse');
+                    timerBarElement.classList.add('bg-red-500');
+                } else {
+                    countdownElement.classList.remove('text-red-600', 'animate-pulse');
+                    timerBarElement.classList.remove('bg-red-500');
+                }
+            })
+            .catch(error => {
+                console.error('Error updating timer:', error);
+                // Retry after delay
+                setTimeout(updateTimerDisplay, 10000);
+            });
+    }
+    
+    // Function to update timer display locally between server updates
+    function updateTimerLocally() {
+        const countdownElement = document.getElementById('countdown');
+        const timerBarElement = document.getElementById('timer-bar');
+        
+        if (!countdownElement || !timerBarElement || !window.lastServerTime) return;
+        
+        // Calculate elapsed time since last server update (in seconds)
+        const elapsedSinceUpdate = (Date.now() - window.lastUpdateTime) / 1000;
+        
+        // Calculate current remaining time
+        const currentRemaining = Math.max(window.lastServerTime - elapsedSinceUpdate, 0);
+        
+        // Update countdown display
+        countdownElement.textContent = formatTime(currentRemaining);
+        
+        // Update progress bar
+        const percent = (currentRemaining / {{ bulk_round.duration }}) * 100;
+        timerBarElement.style.width = `${Math.max(percent, 0)}%`;
+        
+        // Add visual indicators for low time
+        if (currentRemaining < 60) {
+            countdownElement.classList.add('text-red-600', 'animate-pulse');
+            timerBarElement.classList.add('bg-red-500');
+        } else {
+            countdownElement.classList.remove('text-red-600', 'animate-pulse');
+            timerBarElement.classList.remove('bg-red-500');
+        }
+    }
+    
+    // Force timer refresh function
+    function forceTimerRefresh() {
+        console.log("Forcing timer refresh...");
+        
+        fetch(`/check_bulk_round_status/{{ bulk_round.id }}?_=${Date.now()}`, {
+            cache: 'reload', // Force network request
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log("Force refresh response:", data);
+            
+            if (data.active && data.remaining !== undefined) {
+                const countdownElement = document.getElementById('countdown');
+                const timerBarElement = document.getElementById('timer-bar');
+                
+                if (countdownElement && timerBarElement) {
+                    // Store the server time value
+                    window.lastServerTime = data.remaining;
+                    window.lastUpdateTime = Date.now();
+                    
+                    // Update the display
+                    countdownElement.textContent = formatTime(data.remaining);
+                    
+                    // Update timer bar
+                    const percent = (data.remaining / {{ bulk_round.duration }}) * 100;
+                    timerBarElement.style.width = `${Math.max(percent, 0)}%`;
+                }
+            }
+        })
+        .catch(error => console.error("Error in force refresh:", error));
+    }
     
     // Update the timer
     function updateTimer(duration) {
@@ -511,12 +643,7 @@
             } else {
                 // Show success toast
                 showToast(`Added ${duration} seconds to the timer`);
-                
-                // Force refresh the standardized timer
-                const timerKey = 'bulk-round-{{ bulk_round.id }}';
-                if (TimerUtils && TimerUtils.forceSync) {
-                    TimerUtils.forceSync(timerKey);
-                }
+                updateTimerDisplay();
             }
         })
         .catch(error => {
@@ -643,45 +770,33 @@
         });
     }
     
-    // Initialize standardized timer for active rounds
+    // Initialize timer display and refresh
     {% if bulk_round.is_active %}
     document.addEventListener('DOMContentLoaded', function() {
-        console.log("DOM loaded, initializing standardized bulk round timer...");
+        console.log("DOM loaded, initializing bulk round timer...");
         
-        // Initialize the standardized timer with combined countdown and progress
-        TimerUtils.addCombinedTimer(
-            'bulk-round-{{ bulk_round.id }}',
-            '/check_bulk_round_status/{{ bulk_round.id }}',
-            'countdown',
-            'timer-bar',
-            {{ bulk_round.duration }},
-            {
-                format: 'HH:MM:SS',
-                syncInterval: 3000, // Sync every 3 seconds for admin precision
-                callbacks: {
-                    onSync: function(data) {
-                        console.log("Timer synced:", data);
-                    },
-                    onExpired: function(data) {
-                        console.log("Timer expired, reloading page...");
-                        showLoading('Round status changed, refreshing page...');
-                        setTimeout(() => window.location.reload(), 1000);
-                    },
-                    onError: function(error) {
-                        console.error('Timer sync error:', error);
-                        showLoading('Connection lost, retrying...');
-                    }
-                }
-            }
-        );
+        // Force refresh immediately to get fresh data
+        forceTimerRefresh();
+        
+        // Initialize timer with server data
+        updateTimerDisplay();
+        
+        // Update from server every 5 seconds
+        console.log("Setting up server update interval...");
+        const serverUpdateInterval = setInterval(updateTimerDisplay, 5000);
+        
+        // Update locally every 100ms for smooth countdown
+        console.log("Setting up local update interval...");
+        const localUpdateInterval = setInterval(updateTimerLocally, 100);
         
         // Auto-refresh bulk round data every 15 seconds
         console.log("Setting up data refresh interval...");
         const dataRefreshInterval = setInterval(autoRefreshBulkRoundData, 15000);
         
-        // Cleanup when page is unloaded
+        // Cleanup interval when page is unloaded
         window.addEventListener('beforeunload', () => {
-            TimerUtils.removeTimer('bulk-round-{{ bulk_round.id }}');
+            clearInterval(serverUpdateInterval);
+            clearInterval(localUpdateInterval);
             clearInterval(dataRefreshInterval);
         });
     });

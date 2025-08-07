@@ -743,9 +743,6 @@
         });
     </script>
 
-    <!-- Timer Utility Library for consistent timer functionality -->
-    <script src="{{ url_for('static', filename='js/timer-utils.js') }}"></script>
-
     <!-- Only include back button prevention for authenticated users -->
     {% if current_user.is_authenticated %}
     <script>
