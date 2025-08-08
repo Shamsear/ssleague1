@@ -21,11 +21,48 @@ from bs4 import BeautifulSoup
 import re
 from github_service import github_service
 
-# Import performance optimizations
-from performance_optimizations import (
-    PerformanceMonitor, performance_monitor, app_cache, cache_result,
-    DatabaseOptimizations, setup_performance_monitoring, cleanup_performance_cache
-)
+# Import performance optimizations (optional)
+try:
+    from performance_optimizations import (
+        PerformanceMonitor, performance_monitor, app_cache, cache_result,
+        DatabaseOptimizations, setup_performance_monitoring, cleanup_performance_cache
+    )
+    PERFORMANCE_OPTIMIZATIONS_AVAILABLE = True
+except ImportError:
+    # Performance optimizations not available - create dummy functions
+    print("Performance optimizations module not available - using dummy implementations")
+    
+    class PerformanceMonitor:
+        def __init__(self, operation_name): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+    
+    def performance_monitor(operation_name):
+        def decorator(func): return func
+        return decorator
+    
+    class DummyCache:
+        def get(self, key): return None
+        def set(self, key, value, ttl=300): pass
+        def delete(self, key): pass
+        def clear(self): pass
+    
+    app_cache = DummyCache()
+    
+    def cache_result(key_prefix, ttl_seconds=300):
+        def decorator(func): return func
+        return decorator
+    
+    class DatabaseOptimizations:
+        @staticmethod
+        def create_performance_indexes(): pass
+        @staticmethod
+        def optimize_database_settings(): pass
+    
+    def setup_performance_monitoring(): pass
+    def cleanup_performance_cache(): pass
+    
+    PERFORMANCE_OPTIMIZATIONS_AVAILABLE = False
 
 app = Flask(__name__)
 app.config.from_object(Config)
