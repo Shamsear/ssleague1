@@ -6,7 +6,7 @@ from models import TeamMember, Category, Match, PlayerMatchup, TeamStats, Player
 from config import Config
 from werkzeug.security import generate_password_hash
 import json
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import sqlite3
 import pandas as pd
 import io
@@ -46,14 +46,11 @@ def get_team_logo_url(team):
     if not team:
         return None
     try:
+        # Use the same logic as Team.get_logo_url() method for consistency
         return team.get_logo_url()
     except Exception as e:
-        # Fallback for any errors
-        if team.logo_url and team.logo_storage_type == 'github':
-            return team.logo_url
-        elif team.logo_url:
-            filename = team.logo_url.split('/')[-1]
-            return f'/uploads/logos/{filename}'
+        # Fallback for any errors - return None to show default placeholder
+        print(f"Error getting team logo URL: {e}")
         return None
 
 # Runtime database initialization check
@@ -709,15 +706,26 @@ def edit_profile():
         minutes = int((time_remaining.total_seconds() % 3600) // 60)
         time_until_change = f"{hours}h {minutes}m"
     
-    # Set no-cache headers for security
+    # Add timestamp for cache busting
+    import time
+    cache_buster = int(time.time())
+    
+    # Set comprehensive no-cache headers for security and live updates
     response = make_response(render_template('edit_profile.html', 
                           team=team,
                           can_change_password=can_change_password,
                           time_until_change=time_until_change,
-                          last_password_change=current_user.last_password_change))
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
+                          last_password_change=current_user.last_password_change,
+                          cache_buster=cache_buster))
+    
+    # Comprehensive cache prevention headers
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, max-age=0, post-check=0, pre-check=0, private"
     response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
+    response.headers["Expires"] = "Thu, 01 Jan 1970 00:00:00 GMT"  # Expired date
+    response.headers["Last-Modified"] = datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S GMT')
+    response.headers["ETag"] = f'"edit-profile-{current_user.id}-{cache_buster}"'
+    response.headers["Vary"] = "*"  # Vary on all possible headers
+    
     return response
 
 @app.route('/start_round', methods=['POST'])

@@ -28,7 +28,7 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
     
     def can_change_password(self):
-        """Check if user can change password (once per day restriction)"""
+        """Check if user can change password (5 times per day restriction)"""
         if not self.last_password_change:
             return True  # First time password change
         
@@ -40,9 +40,20 @@ class User(UserMixin, db.Model):
         if last_change.tzinfo is None:
             last_change = last_change.replace(tzinfo=timezone.utc)
         
-        # Check if 24 hours have passed since last password change
-        time_since_change = now - last_change
-        return time_since_change >= timedelta(days=1)
+        # Check if we're within the same day (UTC)
+        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        last_change_start_of_day = last_change.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # If password was changed on a different day, allow change
+        if last_change_start_of_day < start_of_day:
+            return True
+        
+        # If within the same day, check if we've reached the daily limit
+        # For now, we'll use a simple approach - allow up to 5 changes per day
+        # This would require tracking change count, but for simplicity, we'll allow changes
+        # every 4.8 hours (24 hours / 5 = 4.8 hours) within the same day
+        hours_since_last_change = (now - last_change).total_seconds() / 3600
+        return hours_since_last_change >= 4.8  # Allow change every 4.8 hours (5 times per day max)
     
     def time_until_password_change(self):
         """Get time remaining until user can change password again"""
@@ -57,8 +68,10 @@ class User(UserMixin, db.Model):
         if last_change.tzinfo is None:
             last_change = last_change.replace(tzinfo=timezone.utc)
         
+        # Calculate time until next allowed change (4.8 hours from last change)
         time_since_change = now - last_change
-        return timedelta(days=1) - time_since_change
+        wait_time = timedelta(hours=4.8) - time_since_change
+        return max(wait_time, timedelta(0))
         
     def generate_remember_token(self, days=30):
         """Generate a secure token for the 'remember me' functionality"""

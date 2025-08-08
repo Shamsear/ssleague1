@@ -9,8 +9,8 @@
         <div class="flex flex-col lg:flex-row items-start lg:items-center gap-6">
             <!-- Team Logo Section -->
             <div class="relative group">
-                {% if team.get_logo_url() %}
-                    <img src="{{ team.get_logo_url() }}" 
+                {% if team.logo_url %}
+                    <img src="{{ url_for('uploaded_logo', filename=team.logo_url.split('/')[-1]) }}" 
                          alt="{{ team.name }} logo" 
                          class="w-32 h-32 rounded-2xl object-cover border-4 border-primary/20 shadow-xl group-hover:shadow-2xl transition-all duration-300 group-hover:scale-105">
                 {% else %}
