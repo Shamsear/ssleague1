@@ -50,7 +50,7 @@
                                         {% if team_data.team.logo_storage_type == 'github' %}
                                         <img src="{{ team_data.team.logo_url }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
                                         {% else %}
-                                        <img src="{{ url_for('uploaded_logo', filename=team_data.team.logo_url.split('/')[-1]) }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
+                                        <img src="{{ get_team_logo_url(team_data.team) }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
                                         {% endif %}
                                     {% else %}
                                     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -176,7 +176,7 @@
                                 {% if team_data.team.logo_storage_type == 'github' %}
                                 <img src="{{ team_data.team.logo_url }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
                                 {% else %}
-                                <img src="{{ url_for('uploaded_logo', filename=team_data.team.logo_url.split('/')[-1]) }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
+                                <img src="{{ get_team_logo_url(team_data.team) }}" alt="{{ team_data.team.name }}" class="h-full w-full object-cover">
                                 {% endif %}
                             {% else %}
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

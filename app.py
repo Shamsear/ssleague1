@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory, session, make_response, Response
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, send_from_directory, session, make_response, Response, current_app
 from werkzeug.utils import secure_filename
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from models import db, User, Team, Player, Round, Bid, Tiebreaker, TeamTiebreaker, PasswordResetRequest, AuctionSettings, BulkBidTiebreaker, BulkBidRound, BulkBid, TeamBulkTiebreaker
@@ -21,6 +21,12 @@ from bs4 import BeautifulSoup
 import re
 from github_service import github_service
 
+# Import performance optimizations
+from performance_optimizations import (
+    PerformanceMonitor, performance_monitor, app_cache, cache_result,
+    DatabaseOptimizations, setup_performance_monitoring, cleanup_performance_cache
+)
+
 app = Flask(__name__)
 app.config.from_object(Config)
 
@@ -38,6 +44,9 @@ migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Initialize performance monitoring
+setup_performance_monitoring()
 
 # Add template global functions
 @app.template_global()

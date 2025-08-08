@@ -31,7 +31,7 @@
                                      alt="{{ team.name }} logo" 
                                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                                 {% else %}
-                                <img src="{{ url_for('uploaded_logo', filename=team.logo_url.split('/')[-1]) }}" 
+                                <img src="{{ get_team_logo_url(team) }}" 
                                      alt="{{ team.name }} logo" 
                                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
                                 {% endif %}

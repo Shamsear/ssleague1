@@ -457,7 +457,7 @@
                             <!-- Team Logo -->
                             <div class="mr-3 relative group flex-shrink-0">
                                 {% if team.logo_url %}
-                                    <img src="{{ url_for('uploaded_logo', filename=team.logo_url.split('/')[-1]) }}" 
+                                    <img src="{{ get_team_logo_url(team) }}" 
                                          alt="{{ team.name }} logo" 
                                          class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover border-2 border-primary/20 shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:scale-105">
                                     <div class="absolute inset-0 rounded-lg bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
