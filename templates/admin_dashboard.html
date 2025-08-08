@@ -459,7 +459,7 @@
                                 {% if team.logo_url %}
                                     <img src="{{ get_team_logo_url(team) }}" 
                                          alt="{{ team.name }} logo" 
-                                         class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover border-2 border-primary/20 shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:scale-105">
+                                         class="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-contain border-2 border-primary/20 shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:scale-105">
                                     <div class="absolute inset-0 rounded-lg bg-primary/10 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 {% else %}
                                     <div class="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-primary/20 to-primary/30 rounded-lg flex items-center justify-center border-2 border-primary/20 shadow-sm group-hover:shadow-md transition-all duration-300 group-hover:scale-105">

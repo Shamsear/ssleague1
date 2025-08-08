@@ -269,7 +269,7 @@
                         <div class="flex items-center space-x-4">
                             {% if team.logo_url %}
                             <img src="{{ get_team_logo_url(team) }}" alt="{{ team.name }} logo" 
-                                 class="w-16 h-16 object-cover rounded-xl border-2 border-white shadow-sm">
+                                 class="w-16 h-16 object-contain rounded-xl border-2 border-white shadow-sm">
                             {% else %}
                             <div class="w-16 h-16 bg-gradient-to-br from-primary to-primary-dark rounded-xl flex items-center justify-center shadow-sm">
                                 <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -334,7 +334,7 @@
                         </div>
                         <div id="logoPreview" class="hidden mt-4">
                             <div class="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg">
-                                <img id="previewImage" class="w-16 h-16 object-cover rounded-lg border border-gray-200" src="" alt="Logo preview">
+                                <img id="previewImage" class="w-16 h-16 object-contain rounded-lg border border-gray-200" src="" alt="Logo preview">
                                 <div class="flex-1">
                                     <p class="text-sm font-medium text-gray-900" id="fileName"></p>
                                     <p class="text-xs text-gray-500" id="fileSize"></p>

@@ -29,11 +29,11 @@
                                 {% if team.logo_storage_type == 'github' %}
                                 <img src="{{ team.logo_url }}" 
                                      alt="{{ team.name }} logo" 
-                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                     class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
                                 {% else %}
                                 <img src="{{ get_team_logo_url(team) }}" 
                                      alt="{{ team.name }} logo" 
-                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                     class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
                                 {% endif %}
                                 <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                                     <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -60,7 +60,7 @@
                                     <svg id="uploadIcon" class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                     </svg>
-                                    <img id="previewImg" class="hidden w-full h-full object-cover" src="#" alt="Team logo preview">
+                                    <img id="previewImg" class="hidden w-full h-full object-contain" src="#" alt="Team logo preview">
                                 </div>
                             </div>
                             <div class="flex-grow">

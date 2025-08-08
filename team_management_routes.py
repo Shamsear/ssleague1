@@ -906,10 +906,44 @@ def update_player_and_team_stats(match_id):
     
     db.session.commit()
 
+# Helper function to ensure all teams have stats records
+def ensure_all_teams_have_stats():
+    """Create TeamStats records for teams that don't have them yet"""
+    # Get all teams
+    all_teams = Team.query.all()
+    
+    for team in all_teams:
+        # Check if team has stats record
+        existing_stats = TeamStats.query.filter_by(team_id=team.id).first()
+        if not existing_stats:
+            # Create new stats record with 0 values
+            new_stats = TeamStats(
+                team_id=team.id,
+                played=0,
+                wins=0,
+                draws=0,
+                losses=0,
+                goals_for=0,
+                goals_against=0,
+                points=0
+            )
+            db.session.add(new_stats)
+    
+    # Commit all new stats records
+    try:
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error creating team stats records: {e}")
+
 # Leaderboard routes
 @team_management.route('/team_leaderboard')
 @login_required
 def team_leaderboard():
+    # Ensure all teams have stats records
+    ensure_all_teams_have_stats()
+    
+    # Get all team stats with proper ordering
     team_stats = TeamStats.query.join(Team).order_by(
         TeamStats.points.desc(),
         (TeamStats.goals_for - TeamStats.goals_against).desc(),
