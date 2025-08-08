@@ -330,6 +330,9 @@ def register():
             
             # Handle team logo upload
             logo_url = None
+            logo_storage_type = 'local'  # Default fallback
+            github_logo_sha = None
+            
             if 'team_logo' in request.files:
                 logo_file = request.files['team_logo']
                 if logo_file and logo_file.filename != '':
@@ -339,29 +342,64 @@ def register():
                     
                     if file_extension in allowed_extensions:
                         try:
-                            # Create uploads directory if it doesn't exist
-                            upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'logos')
-                            os.makedirs(upload_dir, exist_ok=True)
+                            # Read the logo file content
+                            logo_content = logo_file.read()
                             
-                            # Generate unique filename to avoid conflicts
-                            filename = secure_filename(logo_file.filename)
-                            unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                            file_path = os.path.join(upload_dir, unique_filename)
-                            
-                            # Save the file
-                            logo_file.save(file_path)
-                            
-                            # Store relative path for database
-                            logo_url = f"uploads/logos/{unique_filename}"
-                            
-                        except Exception as e:
-                            # If file upload fails, continue without logo but show warning
-                            flash('Team logo could not be uploaded, but registration was successful', 'warning')
+                            # Try GitHub upload first if configured
+                            if github_service.is_configured():
+                                github_result = github_service.upload_team_logo(
+                                    999999,  # Temporary ID - will be updated after team is created
+                                    team_name,
+                                    logo_content,
+                                    logo_file.filename
+                                )
+                                
+                                if github_result and github_result.get('success'):
+                                    # Store GitHub URL and metadata
+                                    logo_url = github_result['download_url']
+                                    logo_storage_type = 'github'
+                                    github_logo_sha = github_result.get('sha')
+                                    flash('Team logo uploaded to GitHub successfully!', 'success')
+                                else:
+                                    flash('GitHub upload failed, using local storage', 'warning')
+                                    raise Exception("GitHub upload failed")
+                            else:
+                                # GitHub not configured, use local storage
+                                flash('GitHub not configured, using local storage', 'info')
+                                raise Exception("GitHub not configured")
+                        
+                        except Exception as github_error:
+                            # Fall back to local storage
+                            try:
+                                # Reset file pointer for local upload
+                                logo_file.seek(0)
+                                
+                                # Create uploads directory if it doesn't exist
+                                upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'logos')
+                                os.makedirs(upload_dir, exist_ok=True)
+                                
+                                # Generate unique filename to avoid conflicts
+                                filename = secure_filename(logo_file.filename)
+                                unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                                file_path = os.path.join(upload_dir, unique_filename)
+                                
+                                # Save the file locally
+                                logo_file.save(file_path)
+                                
+                                # Store local path and metadata
+                                logo_url = f"uploads/logos/{unique_filename}"
+                                logo_storage_type = 'local'
+                                github_logo_sha = None
+                                
+                            except Exception as local_error:
+                                flash('Logo could not be uploaded', 'error')
                     else:
                         flash('Invalid logo file format. Please use PNG, JPG, JPEG, GIF, or WEBP', 'warning')
             
-            # Set the logo URL on the team
+            # Set the logo URL and metadata on the team
             team.logo_url = logo_url
+            team.logo_storage_type = logo_storage_type
+            team.github_logo_sha = github_logo_sha
             db.session.add(team)
         
         db.session.commit()
@@ -628,11 +666,13 @@ def edit_profile():
                                 team.logo_storage_type = 'github'
                                 team.github_logo_sha = github_result.get('sha')
                                 logo_updated = True
+                                flash('Team logo uploaded to GitHub successfully!', 'success')
                             else:
-                                # GitHub upload failed, fall back to local storage
+                                flash('GitHub upload failed, using local storage', 'warning')
                                 raise Exception("GitHub upload failed")
                         else:
                             # GitHub not configured, use local storage
+                            flash('GitHub not configured, using local storage', 'info')
                             raise Exception("GitHub not configured")
                     
                     except Exception as github_error:
@@ -2412,9 +2452,8 @@ def admin_add_team():
     if not current_user.is_admin:
         return jsonify({'error': 'Unauthorized'}), 403
     
-    data = request.json
-    name = data.get('name')
-    balance = data.get('balance', 1000000)  # Default balance if not provided
+    name = request.form.get('name')
+    balance = request.form.get('balance', 1000000, type=int)  # Default balance if not provided
     
     if not name:
         return jsonify({'error': 'Team name is required'}), 400
@@ -2425,8 +2464,97 @@ def admin_add_team():
     
     # Create the team
     team = Team(name=name, balance=balance)
+    
+    # Handle team logo upload
+    logo_url = None
+    logo_storage_type = 'local'  # Default fallback
+    github_logo_sha = None
+    
+    if 'logo' in request.files:
+        logo_file = request.files['logo']
+        if logo_file and logo_file.filename != '':
+            # Check if file is an image
+            allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+            file_extension = logo_file.filename.rsplit('.', 1)[1].lower() if '.' in logo_file.filename else ''
+            
+            if file_extension in allowed_extensions:
+                try:
+                    # Read the logo file content
+                    logo_content = logo_file.read()
+                    
+                    # Try GitHub upload first if configured
+                    if github_service.is_configured():
+                        github_result = github_service.upload_team_logo(
+                            999999,  # Temporary ID - will be updated after team is created
+                            name,
+                            logo_content,
+                            logo_file.filename
+                        )
+                        
+                        if github_result and github_result.get('success'):
+                            # Store GitHub URL and metadata
+                            logo_url = github_result['download_url']
+                            logo_storage_type = 'github'
+                            github_logo_sha = github_result.get('sha')
+                        else:
+                            raise Exception("GitHub upload failed")
+                    else:
+                        # GitHub not configured, use local storage
+                        raise Exception("GitHub not configured")
+                
+                except Exception as github_error:
+                    # Fall back to local storage
+                    try:
+                        # Reset file pointer for local upload
+                        logo_file.seek(0)
+                        
+                        # Create uploads directory if it doesn't exist
+                        upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'logos')
+                        os.makedirs(upload_dir, exist_ok=True)
+                        
+                        # Generate unique filename to avoid conflicts
+                        filename = secure_filename(logo_file.filename)
+                        unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                        file_path = os.path.join(upload_dir, unique_filename)
+                        
+                        # Save the file locally
+                        logo_file.save(file_path)
+                        
+                        # Store local path and metadata
+                        logo_url = f"uploads/logos/{unique_filename}"
+                        logo_storage_type = 'local'
+                        github_logo_sha = None
+                        
+                    except Exception as local_error:
+                        pass  # Continue without logo if both methods fail
+            else:
+                return jsonify({'error': 'Invalid logo file format. Please use PNG, JPG, JPEG, GIF, or WEBP'}), 400
+    
+    # Set the logo URL and metadata on the team
+    team.logo_url = logo_url
+    team.logo_storage_type = logo_storage_type
+    team.github_logo_sha = github_logo_sha
+    
     db.session.add(team)
     db.session.commit()
+    
+    # Update GitHub upload with correct team ID if needed
+    if logo_storage_type == 'github' and github_logo_sha:
+        try:
+            # Re-upload with correct team ID
+            logo_file.seek(0)
+            github_result = github_service.upload_team_logo(
+                team.id,
+                name, 
+                logo_file.read(),
+                logo_file.filename
+            )
+            if github_result and github_result.get('success'):
+                team.logo_url = github_result['download_url']
+                team.github_logo_sha = github_result.get('sha')
+                db.session.commit()
+        except:
+            pass  # Keep the temporary upload if re-upload fails
     
     return jsonify({'message': 'Team added successfully', 'id': team.id})
 
@@ -2437,26 +2565,126 @@ def admin_edit_team(team_id):
         return jsonify({'error': 'Unauthorized'}), 403
     
     team = Team.query.get_or_404(team_id)
-    data = request.json
     
-    name = data.get('name')
-    balance = data.get('balance')
+    # Check if this is a form submission (logo upload) or JSON request
+    if request.content_type and 'multipart/form-data' in request.content_type:
+        # Form submission with possible file upload
+        name = request.form.get('name')
+        balance = request.form.get('balance', type=int)
+        
+        if not name:
+            return jsonify({'error': 'Team name is required'}), 400
+        
+        # Check if another team with this name already exists
+        existing_team = Team.query.filter_by(name=name).first()
+        if existing_team and existing_team.id != team_id:
+            return jsonify({'error': 'Another team with this name already exists'}), 400
+        
+        # Update basic team information
+        team.name = name
+        if balance is not None:
+            team.balance = balance
+        
+        # Handle logo upload if present
+        if 'logo' in request.files:
+            logo_file = request.files['logo']
+            if logo_file and logo_file.filename != '':
+                # Check if file is an image
+                allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+                file_extension = logo_file.filename.rsplit('.', 1)[1].lower() if '.' in logo_file.filename else ''
+                
+                if file_extension in allowed_extensions:
+                    try:
+                        # Read the logo file content
+                        logo_content = logo_file.read()
+                        
+                        # Try GitHub upload first if configured
+                        if github_service.is_configured():
+                            # Delete old GitHub logo if exists
+                            if team.logo_storage_type == 'github' and team.logo_url:
+                                old_extension = team.logo_url.split('.')[-1] if '.' in team.logo_url else 'png'
+                                github_service.delete_team_logo(team.id, team.name, old_extension)
+                            
+                            # Upload new logo to GitHub
+                            github_result = github_service.upload_team_logo(
+                                team.id,
+                                name,
+                                logo_content,
+                                logo_file.filename
+                            )
+                            
+                            if github_result and github_result.get('success'):
+                                # Store GitHub URL and metadata
+                                team.logo_url = github_result['download_url']
+                                team.logo_storage_type = 'github'
+                                team.github_logo_sha = github_result.get('sha')
+                            else:
+                                raise Exception("GitHub upload failed")
+                        else:
+                            # GitHub not configured, use local storage
+                            raise Exception("GitHub not configured")
+                    
+                    except Exception as github_error:
+                        # Fall back to local storage
+                        try:
+                            # Reset file pointer for local upload
+                            logo_file.seek(0)
+                            
+                            # Create uploads directory if it doesn't exist
+                            upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'logos')
+                            os.makedirs(upload_dir, exist_ok=True)
+                            
+                            # Delete old local logo if exists
+                            if team.logo_storage_type == 'local' and team.logo_url:
+                                old_logo_path = os.path.join(app.root_path, 'static', team.logo_url)
+                                if os.path.exists(old_logo_path):
+                                    try:
+                                        os.remove(old_logo_path)
+                                    except:
+                                        pass  # Ignore errors when deleting old logo
+                            
+                            # Generate unique filename to avoid conflicts
+                            filename = secure_filename(logo_file.filename)
+                            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                            file_path = os.path.join(upload_dir, unique_filename)
+                            
+                            # Save the file locally
+                            logo_file.save(file_path)
+                            
+                            # Store local path and metadata
+                            team.logo_url = f"uploads/logos/{unique_filename}"
+                            team.logo_storage_type = 'local'
+                            team.github_logo_sha = None  # Clear GitHub metadata
+                            
+                        except Exception as local_error:
+                            pass  # Continue without updating logo if both methods fail
+                else:
+                    return jsonify({'error': 'Invalid logo file format. Please use PNG, JPG, JPEG, GIF, or WEBP'}), 400
+        
+        db.session.commit()
+        return jsonify({'message': 'Team updated successfully'})
     
-    if not name:
-        return jsonify({'error': 'Team name is required'}), 400
-    
-    # Check if another team with this name already exists
-    existing_team = Team.query.filter_by(name=name).first()
-    if existing_team and existing_team.id != team_id:
-        return jsonify({'error': 'Another team with this name already exists'}), 400
-    
-    team.name = name
-    if balance is not None:
-        team.balance = balance
-    
-    db.session.commit()
-    
-    return jsonify({'message': 'Team updated successfully'})
+    else:
+        # JSON request (for basic information updates without logo)
+        data = request.json
+        
+        name = data.get('name')
+        balance = data.get('balance')
+        
+        if not name:
+            return jsonify({'error': 'Team name is required'}), 400
+        
+        # Check if another team with this name already exists
+        existing_team = Team.query.filter_by(name=name).first()
+        if existing_team and existing_team.id != team_id:
+            return jsonify({'error': 'Another team with this name already exists'}), 400
+        
+        team.name = name
+        if balance is not None:
+            team.balance = balance
+        
+        db.session.commit()
+        return jsonify({'message': 'Team updated successfully'})
 
 @app.route('/admin/team/<int:team_id>')
 @login_required
