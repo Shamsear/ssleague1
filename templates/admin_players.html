@@ -35,14 +35,17 @@
                         <input type="text" name="q" id="searchQuery" value="{{ search_query or '' }}" placeholder="Search players..." 
                                class="pl-10 w-full py-2.5 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
                     </div>
-                    <div class="flex gap-2">
-                        <select name="position" id="positionFilter" class="flex-1 py-2.5 px-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                    <!-- Mobile-first filter layout -->
+                    <div class="flex flex-col gap-3 sm:hidden">
+                        <!-- Mobile: Stacked layout -->
+                        <select name="position" id="positionFilter" class="w-full py-3 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base">
                             <option value="">All Positions</option>
                             {% for position in config.POSITIONS %}
                             <option value="{{ position }}" {% if current_position == position %}selected{% endif %}>{{ position }}</option>
                             {% endfor %}
                         </select>
-                        <select name="group" id="groupFilter" class="flex-1 py-2.5 px-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                        
+                        <select name="group" id="groupFilter" class="w-full py-3 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base">
                             <option value="">All Groups</option>
                             {% for position in ['CB', 'DMF', 'CMF', 'AMF', 'CF'] %}
                                 {% for suffix in [1, 2] %}
@@ -50,7 +53,37 @@
                                 {% endfor %}
                             {% endfor %}
                         </select>
-                        <select name="eligibility" id="eligibilityFilter" class="flex-1 py-2.5 px-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                        
+                        <select name="eligibility" id="eligibilityFilter" class="w-full py-3 px-4 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 text-base">
+                            <option value="eligible" {% if eligibility_filter == 'eligible' %}selected{% endif %}>Eligible Players</option>
+                            <option value="all" {% if eligibility_filter == 'all' %}selected{% endif %}>All Players</option>
+                        </select>
+                        
+                        <button type="submit" class="w-full py-3 px-4 rounded-xl bg-primary text-white hover:bg-primary/90 transition-all duration-300 font-medium flex items-center justify-center gap-2 min-h-[44px]">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Apply Filters
+                        </button>
+                    </div>
+                    
+                    <!-- Desktop: Horizontal layout -->
+                    <div class="hidden sm:flex gap-2">
+                        <select name="position" id="positionFilterDesktop" class="flex-1 py-2.5 px-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                            <option value="">All Positions</option>
+                            {% for position in config.POSITIONS %}
+                            <option value="{{ position }}" {% if current_position == position %}selected{% endif %}>{{ position }}</option>
+                            {% endfor %}
+                        </select>
+                        <select name="group" id="groupFilterDesktop" class="flex-1 py-2.5 px-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
+                            <option value="">All Groups</option>
+                            {% for position in ['CB', 'DMF', 'CMF', 'AMF', 'CF'] %}
+                                {% for suffix in [1, 2] %}
+                                <option value="{{ position }}-{{ suffix }}" {% if current_group == position + '-' + suffix|string %}selected{% endif %}>{{ position }}-{{ suffix }}</option>
+                                {% endfor %}
+                            {% endfor %}
+                        </select>
+                        <select name="eligibility" id="eligibilityFilterDesktop" class="flex-1 py-2.5 px-3 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200">
                             <option value="eligible" {% if eligibility_filter == 'eligible' %}selected{% endif %}>Eligible Players</option>
                             <option value="all" {% if eligibility_filter == 'all' %}selected{% endif %}>All Players</option>
                         </select>
@@ -77,13 +110,94 @@
                 </div>
             </div>
         </div>
-        <div class="overflow-x-auto rounded-lg">
+        <!-- Mobile Cards Layout (hidden on desktop) -->
+        <div class="block sm:hidden">
+            {% if players %}
+            <div class="grid gap-2">
+                {% for player in players %}
+                <div class="mobile-player-card bg-white/70 backdrop-blur-sm border border-white/40 rounded-xl p-3 transition-all duration-200 hover:bg-white/80 hover:shadow-md">
+                    <div class="flex items-center justify-between">
+                        <!-- Left side: Player info -->
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center gap-2 mb-1">
+                                <h3 class="font-semibold text-gray-800 text-sm truncate">{{ player.name }}</h3>
+                                {% if player.is_auction_eligible %}
+                                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-700 flex-shrink-0">
+                                    ✓
+                                </span>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="flex items-center gap-3 text-xs text-gray-600">
+                                <span class="font-medium">{{ player.position }}</span>
+                                {% if player.position_group %}
+                                <span class="px-2 py-0.5 rounded-md bg-primary/10 text-primary text-xs font-medium">
+                                    {{ player.position_group }}
+                                </span>
+                                {% endif %}
+                                <span class="px-2 py-0.5 rounded-md text-xs font-medium
+                                {% if player.overall_rating >= 85 %}bg-green-100 text-green-700
+                                {% elif player.overall_rating >= 75 %}bg-blue-100 text-blue-700
+                                {% elif player.overall_rating >= 65 %}bg-yellow-100 text-yellow-700
+                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                    {{ player.overall_rating }}
+                                </span>
+                            </div>
+                            
+                            {% if player.team %}
+                            <div class="text-xs text-gray-500 mt-1 truncate">
+                                Team: {{ player.team.name }}
+                            </div>
+                            {% else %}
+                            <div class="text-xs text-gray-500 mt-1">
+                                Free Agent
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Right side: Actions -->
+                        <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+                            <a href="{{ url_for('player_detail', player_id=player.id) }}" class="view-player-btn p-2 rounded-lg bg-gray-100/80 text-gray-600 hover:bg-gray-200/80 hover:text-gray-800 transition-colors duration-200" title="View Details">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </a>
+                            <button type="button" data-player-id="{{ player.id }}" class="edit-player-btn p-2 rounded-lg bg-primary/10 text-primary hover:bg-primary/20 hover:text-primary/80 transition-colors duration-200" title="Edit Player">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                            </button>
+                            <button type="button" data-player-id="{{ player.id }}" class="delete-player-btn p-2 rounded-lg bg-red-50/80 text-red-600 hover:bg-red-100/80 hover:text-red-700 transition-colors duration-200" title="Delete Player">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-8">
+                <div class="text-gray-500 mb-2">
+                    <svg class="w-12 h-12 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                    </svg>
+                </div>
+                <p class="text-gray-500 text-sm">No players found</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Desktop Table Layout (hidden on mobile) -->
+        <div class="hidden sm:block overflow-x-auto rounded-lg">
             <table class="min-w-full divide-y divide-gray-200">
                 <thead class="bg-white/10">
                     <tr>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Player</th>
-                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden sm:table-cell">Position</th>
-                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden sm:table-cell">Group</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Position</th>
+                        <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Group</th>
                         <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Overall</th>
                         <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">Team</th>
                         <th class="px-2 py-2 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">Actions</th>
@@ -102,11 +216,10 @@
                                     </span>
                                     {% endif %}
                                 </div>
-                                <div class="text-xs text-gray-600 sm:hidden">{{ player.position }}</div>
                             </div>
                         </td>
-                        <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-700 hidden sm:table-cell">{{ player.position }}</td>
-                        <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-700 hidden sm:table-cell">
+                        <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-700">{{ player.position }}</td>
+                        <td class="px-2 py-3 whitespace-nowrap text-sm text-gray-700">
                             {% if player.position_group %}
                                 <span class="px-2 py-1 rounded-md bg-primary/10 text-primary">
                                     {{ player.position_group }}
@@ -154,7 +267,7 @@
                     </tr>
                     {% else %}
                     <tr>
-                        <td colspan="5" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No players found</td>
+                        <td colspan="6" class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">No players found</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -377,7 +490,12 @@
 // Add the search form submission with debounce
 const searchForm = document.getElementById('searchForm');
 const searchQuery = document.getElementById('searchQuery');
-const positionFilter = document.getElementById('positionFilter');
+const positionFilterMobile = document.getElementById('positionFilter');
+const positionFilterDesktop = document.getElementById('positionFilterDesktop');
+const groupFilterMobile = document.getElementById('groupFilter');
+const groupFilterDesktop = document.getElementById('groupFilterDesktop');
+const eligibilityFilterMobile = document.getElementById('eligibilityFilter');
+const eligibilityFilterDesktop = document.getElementById('eligibilityFilterDesktop');
 const searchButton = searchForm.querySelector('button[type="submit"]');
 
 // Add event listeners for input changes with debounce
@@ -407,9 +525,8 @@ searchQuery.addEventListener('input', function() {
     }, 800); // Increased to 800ms for better user experience
 });
 
-// For position filter, still auto-submit
-positionFilter.addEventListener('change', function() {
-    // Show loading state in button
+// Helper function to show loading state and submit form
+function showLoadingAndSubmit() {
     if (!originalButtonContent) {
         originalButtonContent = searchButton.innerHTML;
     }
@@ -422,7 +539,27 @@ positionFilter.addEventListener('change', function() {
     `;
     searchButton.disabled = true;
     searchForm.submit();
-});
+}
+
+// Add event listeners for all filter dropdowns
+if (positionFilterMobile) {
+    positionFilterMobile.addEventListener('change', showLoadingAndSubmit);
+}
+if (positionFilterDesktop) {
+    positionFilterDesktop.addEventListener('change', showLoadingAndSubmit);
+}
+if (groupFilterMobile) {
+    groupFilterMobile.addEventListener('change', showLoadingAndSubmit);
+}
+if (groupFilterDesktop) {
+    groupFilterDesktop.addEventListener('change', showLoadingAndSubmit);
+}
+if (eligibilityFilterMobile) {
+    eligibilityFilterMobile.addEventListener('change', showLoadingAndSubmit);
+}
+if (eligibilityFilterDesktop) {
+    eligibilityFilterDesktop.addEventListener('change', showLoadingAndSubmit);
+}
 
 // Add event listeners for edit and delete buttons
 document.addEventListener('DOMContentLoaded', function() {
@@ -631,6 +768,12 @@ function showEditPlayerModal(id) {
             document.getElementById('editPlayerPosition').value = player.position;
             document.getElementById('editPlayerOverall').value = player.overall_rating;
             document.getElementById('editPlayerTeam').value = player.team_id || '';
+            
+            // Set auction eligibility checkbox
+            const eligibilityCheckbox = document.getElementById('editPlayerEligibility');
+            if (eligibilityCheckbox) {
+                eligibilityCheckbox.checked = player.is_auction_eligible || false;
+            }
             
             // Set acquisition value if available and show field if team is selected
             if (player.team_id) {

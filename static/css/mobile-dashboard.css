@@ -615,6 +615,204 @@
 }
 
 /* ========================================
+   MOBILE FILTER SECTION ENHANCEMENTS
+========================================= */
+
+/* Mobile filter improvements */
+@media (max-width: 640px) {
+    .mobile-filter-container {
+        background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.85));
+        backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.6);
+        border-radius: 1.5rem;
+        padding: 1.25rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    }
+    
+    .mobile-filter-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
+        background-position: right 0.75rem center;
+        background-repeat: no-repeat;
+        background-size: 1.25rem 1.25rem;
+        padding-right: 2.5rem;
+        font-size: 1rem;
+        line-height: 1.5;
+        border: 2px solid rgba(229, 231, 235, 0.8);
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    
+    .mobile-filter-select:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .mobile-filter-button {
+        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+        color: white;
+        border: none;
+        border-radius: 0.875rem;
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        min-height: 48px;
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .mobile-filter-button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 16px rgba(59, 130, 246, 0.4);
+    }
+    
+    .mobile-filter-button:active {
+        transform: scale(0.98);
+    }
+    
+    .mobile-search-input {
+        background: rgba(255, 255, 255, 0.9);
+        border: 2px solid rgba(229, 231, 235, 0.8);
+        border-radius: 0.875rem;
+        padding: 0.875rem 1rem 0.875rem 2.5rem;
+        font-size: 1rem;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    }
+    
+    .mobile-search-input:focus {
+        border-color: #3b82f6;
+        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1), 0 4px 12px rgba(0, 0, 0, 0.1);
+        transform: translateY(-1px);
+    }
+    
+    .mobile-search-icon {
+        left: 0.875rem;
+        color: #9ca3af;
+        pointer-events: none;
+    }
+    
+    /* Action buttons mobile enhancement */
+    .mobile-action-button {
+        min-height: 48px;
+        border-radius: 0.875rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        -webkit-tap-highlight-color: transparent;
+    }
+    
+    .mobile-action-button:active {
+        transform: scale(0.98);
+    }
+    
+    /* Filter labels on mobile */
+    .mobile-filter-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #374151;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+    
+    /* Enhanced focus states for accessibility */
+    .mobile-filter-select:focus-visible,
+    .mobile-search-input:focus-visible,
+    .mobile-filter-button:focus-visible {
+        outline: 2px solid #3b82f6;
+        outline-offset: 2px;
+    }
+    
+    /* Loading state improvements */
+    .mobile-filter-loading {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+    
+    .mobile-filter-loading .mobile-filter-button {
+        background: linear-gradient(135deg, #9ca3af, #6b7280);
+        cursor: not-allowed;
+    }
+    
+    /* Improved spacing for filter sections */
+    .mobile-filter-row {
+        margin-bottom: 1rem;
+    }
+    
+    .mobile-filter-row:last-child {
+        margin-bottom: 0;
+    }
+    
+    /* Mobile Player Cards */
+    .mobile-player-card {
+        will-change: transform;
+        contain: layout style;
+        height: auto;
+        min-height: 72px;
+    }
+    
+    .mobile-player-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+    
+    .mobile-player-card h3 {
+        line-height: 1.2;
+        max-width: 160px;
+    }
+    
+    .mobile-player-card .flex-1 {
+        min-width: 0;
+        overflow: hidden;
+    }
+    
+    .mobile-player-card .flex-shrink-0 {
+        flex-shrink: 0;
+    }
+    
+    /* Action buttons in mobile cards */
+    .mobile-player-card button,
+    .mobile-player-card a {
+        min-width: 36px;
+        min-height: 36px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    
+    .mobile-player-card button:active,
+    .mobile-player-card a:active {
+        transform: scale(0.95);
+    }
+    
+    /* Compact status badges */
+    .mobile-player-card .text-xs {
+        font-size: 0.75rem;
+        line-height: 1;
+    }
+    
+    /* Grid optimization for large lists */
+    .mobile-players-grid {
+        display: grid;
+        gap: 0.5rem;
+        grid-template-columns: 1fr;
+    }
+    
+    /* Improve scrolling performance */
+    .mobile-players-container {
+        -webkit-overflow-scrolling: touch;
+        will-change: scroll-position;
+        contain: layout;
+    }
+}
+
+/* ========================================
    MOBILE DARK MODE
 ========================================= */
 
@@ -640,5 +838,137 @@
     .mobile-pending-card {
         background: rgba(55, 48, 163, 0.2);
         border-color: rgba(139, 92, 246, 0.3);
+    }
+}
+
+/* ========================================
+   MOBILE PLAYER SELECTION CARDS
+========================================= */
+
+/* Highly optimized compact player cards for large datasets */
+@media (max-width: 640px) {
+    .mobile-player-card {
+        min-height: 40px;
+        padding: 6px 8px;
+        margin-bottom: 1px;
+        font-size: 12px;
+        line-height: 1.2;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        transition: background-color 0.15s ease;
+        touch-action: manipulation;
+        contain: layout style;
+        transform: translateZ(0); /* Hardware acceleration */
+    }
+    
+    .mobile-player-card:hover,
+    .mobile-player-card:active {
+        background-color: rgba(255, 255, 255, 0.8);
+    }
+    
+    .mobile-player-card h4 {
+        font-size: 13px;
+        font-weight: 500;
+        letter-spacing: -0.01em;
+        line-height: 1.1;
+        margin: 0;
+    }
+    
+    .mobile-player-card .text-xs {
+        font-size: 10px;
+        line-height: 1;
+    }
+    
+    /* Ultra compact toggle switch */
+    .mobile-player-card .w-8 {
+        width: 28px;
+        height: 14px;
+    }
+    
+    .mobile-player-card .after\:h-3\.5 {
+        height: 12px;
+        width: 12px;
+    }
+    
+    .mobile-player-card .after\:w-3\.5 {
+        width: 12px;
+    }
+    
+    .mobile-player-card .after\:top-\[1px\] {
+        top: 1px;
+    }
+    
+    .mobile-player-card .after\:left-\[1px\] {
+        left: 1px;
+    }
+    
+    .mobile-player-card .peer-checked\:after\:translate-x-full {
+        transform: translateX(14px);
+    }
+    
+    /* Optimized spacing */
+    .mobile-player-card .gap-1\.5 {
+        gap: 0.2rem;
+    }
+    
+    .mobile-player-card .gap-2 {
+        gap: 0.3rem;
+    }
+    
+    .mobile-player-card .mb-0\.5 {
+        margin-bottom: 0.1rem;
+    }
+    
+    .mobile-player-card .mr-2 {
+        margin-right: 0.4rem;
+    }
+    
+    /* Compact badges */
+    .mobile-player-card .px-1\.5 {
+        padding-left: 0.2rem;
+        padding-right: 0.2rem;
+    }
+    
+    .mobile-player-card .py-0\.5 {
+        padding-top: 0.1rem;
+        padding-bottom: 0.1rem;
+    }
+    
+    /* Status dot optimization */
+    .mobile-player-card .w-1\.5 {
+        width: 5px;
+        height: 5px;
+    }
+    
+    /* Grid container optimization for performance */
+    .player-cards-container {
+        contain: layout style paint;
+        will-change: scroll-position;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+    
+    /* Reduce reflow with fixed heights */
+    .mobile-player-card .truncate {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 120px;
+    }
+    
+    /* Performance optimization for large lists */
+    .mobile-players-grid {
+        display: grid;
+        gap: 0;
+        grid-template-columns: 1fr;
+        contain: layout;
+    }
+    
+    /* Focus improvements for accessibility */
+    .mobile-player-card:focus-within {
+        outline: 2px solid #3b82f6;
+        outline-offset: 1px;
+        z-index: 1;
+        position: relative;
     }
 }
