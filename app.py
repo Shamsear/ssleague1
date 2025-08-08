@@ -516,6 +516,210 @@ def dashboard():
     response.headers["Expires"] = "0"
     return response
 
+@app.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    """Unified profile editing - allows users to edit both user account and team information"""
+    if current_user.is_admin:
+        flash('Admin users do not have team profiles to edit', 'info')
+        # Redirect admin users to a different profile edit page if needed
+        return redirect(url_for('dashboard'))
+    
+    if not current_user.team:
+        flash('You need to have a team to edit profile', 'error')
+        return redirect(url_for('dashboard'))
+    
+    team = current_user.team
+    
+    if request.method == 'POST':
+        # Verify current password first for any changes
+        current_password = request.form.get('current_password')
+        if not current_password or not current_user.check_password(current_password):
+            flash('Current password is incorrect', 'error')
+            return redirect(url_for('edit_profile'))
+        
+        # Handle username change
+        new_username = request.form.get('username', '').strip()
+        if new_username and new_username != current_user.username:
+            # Check if username is already taken
+            if User.query.filter(User.username == new_username, User.id != current_user.id).first():
+                flash('Username already exists', 'error')
+                return redirect(url_for('edit_profile'))
+            
+            # Prevent changing to 'admin' unless user is already admin
+            if new_username.lower() == 'admin' and not current_user.is_admin:
+                flash('Cannot use reserved username', 'error')
+                return redirect(url_for('edit_profile'))
+            
+            current_user.username = new_username
+            app.logger.info(f'User {current_user.id} changed username to {new_username}')
+        
+        # Handle team name change
+        new_team_name = request.form.get('team_name', '').strip()
+        if new_team_name and new_team_name != team.name:
+            # Check if team name is already taken
+            existing_team = Team.query.filter_by(name=new_team_name).first()
+            if existing_team and existing_team.id != team.id:
+                flash('Team name already taken', 'error')
+                return redirect(url_for('edit_profile'))
+            team.name = new_team_name
+            app.logger.info(f'Team {team.id} name changed to {new_team_name}')
+        
+        # Handle password change
+        new_password = request.form.get('new_password', '').strip()
+        confirm_password = request.form.get('confirm_password', '').strip()
+        
+        if new_password:
+            # Check password change restrictions
+            if not current_user.can_change_password():
+                time_remaining = current_user.time_until_password_change()
+                hours = int(time_remaining.total_seconds() // 3600)
+                minutes = int((time_remaining.total_seconds() % 3600) // 60)
+                flash(f'You can only change your password once per day. Try again in {hours}h {minutes}m', 'error')
+                return redirect(url_for('edit_profile'))
+            
+            # Validate password confirmation
+            if new_password != confirm_password:
+                flash('Passwords do not match', 'error')
+                return redirect(url_for('edit_profile'))
+            
+            # Validate password strength
+            if len(new_password) < 6:
+                flash('Password must be at least 6 characters long', 'error')
+                return redirect(url_for('edit_profile'))
+            
+            # Set new password (this also updates last_password_change)
+            current_user.set_password(new_password)
+            app.logger.info(f'User {current_user.id} ({current_user.username}) changed password')
+            
+            # Clear remember tokens when password is changed for security
+            current_user.clear_remember_token()
+        
+        # Handle logo upload
+        logo_updated = False
+        if 'team_logo' in request.files:
+            logo_file = request.files['team_logo']
+            if logo_file and logo_file.filename != '':
+                # Check if file is an image
+                allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+                file_extension = logo_file.filename.rsplit('.', 1)[1].lower() if '.' in logo_file.filename else ''
+                
+                if file_extension in allowed_extensions:
+                    try:
+                        # Read the logo file content
+                        logo_content = logo_file.read()
+                        
+                        # Try GitHub upload first if configured
+                        if github_service.is_configured():
+                            # Delete old GitHub logo if exists
+                            if team.logo_storage_type == 'github' and team.logo_url:
+                                # Extract info from current logo to delete
+                                old_extension = team.logo_url.split('.')[-1] if '.' in team.logo_url else 'png'
+                                github_service.delete_team_logo(team.id, team.name, old_extension)
+                            
+                            # Upload to GitHub
+                            github_result = github_service.upload_team_logo(
+                                team.id, 
+                                team.name, 
+                                logo_content, 
+                                logo_file.filename
+                            )
+                            
+                            if github_result and github_result.get('success'):
+                                # Store GitHub URL and metadata
+                                team.logo_url = github_result['download_url']
+                                team.logo_storage_type = 'github'
+                                team.github_logo_sha = github_result.get('sha')
+                                logo_updated = True
+                            else:
+                                # GitHub upload failed, fall back to local storage
+                                raise Exception("GitHub upload failed")
+                        else:
+                            # GitHub not configured, use local storage
+                            raise Exception("GitHub not configured")
+                    
+                    except Exception as github_error:
+                        # Fall back to local storage
+                        try:
+                            # Reset file pointer for local upload
+                            logo_file.seek(0)
+                            
+                            # Create uploads directory if it doesn't exist
+                            upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'logos')
+                            os.makedirs(upload_dir, exist_ok=True)
+                            
+                            # Delete old local logo if exists
+                            if team.logo_storage_type == 'local' and team.logo_url:
+                                old_logo_path = os.path.join(app.root_path, 'static', team.logo_url)
+                                if os.path.exists(old_logo_path):
+                                    try:
+                                        os.remove(old_logo_path)
+                                    except:
+                                        pass  # Ignore errors when deleting old logo
+                            
+                            # Generate unique filename to avoid conflicts
+                            filename = secure_filename(logo_file.filename)
+                            unique_filename = f"{uuid.uuid4().hex}_{filename}"
+                            file_path = os.path.join(upload_dir, unique_filename)
+                            
+                            # Save the file locally
+                            logo_file.save(file_path)
+                            
+                            # Store local path and metadata
+                            team.logo_url = f"uploads/logos/{unique_filename}"
+                            team.logo_storage_type = 'local'
+                            team.github_logo_sha = None  # Clear GitHub metadata
+                            logo_updated = True
+                            
+                        except Exception as local_error:
+                            flash('Logo could not be uploaded', 'error')
+                else:
+                    flash('Invalid logo file format. Please use PNG, JPG, JPEG, GIF, or WEBP', 'error')
+        
+        try:
+            db.session.commit()
+            
+            if new_password:
+                flash('Profile updated successfully! Please log in again for security.', 'success')
+                # Log out user after password change for security
+                logout_user()
+                response = make_response(redirect(url_for('login')))
+                # Clear remember token cookie
+                response.set_cookie('remember_token', '', expires=0, httponly=True, samesite='Lax')
+                return response
+            else:
+                success_message = 'Profile updated successfully!'
+                if logo_updated:
+                    success_message += ' Team logo has been updated.'
+                flash(success_message, 'success')
+                return redirect(url_for('dashboard'))
+                
+        except Exception as e:
+            db.session.rollback()
+            app.logger.error(f'Error updating profile for user {current_user.id}: {e}')
+            flash('Error updating profile. Please try again.', 'error')
+            return redirect(url_for('edit_profile'))
+    
+    # Calculate password change availability
+    can_change_password = current_user.can_change_password()
+    time_until_change = None
+    if not can_change_password:
+        time_remaining = current_user.time_until_password_change()
+        hours = int(time_remaining.total_seconds() // 3600)
+        minutes = int((time_remaining.total_seconds() % 3600) // 60)
+        time_until_change = f"{hours}h {minutes}m"
+    
+    # Set no-cache headers for security
+    response = make_response(render_template('edit_profile.html', 
+                          team=team,
+                          can_change_password=can_change_password,
+                          time_until_change=time_until_change,
+                          last_password_change=current_user.last_password_change))
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
 @app.route('/start_round', methods=['POST'])
 @login_required
 def start_round():
@@ -2634,126 +2838,6 @@ def team_profile():
                          won_bids=won_bids,
                          config=Config)
 
-@app.route('/team/profile/edit', methods=['GET', 'POST'])
-@login_required
-def team_profile_edit():
-    """
-    Edit team profile information and logo.
-    """
-    if current_user.is_admin:
-        flash('Admin users do not have team profiles', 'error')
-        return redirect(url_for('dashboard'))
-    
-    if not current_user.team:
-        flash('You do not have a team', 'error')
-        return redirect(url_for('dashboard'))
-    
-    team = current_user.team
-    
-    if request.method == 'POST':
-        # Update team name
-        new_name = request.form.get('team_name', '').strip()
-        if new_name and new_name != team.name:
-            # Check if name is already taken
-            existing_team = Team.query.filter_by(name=new_name).first()
-            if existing_team and existing_team.id != team.id:
-                flash('Team name already taken', 'error')
-                return redirect(url_for('team_profile_edit'))
-            team.name = new_name
-        
-        # Handle logo upload
-        if 'team_logo' in request.files:
-            logo_file = request.files['team_logo']
-            if logo_file and logo_file.filename != '':
-                # Check if file is an image
-                allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
-                file_extension = logo_file.filename.rsplit('.', 1)[1].lower() if '.' in logo_file.filename else ''
-                
-                if file_extension in allowed_extensions:
-                    try:
-                        # Read the logo file content
-                        logo_content = logo_file.read()
-                        
-                        # Try GitHub upload first if configured
-                        if github_service.is_configured():
-                            # Delete old GitHub logo if exists
-                            if team.logo_storage_type == 'github' and team.logo_url:
-                                # Extract info from current logo to delete
-                                old_extension = team.logo_url.split('.')[-1] if '.' in team.logo_url else 'png'
-                                github_service.delete_team_logo(team.id, team.name, old_extension)
-                            
-                            # Upload to GitHub
-                            github_result = github_service.upload_team_logo(
-                                team.id, 
-                                team.name, 
-                                logo_content, 
-                                logo_file.filename
-                            )
-                            
-                            if github_result and github_result.get('success'):
-                                # Store GitHub URL and metadata
-                                team.logo_url = github_result['download_url']
-                                team.logo_storage_type = 'github'
-                                team.github_logo_sha = github_result.get('sha')
-                                flash('Logo uploaded to GitHub successfully', 'success')
-                            else:
-                                # GitHub upload failed, fall back to local storage
-                                flash('GitHub upload failed, using local storage', 'warning')
-                                raise Exception("GitHub upload failed")
-                        else:
-                            # GitHub not configured, use local storage
-                            raise Exception("GitHub not configured")
-                    
-                    except Exception as github_error:
-                        # Fall back to local storage
-                        try:
-                            # Reset file pointer for local upload
-                            logo_file.seek(0)
-                            
-                            # Create uploads directory if it doesn't exist
-                            upload_dir = os.path.join(app.root_path, 'static', 'uploads', 'logos')
-                            os.makedirs(upload_dir, exist_ok=True)
-                            
-                            # Delete old local logo if exists
-                            if team.logo_storage_type == 'local' and team.logo_url:
-                                old_logo_path = os.path.join(app.root_path, 'static', team.logo_url)
-                                if os.path.exists(old_logo_path):
-                                    try:
-                                        os.remove(old_logo_path)
-                                    except:
-                                        pass  # Ignore errors when deleting old logo
-                            
-                            # Generate unique filename to avoid conflicts
-                            filename = secure_filename(logo_file.filename)
-                            unique_filename = f"{uuid.uuid4().hex}_{filename}"
-                            file_path = os.path.join(upload_dir, unique_filename)
-                            
-                            # Save the file locally
-                            logo_file.save(file_path)
-                            
-                            # Store local path and metadata
-                            team.logo_url = f"uploads/logos/{unique_filename}"
-                            team.logo_storage_type = 'local'
-                            team.github_logo_sha = None  # Clear GitHub metadata
-                            
-                            if not github_service.is_configured():
-                                flash('Logo uploaded locally (GitHub not configured)', 'info')
-                            
-                        except Exception as local_error:
-                            flash('Logo could not be uploaded to either GitHub or local storage', 'error')
-                else:
-                    flash('Invalid logo file format. Please use PNG, JPG, JPEG, GIF, or WEBP', 'error')
-        
-        # Save changes
-        try:
-            db.session.commit()
-            flash('Team profile updated successfully', 'success')
-            return redirect(url_for('team_profile'))
-        except Exception as e:
-            db.session.rollback()
-            flash('Failed to update team profile', 'error')
-    
-    return render_template('team_profile_edit.html', team=team)
 
 @app.route('/team_transfers')
 @login_required

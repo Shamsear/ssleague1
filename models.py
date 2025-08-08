@@ -1,7 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import secrets
 
 db = SQLAlchemy()
@@ -17,12 +17,48 @@ class User(UserMixin, db.Model):
     password_reset_requests = db.relationship('PasswordResetRequest', backref='user', lazy=True)
     remember_token = db.Column(db.String(100), unique=True, nullable=True)
     token_expires_at = db.Column(db.DateTime, nullable=True)
+    last_password_change = db.Column(db.DateTime, nullable=True)
+    profile_updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
+        self.last_password_change = datetime.now(timezone.utc)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+    
+    def can_change_password(self):
+        """Check if user can change password (once per day restriction)"""
+        if not self.last_password_change:
+            return True  # First time password change
+        
+        # Ensure both datetimes are timezone-aware for comparison
+        now = datetime.now(timezone.utc)
+        last_change = self.last_password_change
+        
+        # If last_password_change is naive, make it timezone-aware
+        if last_change.tzinfo is None:
+            last_change = last_change.replace(tzinfo=timezone.utc)
+        
+        # Check if 24 hours have passed since last password change
+        time_since_change = now - last_change
+        return time_since_change >= timedelta(days=1)
+    
+    def time_until_password_change(self):
+        """Get time remaining until user can change password again"""
+        if self.can_change_password():
+            return timedelta(0)
+        
+        # Ensure both datetimes are timezone-aware for comparison
+        now = datetime.now(timezone.utc)
+        last_change = self.last_password_change
+        
+        # If last_password_change is naive, make it timezone-aware
+        if last_change.tzinfo is None:
+            last_change = last_change.replace(tzinfo=timezone.utc)
+        
+        time_since_change = now - last_change
+        return timedelta(days=1) - time_since_change
         
     def generate_remember_token(self, days=30):
         """Generate a secure token for the 'remember me' functionality"""
@@ -34,7 +70,7 @@ class User(UserMixin, db.Model):
         self.remember_token = token
         
         # Set expiration (30 days by default)
-        self.token_expires_at = datetime.utcnow() + timedelta(days=days)
+        self.token_expires_at = datetime.now(timezone.utc) + timedelta(days=days)
         
         return token
         
@@ -45,7 +81,14 @@ class User(UserMixin, db.Model):
         
         if user and user.token_expires_at:
             # Check if token is still valid
-            if user.token_expires_at > datetime.utcnow():
+            now = datetime.now(timezone.utc)
+            expires_at = user.token_expires_at
+            
+            # If token_expires_at is naive, make it timezone-aware
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+            if expires_at > now:
                 return user
             
             # Token expired, clear it
