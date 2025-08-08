@@ -26,9 +26,15 @@
                         <label class="block text-sm font-medium text-gray-700 mb-3">Current Team Logo</label>
                         <div class="w-24 h-24 sm:w-32 sm:h-32 rounded-xl border-2 border-gray-200 overflow-hidden shadow-lg relative group">
                             {% if team.logo_url %}
+                                {% if team.logo_storage_type == 'github' %}
+                                <img src="{{ team.logo_url }}" 
+                                     alt="{{ team.name }} logo" 
+                                     class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                {% else %}
                                 <img src="{{ url_for('uploaded_logo', filename=team.logo_url.split('/')[-1]) }}" 
                                      alt="{{ team.name }} logo" 
                                      class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300">
+                                {% endif %}
                                 <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
                                     <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
