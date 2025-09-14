@@ -139,8 +139,10 @@
             position: relative;
             overflow: visible;
             border-radius: 24px 24px 0 0;
-            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
             min-height: 72px;
+            /* Completely stable - no movement allowed */
+            transform: none !important;
+            transition: none !important;
         }
         
         .nav-item {
@@ -569,6 +571,10 @@
                     z-index: 50;
                     padding: 0;
                     background: transparent;
+                    /* Rock-solid stability - prevent any movement */
+                    transform: none !important;
+                    transition: none !important;
+                    will-change: auto !important;
                 }
                 
                 .mobile-spacer {
@@ -1524,73 +1530,9 @@
                 });
             });
             
-            // Mobile Navigation Browser UI Detection
-            if (window.innerWidth <= 640) {
-                const mobileNav = document.querySelector('.mobile-nav');
-                if (mobileNav) {
-                    let lastViewportHeight = window.visualViewport?.height || window.innerHeight;
-                    let lastInnerHeight = window.innerHeight;
-                    let isStandalone = window.navigator.standalone || window.matchMedia('(display-mode: standalone)').matches;
-                    
-                    function handleViewportChange() {
-                        // Keep nav bar always at the bottom of the viewport
-                        // No dynamic positioning - just ensure it stays at bottom
-                        mobileNav.style.transform = 'translateY(0)';
-                        mobileNav.style.bottom = '0';
-                    }
-                    
-                    // Handle orientation changes
-                    function handleOrientationChange() {
-                        setTimeout(() => {
-                            lastViewportHeight = window.visualViewport?.height || window.innerHeight;
-                            lastInnerHeight = window.innerHeight;
-                            mobileNav.style.transform = 'translateY(0)';
-                            mobileNav.style.bottom = '0';
-                        }, 500); // Delay to let orientation change complete
-                    }
-                    
-                    // Listen for viewport changes (modern browsers)
-                    if (window.visualViewport) {
-                        window.visualViewport.addEventListener('resize', handleViewportChange);
-                        window.visualViewport.addEventListener('scroll', handleViewportChange);
-                    }
-                    
-                    // Fallback for older browsers
-                    window.addEventListener('resize', handleViewportChange);
-                    
-                    // Handle orientation changes
-                    window.addEventListener('orientationchange', handleOrientationChange);
-                    
-                    // Handle scroll events for additional UI hiding detection
-                    let scrollTimeout;
-                    window.addEventListener('scroll', () => {
-                        clearTimeout(scrollTimeout);
-                        scrollTimeout = setTimeout(handleViewportChange, 100);
-                    }, { passive: true });
-                    
-                    // Reset position on focus events (input fields, etc.)
-                    document.addEventListener('focusin', () => {
-                        setTimeout(() => {
-                            const currentHeight = window.visualViewport?.height || window.innerHeight;
-                            if (currentHeight < lastViewportHeight * 0.75) {
-                                // Likely keyboard is showing
-                                mobileNav.style.transform = `translateY(-${lastViewportHeight - currentHeight}px)`;
-                            }
-                        }, 300);
-                    });
-                    
-                    document.addEventListener('focusout', () => {
-                        setTimeout(() => {
-                            mobileNav.style.transform = 'translateY(0)';
-                            lastViewportHeight = window.visualViewport?.height || window.innerHeight;
-                            lastInnerHeight = window.innerHeight;
-                        }, 300);
-                    });
-                    
-                    // Initial setup
-                    mobileNav.style.transform = 'translateY(0)';
-                }
-            }
+            // Mobile Navigation - Completely Stable (No Dynamic Positioning)
+            // The navigation bar remains fixed at bottom: 0 with no JavaScript movement
+            // This ensures zero jumping or shifting regardless of keyboard, orientation, or viewport changes
         });
     </script>
 
