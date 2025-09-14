@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+
+{% block title %}All Teams{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="glass rounded-3xl p-6 sm:p-8 max-w-5xl mx-auto hover:shadow-lg transition-all duration-300">
+        <div class="flex items-center justify-between mb-8">
+            <h1 class="text-2xl sm:text-3xl font-bold text-dark">All Teams</h1>
+            <a href="{{ url_for('dashboard') }}" class="flex items-center text-gray-600 hover:text-primary transition-colors">
+                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                <span>Back to Dashboard</span>
+            </a>
+        </div>
+        
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for team_data in teams %}
+            <div class="glass rounded-2xl overflow-hidden hover:shadow-lg transition-all duration-300 transform hover:scale-[1.02] bg-white/60">
+                <div class="p-6">
+                    <div class="flex items-center mb-1">
+                        <div class="h-8 w-8 flex-shrink-0 bg-primary/10 rounded-md flex items-center justify-center text-primary mr-3 overflow-hidden">
+                            {% if team_data.team.get_logo_url() %}
+                            <img src="{{ team_data.team.get_logo_url() }}" alt="{{ team_data.team.name }}" class="h-full w-full object-contain">
+                            {% else %}
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                            </svg>
+                            {% endif %}
+                        </div>
+                        <h2 class="text-xl font-bold text-dark">{{ team_data.team.name }}</h2>
+                    </div>
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <span class="inline-flex items-center rounded-full bg-blue-100 px-3 py-0.5 text-sm font-medium text-blue-800">
+                            <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            {{ team_data.total_players }} Players
+                        </span>
+                        <span class="inline-flex items-center rounded-full bg-green-100 px-3 py-0.5 text-sm font-medium text-green-800">
+                            <svg class="w-3.5 h-3.5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            £{{ "{:,}".format(team_data.total_team_value) }}
+                        </span>
+                    </div>
+                    
+                    <!-- Position breakdown -->
+                    <div class="mb-4">
+                        <h3 class="text-sm font-medium text-gray-700 mb-2">Squad Composition</h3>
+                        <div class="grid grid-cols-5 gap-1">
+                            {% for position, count in team_data.position_counts.items() %}
+                            {% if count > 0 %}
+                            <div class="text-center">
+                                <div class="rounded-lg p-2 
+                                    {% if position == 'QB' %}bg-red-100 text-red-800
+                                    {% elif position == 'RB' %}bg-blue-100 text-blue-800
+                                    {% elif position == 'WR' %}bg-green-100 text-green-800
+                                    {% elif position == 'TE' %}bg-purple-100 text-purple-800
+                                    {% elif position == 'K' %}bg-yellow-100 text-yellow-800
+                                    {% elif position == 'DST' %}bg-gray-100 text-gray-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    <div class="text-xs font-bold">{{ position }}</div>
+                                    <div class="text-lg font-bold">{{ count }}</div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <a href="{{ url_for('team_squad', team_id=team_data.team.id) }}" 
+                           class="block w-full py-2 px-4 bg-primary text-white rounded-lg text-center font-medium hover:bg-primary-dark transition-colors mb-2">
+                            View Squad
+                        </a>
+                        <a href="{{ url_for('team_management.team_detail', team_name=team_data.team.name) }}"
+                           class="block w-full py-2 px-4 bg-gradient-to-r from-secondary to-primary text-white rounded-lg text-center font-medium hover:opacity-90 transition-all">
+                            Team Details
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %} 

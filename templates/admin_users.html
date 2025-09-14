@@ -1,0 +1,717 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Users - Football Auction{% endblock %}
+
+{% block content %}
+<div class="p-3 sm:p-6 bg-white/10 backdrop-blur-xl rounded-3xl mb-4 sm:mb-6 mt-2 sm:mt-6 mx-2 sm:mx-6">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 sm:mb-6">
+        <h1 class="text-xl sm:text-3xl font-bold gradient-text">User Management</h1>
+        <div class="flex space-x-2 mt-2 sm:mt-0 w-full sm:w-auto">
+            <a href="{{ url_for('dashboard') }}" class="px-4 py-2.5 text-sm glass rounded-xl hover:bg-white/90 transition-all duration-300 vision-button flex items-center justify-center text-dark sm:justify-start w-full sm:w-auto">
+                <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path>
+                </svg>
+                Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- User statistics -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 mb-4 sm:mb-6">
+        <div class="glass rounded-2xl p-3 sm:p-4 hover-float border border-white/20">
+            <div class="flex items-center">
+                <div class="p-2 sm:p-3 rounded-xl bg-primary/15 text-primary mr-3 border border-primary/30">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xs sm:text-sm font-semibold text-dark">Total Users</h3>
+                    <p class="text-2xl sm:text-3xl font-bold text-primary">{{ users|length }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="glass rounded-2xl p-3 sm:p-4 hover-float border border-white/20">
+            <div class="flex items-center">
+                <div class="p-2 sm:p-3 rounded-xl bg-secondary/15 text-secondary mr-3 border border-secondary/30">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xs sm:text-sm font-semibold text-dark">Admin Users</h3>
+                    <p class="text-2xl sm:text-3xl font-bold text-secondary">{{ admin_count }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="glass rounded-2xl p-3 sm:p-4 hover-float border border-white/20">
+            <div class="flex items-center">
+                <div class="p-2 sm:p-3 rounded-xl {% if pending_approvals > 0 %}bg-accent/15 text-accent border border-accent/30{% else %}bg-green-500/15 text-green-700 border border-green-500/30{% endif %} mr-3">
+                    <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                </div>
+                <div>
+                    <h3 class="text-xs sm:text-sm font-semibold text-dark">Pending Approvals</h3>
+                    <p class="text-2xl sm:text-3xl font-bold {% if pending_approvals > 0 %}text-accent{% else %}text-green-700{% endif %}">{{ pending_approvals }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User listing -->
+    <div class="glass rounded-2xl p-3 sm:p-4 mb-6 border border-white/20">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+            <h2 class="text-lg sm:text-xl font-semibold gradient-text mb-2 sm:mb-0">All Users</h2>
+            
+            <!-- Search bar -->
+            <div class="w-full sm:w-auto">
+                <div class="relative">
+                    <input type="text" id="userSearchInput" placeholder="Search users..." 
+                        class="w-full sm:w-64 px-4 py-2.5 glass rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm text-dark">
+                    <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                        <svg class="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        {% if pending_approvals > 0 %}
+        <div class="mb-4 p-3 glass backdrop-blur-sm bg-accent/10 border border-accent/30 rounded-xl flex items-center">
+            <svg class="w-5 h-5 text-accent mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <p class="text-accent text-sm font-medium">{{ pending_approvals }} user(s) pending approval.</p>
+        </div>
+        {% endif %}
+        
+        <!-- Desktop table view -->
+        <div class="hidden sm:block overflow-x-auto rounded-xl border border-gray-300/30">
+            <table class="min-w-full bg-white/50 backdrop-blur-lg rounded-xl">
+                <thead>
+                    <tr class="bg-white/30 border-b border-gray-300/50">
+                        <th class="px-4 py-3 text-sm font-medium text-dark uppercase tracking-wider text-left">Username</th>
+                        <th class="px-4 py-3 text-sm font-medium text-dark uppercase tracking-wider text-left">Status</th>
+                        <th class="px-4 py-3 text-sm font-medium text-dark uppercase tracking-wider text-left">Team</th>
+                        <th class="px-4 py-3 text-sm font-medium text-dark uppercase tracking-wider text-left">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-300/30" id="userTableBody">
+                    {% for user in users %}
+                    <tr class="text-dark hover:bg-white/40 transition-colors user-row">
+                        <td class="px-4 py-3">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br {% if user.is_admin %}from-secondary to-secondary/70{% else %}from-primary to-primary/70{% endif %} flex items-center justify-center">
+                                    <span class="font-semibold text-white">{{ user.username[0]|upper }}</span>
+                                </div>
+                                <div class="ml-3">
+                                    <p class="text-sm font-medium text-dark">{{ user.username }}</p>
+                                    <p class="text-xs text-gray-600">
+                                        {% if user.is_admin %}
+                                        Administrator
+                                        {% else %}
+                                        Team Manager
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <div class="flex items-center">
+                                {% if user.is_admin %}
+                                <span class="px-2 py-1 bg-secondary/20 text-secondary border border-secondary/30 rounded-lg text-xs inline-flex items-center font-medium">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                                    </svg>
+                                    Admin
+                                </span>
+                                {% elif user.is_approved %}
+                                <span class="px-2 py-1 bg-green-100 text-green-700 border border-green-300 rounded-lg text-xs inline-flex items-center font-medium">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                    Approved
+                                </span>
+                            {% else %}
+                                <span class="px-2 py-1 bg-accent/15 text-accent border border-accent/30 rounded-lg text-xs inline-flex items-center font-medium">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Pending
+                                </span>
+                                {% endif %}
+                            </div>
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            {% if user.team %}
+                            <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/30">
+                                <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+                                </svg>
+                                {{ user.team.name }}
+                            </div>
+                            {% else %}
+                            <span class="text-gray-600 text-xs italic">No team</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 text-sm">
+                            <div class="flex items-center space-x-2">
+                                {% if not user.is_approved and not user.is_admin %}
+                                <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post" class="inline">
+                                    <button type="submit" class="px-3 py-1.5 text-xs glass rounded-lg bg-white/70 hover:bg-green-100 border border-green-300 text-green-700 transition-all duration-300 vision-button inline-flex items-center">
+                                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                        </svg>
+                                        Approve
+                                    </button>
+                                </form>
+                                {% endif %}
+                                
+                                {% if not user.is_admin and current_user.id != user.id %}
+                                <button type="button" 
+                                        onclick="showDeleteConfirmation('{{ user.id }}', '{{ user.username }}')" 
+                                        class="px-3 py-1.5 text-xs glass rounded-lg bg-white/70 hover:bg-red-100 border border-red-300 text-red-600 transition-all duration-300 vision-button inline-flex items-center">
+                                    <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete
+                                </button>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile card view -->
+        <div class="sm:hidden space-y-3" id="mobileUserCards">
+            {% for user in users %}
+            <div class="glass rounded-xl p-3 border border-white/20 user-card">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br {% if user.is_admin %}from-secondary to-secondary/70{% else %}from-primary to-primary/70{% endif %} flex items-center justify-center">
+                            <span class="font-semibold text-white text-lg">{{ user.username[0]|upper }}</span>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-base font-medium text-dark">{{ user.username }}</p>
+                            <p class="text-xs text-gray-600">
+                                {% if user.is_admin %}
+                                Administrator
+                                {% else %}
+                                Team Manager
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    
+                    {% if user.is_admin %}
+                    <span class="px-2 py-1 bg-secondary/20 text-secondary border border-secondary/30 rounded-lg text-xs inline-flex items-center font-medium">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                        </svg>
+                        Admin
+                    </span>
+                    {% elif user.is_approved %}
+                    <span class="px-2 py-1 bg-green-100 text-green-700 border border-green-300 rounded-lg text-xs inline-flex items-center font-medium">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                                Approved
+                            </span>
+                        {% else %}
+                    <span class="px-2 py-1 bg-accent/15 text-accent border border-accent/30 rounded-lg text-xs inline-flex items-center font-medium">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                                Pending
+                            </span>
+                        {% endif %}
+                </div>
+                
+                <div class="flex items-center mb-3">
+                    <span class="text-xs font-medium text-gray-500 w-16">Team:</span>
+                    {% if user.team %}
+                    <div class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-primary/15 text-primary border border-primary/30">
+                        <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+                        </svg>
+                        {{ user.team.name }}
+                    </div>
+                    {% else %}
+                    <span class="text-gray-600 text-xs italic">No team</span>
+                    {% endif %}
+                </div>
+                
+                <div class="flex items-center justify-end space-x-2">
+                    {% if not user.is_approved and not user.is_admin %}
+                    <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post" class="inline">
+                        <button type="submit" class="px-4 py-2 text-sm glass rounded-lg bg-white/70 hover:bg-green-100 border border-green-300 text-green-700 transition-all duration-300 vision-button inline-flex items-center">
+                            <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            Approve
+                        </button>
+                    </form>
+                    {% endif %}
+                    
+                    {% if not user.is_admin and current_user.id != user.id %}
+                    <button type="button" 
+                            onclick="showDeleteConfirmation('{{ user.id }}', '{{ user.username }}')" 
+                            class="px-4 py-2 text-sm glass rounded-lg bg-white/70 hover:bg-red-100 border border-red-300 text-red-600 transition-all duration-300 vision-button inline-flex items-center">
+                        <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete
+                    </button>
+                {% endif %}
+            </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- No results message (hidden by default) -->
+        <div id="noResultsMessage" class="hidden mt-4 p-4 text-center rounded-xl bg-white/30 border border-gray-300/50">
+            <svg class="w-10 h-10 mx-auto text-gray-500 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122" />
+            </svg>
+            <p class="text-gray-600">No users match your search</p>
+        </div>
+    </div>
+
+    <!-- Real-time update indicator -->
+    <div id="updateIndicator" class="fixed top-4 right-4 z-50 hidden">
+        <div class="glass rounded-lg p-3 border border-white/20 bg-green-100/90 text-green-700">
+            <div class="flex items-center">
+                <svg class="w-4 h-4 mr-2 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                Updating...
+            </div>
+        </div>
+    </div>
+
+    <!-- Success notification -->
+    <div id="successNotification" class="fixed top-4 right-4 z-50 hidden">
+        <div class="glass rounded-lg p-3 border border-white/20 bg-green-100/90 text-green-700">
+            <div class="flex items-center">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span id="successMessage">Action completed successfully</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete confirmation modal (hidden by default) -->
+<div id="deleteModal" class="fixed inset-0 flex items-center justify-center z-[100] hidden">
+    <div class="fixed inset-0 bg-black/60 backdrop-blur-sm" onclick="hideDeleteConfirmation()"></div>
+    <div class="glass rounded-2xl p-4 sm:p-6 max-w-md w-full mx-4 relative z-10 animate__animated animate__fadeInUp animate__faster bg-white/90 border border-white/30">
+        <div class="text-center mb-4">
+            <div class="w-16 h-16 mx-auto bg-red-100 border border-red-300 rounded-full flex items-center justify-center mb-4">
+                <svg class="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h3 class="text-xl font-bold text-dark mb-1">Confirm Delete</h3>
+            <p class="text-gray-700">Are you sure you want to delete user <span id="deleteUsername" class="font-semibold"></span>? This action cannot be undone.</p>
+        </div>
+        
+        <div class="flex justify-center space-x-3">
+            <button type="button" onclick="hideDeleteConfirmation()" class="flex-1 px-4 py-3 glass rounded-xl bg-white/70 hover:bg-white/90 text-dark border border-gray-300 transition-all duration-300 vision-button text-sm">
+                Cancel
+            </button>
+            <form id="deleteForm" action="" method="post" class="flex-1">
+                <button type="submit" class="w-full px-4 py-3 bg-red-600 hover:bg-red-700 rounded-xl text-white transition-all duration-300 vision-button text-sm">
+                    Delete User
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+class RealTimeUserManager {
+    constructor() {
+        this.updateInterval = 5000; // 5 seconds
+        this.isUpdating = false;
+        this.intervalId = null;
+        this.lastUpdateTime = new Date().getTime();
+        
+        this.init();
+    }
+
+    init() {
+        this.setupSearch();
+        this.setupRealTimeUpdates();
+        this.setupFormInterception();
+        this.startPeriodicUpdates();
+        
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                this.stopPeriodicUpdates();
+            } else {
+                this.startPeriodicUpdates();
+                this.updateUserList(); // Update immediately when page becomes visible
+            }
+        });
+    }
+
+    setupSearch() {
+        const searchInput = document.getElementById('userSearchInput');
+        if (searchInput) {
+            searchInput.addEventListener('input', (e) => this.performSearch(e.target.value));
+        }
+    }
+
+    performSearch(searchTerm) {
+        const userRows = document.querySelectorAll('.user-row');
+        const userCards = document.querySelectorAll('.user-card');
+        const noResultsMessage = document.getElementById('noResultsMessage');
+        let visibleCount = 0;
+        
+        searchTerm = searchTerm.toLowerCase();
+        
+        // Search in table rows (desktop)
+        userRows.forEach(row => {
+            const username = row.querySelector('td:first-child')?.textContent?.toLowerCase() || '';
+            const status = row.querySelector('td:nth-child(2)')?.textContent?.toLowerCase() || '';
+            const team = row.querySelector('td:nth-child(3)')?.textContent?.toLowerCase() || '';
+            
+            if (username.includes(searchTerm) || team.includes(searchTerm) || status.includes(searchTerm)) {
+                row.classList.remove('hidden');
+                visibleCount++;
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+        
+        // Search in cards (mobile)
+        userCards.forEach(card => {
+            const content = card.textContent.toLowerCase();
+            if (content.includes(searchTerm)) {
+                card.classList.remove('hidden');
+                visibleCount++;
+            } else {
+                card.classList.add('hidden');
+            }
+        });
+        
+        // Show/hide no results message
+        if (noResultsMessage) {
+            if (visibleCount === 0 && searchTerm.length > 0) {
+                noResultsMessage.classList.remove('hidden');
+            } else {
+                noResultsMessage.classList.add('hidden');
+            }
+        }
+    }
+
+    setupFormInterception() {
+        // Intercept approve forms
+        document.addEventListener('submit', (e) => {
+            if (e.target.classList.contains('approve-form')) {
+                e.preventDefault();
+                this.handleApproveUser(e.target);
+            }
+        });
+
+        // Intercept delete form
+        const deleteForm = document.getElementById('deleteForm');
+        if (deleteForm) {
+            deleteForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handleDeleteUser(e.target);
+            });
+        }
+    }
+
+    async handleApproveUser(form) {
+        try {
+            this.showUpdateIndicator();
+            
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (response.ok) {
+                this.showSuccessNotification('User approved successfully');
+                await this.updateUserList();
+            } else {
+                throw new Error('Failed to approve user');
+            }
+        } catch (error) {
+            console.error('Error approving user:', error);
+            this.showErrorNotification('Failed to approve user');
+        } finally {
+            this.hideUpdateIndicator();
+        }
+    }
+
+    async handleDeleteUser(form) {
+        try {
+            this.showUpdateIndicator();
+            this.hideDeleteConfirmation();
+            
+            const response = await fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (response.ok) {
+                this.showSuccessNotification('User deleted successfully');
+                await this.updateUserList();
+            } else {
+                throw new Error('Failed to delete user');
+            }
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            this.showErrorNotification('Failed to delete user');
+        } finally {
+            this.hideUpdateIndicator();
+        }
+    }
+
+    async updateUserList() {
+        if (this.isUpdating) return;
+        
+        this.isUpdating = true;
+        
+        try {
+            const response = await fetch('/admin/users_update', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to fetch user updates');
+            }
+
+            const data = await response.json();
+            
+            // Update statistics
+            this.updateStatistics(data.total_users, data.admin_count, data.pending_approvals);
+            
+            // Update desktop table
+            const tableBody = document.getElementById('userTableBody');
+            if (tableBody && data.desktop_html) {
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = data.desktop_html;
+                const newTableContent = tempDiv.querySelector('tbody');
+                if (newTableContent) {
+                    tableBody.innerHTML = newTableContent.innerHTML;
+                }
+            }
+            
+            // Update mobile cards
+            const mobileContainer = document.getElementById('mobileUserCards');
+            if (mobileContainer && data.mobile_html) {
+                mobileContainer.innerHTML = data.mobile_html;
+            }
+            
+            // Re-apply current search if any
+            const searchInput = document.getElementById('userSearchInput');
+            if (searchInput && searchInput.value) {
+                this.performSearch(searchInput.value);
+            }
+            
+            // Update pending approvals notification
+            this.updatePendingApprovalsNotification(data.pending_approvals);
+            
+            this.lastUpdateTime = new Date().getTime();
+            
+        } catch (error) {
+            console.error('Error updating user list:', error);
+        } finally {
+            this.isUpdating = false;
+        }
+    }
+
+    updateStatistics(totalUsers, adminCount, pendingApprovals) {
+        // Update total users
+        const totalUsersElement = document.querySelector('.text-primary.font-bold');
+        if (totalUsersElement) {
+            totalUsersElement.textContent = totalUsers;
+        }
+        
+        // Update admin count
+        const adminCountElement = document.querySelector('.text-secondary.font-bold');
+        if (adminCountElement) {
+            adminCountElement.textContent = adminCount;
+        }
+        
+        // Update pending approvals
+        const pendingElement = document.querySelector('.text-accent.font-bold, .text-green-700.font-bold');
+        if (pendingElement) {
+            pendingElement.textContent = pendingApprovals;
+            // Update color based on whether there are pending approvals
+            if (pendingApprovals > 0) {
+                pendingElement.className = pendingElement.className.replace('text-green-700', 'text-accent');
+            } else {
+                pendingElement.className = pendingElement.className.replace('text-accent', 'text-green-700');
+            }
+        }
+    }
+
+    updatePendingApprovalsNotification(pendingCount) {
+        const notification = document.querySelector('.bg-accent\\/10');
+        if (notification) {
+            if (pendingCount > 0) {
+                notification.classList.remove('hidden');
+                const countText = notification.querySelector('p');
+                if (countText) {
+                    countText.textContent = `${pendingCount} user(s) pending approval.`;
+                }
+            } else {
+                notification.classList.add('hidden');
+            }
+        }
+    }
+
+    setupRealTimeUpdates() {
+        // Update on window focus
+        window.addEventListener('focus', () => {
+            if (new Date().getTime() - this.lastUpdateTime > 3000) {
+                this.updateUserList();
+            }
+        });
+    }
+
+    startPeriodicUpdates() {
+        if (!this.intervalId) {
+            this.intervalId = setInterval(() => {
+                if (!document.hidden) {
+                    this.updateUserList();
+                }
+            }, this.updateInterval);
+        }
+    }
+
+    stopPeriodicUpdates() {
+        if (this.intervalId) {
+            clearInterval(this.intervalId);
+            this.intervalId = null;
+        }
+    }
+
+    showUpdateIndicator() {
+        const indicator = document.getElementById('updateIndicator');
+        if (indicator) {
+            indicator.classList.remove('hidden');
+        }
+    }
+
+    hideUpdateIndicator() {
+        const indicator = document.getElementById('updateIndicator');
+        if (indicator) {
+            indicator.classList.add('hidden');
+        }
+    }
+
+    showSuccessNotification(message) {
+        const notification = document.getElementById('successNotification');
+        const messageElement = document.getElementById('successMessage');
+        
+        if (notification && messageElement) {
+            messageElement.textContent = message;
+            notification.classList.remove('hidden');
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                notification.classList.add('hidden');
+            }, 3000);
+        }
+    }
+
+    showErrorNotification(message) {
+        // Create error notification if it doesn't exist
+        let errorNotification = document.getElementById('errorNotification');
+        if (!errorNotification) {
+            errorNotification = document.createElement('div');
+            errorNotification.id = 'errorNotification';
+            errorNotification.className = 'fixed top-4 right-4 z-50 hidden';
+            errorNotification.innerHTML = `
+                <div class="glass rounded-lg p-3 border border-white/20 bg-red-100/90 text-red-700">
+                    <div class="flex items-center">
+                        <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span id="errorMessage">Error occurred</span>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(errorNotification);
+        }
+        
+        const messageElement = document.getElementById('errorMessage');
+        if (messageElement) {
+            messageElement.textContent = message;
+        }
+        
+        errorNotification.classList.remove('hidden');
+        
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            errorNotification.classList.add('hidden');
+        }, 5000);
+    }
+
+    // Delete modal methods (keeping existing functionality)
+    showDeleteConfirmation(userId, username) {
+        const modal = document.getElementById('deleteModal');
+        const form = document.getElementById('deleteForm');
+        const usernameSpan = document.getElementById('deleteUsername');
+        
+        if (form && usernameSpan) {
+            form.action = `/delete_user/${userId}`;
+            usernameSpan.textContent = username;
+        }
+        
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.classList.add('overflow-hidden');
+        }
+    }
+
+    hideDeleteConfirmation() {
+        const modal = document.getElementById('deleteModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+    }
+}
+
+// Initialize when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    window.userManager = new RealTimeUserManager();
+});
+
+// Global functions for modal (keeping backward compatibility)
+function showDeleteConfirmation(userId, username) {
+    if (window.userManager) {
+        window.userManager.showDeleteConfirmation(userId, username);
+    }
+}
+
+function hideDeleteConfirmation() {
+    if (window.userManager) {
+        window.userManager.hideDeleteConfirmation();
+    }
+}
+</script>
+{% endblock %}

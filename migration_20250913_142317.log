@@ -1,0 +1,93 @@
+2025-09-13 14:23:17,937 - INFO - Creating backup of .env file...
+2025-09-13 14:23:22,571 - INFO - STARTING SUPABASE TO NEON MIGRATION
+2025-09-13 14:23:22,575 - INFO - Connecting to source database (Supabase)...
+2025-09-13 14:23:23,123 - INFO - Connecting to target database (Neon)...
+2025-09-13 14:23:23,706 - INFO - Found 20 tables to migrate
+2025-09-13 14:23:23,706 - INFO - Migration order: auction_settings, bid, bulk_bid, bulk_bid_round, bulk_bid_tiebreaker, category, match, password_reset_request, player, player_matchup, player_stats, round, starred_player, team, team_bulk_tiebreaker, team_member, team_stats, team_tiebreaker, tiebreaker, user
+2025-09-13 14:23:23,706 - INFO - 
+============================================================
+2025-09-13 14:23:23,707 - INFO - MIGRATING TABLES AND DATA
+2025-09-13 14:23:23,707 - INFO - ============================================================
+2025-09-13 14:23:23,708 - INFO - 
+Processing table: auction_settings
+2025-09-13 14:23:24,507 - INFO - 
+Processing table: bid
+2025-09-13 14:23:24,931 - INFO -    Table bid is empty
+2025-09-13 14:23:24,931 - INFO - 
+Processing table: bulk_bid
+2025-09-13 14:23:25,363 - INFO -    Table bulk_bid is empty
+2025-09-13 14:23:25,364 - INFO - 
+Processing table: bulk_bid_round
+2025-09-13 14:23:25,824 - INFO -    Table bulk_bid_round is empty
+2025-09-13 14:23:25,825 - INFO - 
+Processing table: bulk_bid_tiebreaker
+2025-09-13 14:23:26,263 - INFO -    Table bulk_bid_tiebreaker is empty
+2025-09-13 14:23:26,264 - INFO - 
+Processing table: category
+2025-09-13 14:23:26,699 - INFO -    Table category is empty
+2025-09-13 14:23:26,699 - INFO - 
+Processing table: match
+2025-09-13 14:23:27,273 - INFO -    Table match is empty
+2025-09-13 14:23:27,274 - INFO - 
+Processing table: password_reset_request
+2025-09-13 14:23:27,864 - INFO -    Table password_reset_request is empty
+2025-09-13 14:23:27,864 - INFO - 
+Processing table: player
+2025-09-13 14:24:48,643 - INFO -    Inserted 1000 rows into player...
+2025-09-13 14:26:10,146 - INFO -    Inserted 2000 rows into player...
+2025-09-13 14:26:51,005 - INFO - 
+Processing table: player_matchup
+2025-09-13 14:26:51,871 - INFO -    Table player_matchup is empty
+2025-09-13 14:26:51,871 - INFO - 
+Processing table: player_stats
+2025-09-13 14:26:52,634 - INFO -    Table player_stats is empty
+2025-09-13 14:26:52,635 - INFO - 
+Processing table: round
+2025-09-13 14:26:53,329 - INFO -    Table round is empty
+2025-09-13 14:26:53,330 - INFO - 
+Processing table: starred_player
+2025-09-13 14:26:54,117 - INFO -    Table starred_player is empty
+2025-09-13 14:26:54,117 - INFO - 
+Processing table: team
+2025-09-13 14:26:56,360 - INFO - 
+Processing table: team_bulk_tiebreaker
+2025-09-13 14:26:56,813 - INFO -    Table team_bulk_tiebreaker is empty
+2025-09-13 14:26:56,814 - INFO - 
+Processing table: team_member
+2025-09-13 14:26:57,268 - INFO -    Table team_member is empty
+2025-09-13 14:26:57,268 - INFO - 
+Processing table: team_stats
+2025-09-13 14:26:59,599 - INFO - 
+Processing table: team_tiebreaker
+2025-09-13 14:27:00,137 - INFO -    Table team_tiebreaker is empty
+2025-09-13 14:27:00,137 - INFO - 
+Processing table: tiebreaker
+2025-09-13 14:27:00,589 - INFO -    Table tiebreaker is empty
+2025-09-13 14:27:00,589 - INFO - 
+Processing table: user
+2025-09-13 14:27:02,783 - INFO - 
+============================================================
+2025-09-13 14:27:02,784 - INFO - MIGRATING SEQUENCES
+2025-09-13 14:27:02,784 - INFO - ============================================================
+2025-09-13 14:27:05,306 - INFO - 
+============================================================
+2025-09-13 14:27:05,307 - INFO - MIGRATING CONSTRAINTS
+2025-09-13 14:27:05,308 - INFO - ============================================================
+2025-09-13 14:27:08,102 - INFO - 
+============================================================
+2025-09-13 14:27:08,102 - INFO - MIGRATING INDEXES
+2025-09-13 14:27:08,103 - INFO - ============================================================
+2025-09-13 14:27:08,968 - INFO - 
+============================================================
+2025-09-13 14:27:08,969 - INFO - VERIFICATION
+2025-09-13 14:27:08,970 - INFO - ============================================================
+2025-09-13 14:27:11,361 - INFO - 
+============================================================
+2025-09-13 14:27:11,361 - INFO - MIGRATION SUMMARY
+2025-09-13 14:27:11,361 - INFO - ============================================================
+2025-09-13 14:27:11,362 - INFO - Tables migrated: 20
+2025-09-13 14:27:11,362 - INFO - Total rows migrated: 2588
+2025-09-13 14:27:11,362 - INFO - Errors encountered: 0
+2025-09-13 14:27:11,369 - INFO - Your application is now using Neon database.
+2025-09-13 14:27:11,369 - INFO - 
+Backup of old configuration saved to: .env.backup_20250913_142317

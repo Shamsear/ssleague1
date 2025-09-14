@@ -1,0 +1,635 @@
+{% extends "base.html" %}
+{% block title %}Team Details - {{ team.name }}{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <!-- Back Button and Header -->
+    <div class="mb-8">
+        <a href="{{ url_for('admin_teams') }}" class="inline-flex items-center text-blue-600 hover:text-blue-800">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+            </svg>
+            Back to Teams
+        </a>
+        <h1 class="text-3xl font-bold mt-4 mb-2 gradient-text">{{ team.name }}</h1>
+        <p class="text-gray-600">Team Management</p>
+    </div>
+
+    <!-- Team Details Card -->
+    <div class="glass rounded-3xl p-6 mb-8 shadow-lg border border-gray-100/30">
+        <form id="teamDetailsForm" method="POST" action="{{ url_for('admin_update_team', team_id=team.id) }}" enctype="multipart/form-data">
+            <!-- Team Logo Section -->
+            <div class="mb-8">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center gap-6">
+                    <!-- Current Logo Display -->
+                    <div class="flex-shrink-0">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Current Team Logo</label>
+                        <div class="w-24 h-24 sm:w-32 sm:h-32 rounded-xl border-2 border-gray-200 overflow-hidden shadow-lg relative group">
+                            {% if team.logo_url %}
+                                {% if team.logo_storage_type == 'github' %}
+                                <img src="{{ team.logo_url }}" 
+                                     alt="{{ team.name }} logo" 
+                                     class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
+                                {% else %}
+                                <img src="{{ get_team_logo_url(team) }}" 
+                                     alt="{{ team.name }} logo" 
+                                     class="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300">
+                                {% endif %}
+                                <div class="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                </div>
+                            {% else %}
+                                <div class="w-full h-full bg-gradient-to-br from-primary/10 to-primary/20 flex items-center justify-center">
+                                    <svg class="w-12 h-12 sm:w-16 sm:h-16 text-primary/60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <!-- Logo Upload Section -->
+                    <div class="flex-1">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">Update Team Logo</label>
+                        <div class="flex items-center space-x-4">
+                            <div class="flex-shrink-0">
+                                <div id="logoPreview" class="w-20 h-20 rounded-xl bg-gray-100/80 backdrop-blur-sm border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden">
+                                    <svg id="uploadIcon" class="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <img id="previewImg" class="hidden w-full h-full object-contain" src="#" alt="Team logo preview">
+                                </div>
+                            </div>
+                            <div class="flex-grow">
+                                <label for="teamLogo" class="w-full flex flex-col items-center px-4 py-3 bg-white/60 text-primary rounded-xl border border-gray-200 cursor-pointer hover:bg-primary/5 transition-colors duration-300 relative">
+                                    <svg class="w-5 h-5 mb-1 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                    </svg>
+                                    <span class="text-sm font-medium text-gray-700">Choose New Logo</span>
+                                    <span class="text-xs text-gray-500">PNG, JPG (Max 2MB)</span>
+                                    <input type="file" id="teamLogo" name="logo" accept="image/*" class="hidden">
+                                    <!-- Progress Bar (hidden by default) -->
+                                    <div id="uploadProgress" class="hidden absolute inset-0 bg-primary/10 rounded-xl flex items-center justify-center">
+                                        <div class="w-full max-w-xs">
+                                            <div class="bg-white/50 rounded-full h-2 mb-2">
+                                                <div id="progressBar" class="bg-primary h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                            </div>
+                                            <p id="progressText" class="text-xs text-center text-primary font-medium">Uploading...</p>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">Upload a new logo to replace the current one. Leave empty to keep existing logo.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Team Name -->
+                <div>
+                    <label for="teamName" class="block text-sm font-medium text-gray-700 mb-1.5">Team Name</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
+                            </svg>
+                        </span>
+                        <input type="text" id="teamName" name="name" value="{{ team.name }}" 
+                               class="pl-10 w-full py-2.5 bg-white/60 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
+                    </div>
+                </div>
+
+                <!-- Team Balance (Read-only) -->
+                <div>
+                    <label for="teamBalance" class="block text-sm font-medium text-gray-700 mb-1.5">Team Balance</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-gray-400">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </span>
+                        <input type="text" id="teamBalance" value="{{ '{:,}'.format(team.balance) }}" readonly
+                               class="pl-10 w-full py-2.5 bg-gray-100/60 border border-gray-200 rounded-xl outline-none shadow-sm text-gray-600">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="mt-6 flex justify-end space-x-4">
+                <button type="button" onclick="confirmDelete()" 
+                        class="px-4 py-2.5 border border-accent text-accent rounded-xl hover:bg-accent/10 transition-all duration-300">
+                    Delete Team
+                </button>
+                <button type="submit" 
+                        class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-primary to-secondary text-white hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 vision-button shadow-md">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Team Financial Overview -->
+    <div class="glass rounded-3xl p-6 mb-8 shadow-lg border border-gray-100/30">
+        <h2 class="text-xl font-semibold mb-4 text-dark flex items-center">
+            <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            Financial Overview
+        </h2>
+        
+        <!-- Financial Cards Grid -->
+        <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4 mb-6">
+            <div class="glass p-3 sm:p-5 rounded-xl bg-white/10 shadow-sm border border-gray-100/20 hover:shadow-md transition-shadow">
+                <h3 class="text-xs sm:text-sm font-medium text-gray-500 mb-1">Current Balance</h3>
+                <p class="text-base sm:text-xl font-bold text-primary">{{ "{:,}".format(team.balance) }}</p>
+            </div>
+            <div class="glass p-3 sm:p-5 rounded-xl bg-white/10 shadow-sm border border-gray-100/20 hover:shadow-md transition-shadow">
+                <h3 class="text-xs sm:text-sm font-medium text-gray-500 mb-1">Squad Value</h3>
+                <p class="text-base sm:text-xl font-bold text-primary">{{ "{:,}".format(team_stats.total_value) }}</p>
+            </div>
+            <div class="glass p-3 sm:p-5 rounded-xl bg-white/10 shadow-sm border border-gray-100/20 hover:shadow-md transition-shadow">
+                <h3 class="text-xs sm:text-sm font-medium text-gray-500 mb-1">Active Bids</h3>
+                <p class="text-base sm:text-xl font-bold text-amber-500">{{ team_stats.active_bids }}</p>
+            </div>
+            <div class="glass p-3 sm:p-5 rounded-xl bg-white/10 shadow-sm border border-gray-100/20 hover:shadow-md transition-shadow">
+                <h3 class="text-xs sm:text-sm font-medium text-gray-500 mb-1">Bid Success Rate</h3>
+                <p class="text-base sm:text-xl font-bold text-blue-500">{{ team_stats.bid_success_rate }}%</p>
+            </div>
+        </div>
+        
+        <!-- Financial History Chart (Placeholder) -->
+        <div class="glass p-4 rounded-xl bg-white/10 shadow-sm border border-gray-100/20">
+            <h3 class="text-sm font-medium text-gray-700 mb-3">Balance History</h3>
+            <div class="h-48 bg-white/20 rounded-lg flex items-center justify-center">
+                <p class="text-gray-500">Balance history chart will be displayed here</p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Squad Overview -->
+    <div class="glass rounded-3xl p-6 mb-8 shadow-lg border border-gray-100/30">
+        <h2 class="text-xl font-semibold mb-4 text-dark flex items-center">
+            <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Squad Overview
+        </h2>
+        
+        <!-- Squad Summary -->
+        <div class="mb-6">
+            <div class="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                <div class="glass p-3 sm:p-5 rounded-xl bg-white/10 shadow-sm border border-gray-100/20 hover:shadow-md transition-shadow">
+                    <h3 class="text-xs sm:text-sm font-medium text-gray-500 mb-1">Total Players</h3>
+                    <p class="text-base sm:text-xl font-bold text-primary">{{ team_stats.total_players }}</p>
+                </div>
+                <div class="glass p-3 sm:p-5 rounded-xl bg-white/10 shadow-sm border border-gray-100/20 hover:shadow-md transition-shadow">
+                    <h3 class="text-xs sm:text-sm font-medium text-gray-500 mb-1">Avg. Rating</h3>
+                    <p class="text-base sm:text-xl font-bold text-primary">{{ team_stats.avg_rating }}</p>
+                </div>
+                <div class="glass p-3 sm:p-5 rounded-xl bg-white/10 shadow-sm border border-gray-100/20 hover:shadow-md transition-shadow">
+                    <h3 class="text-xs sm:text-sm font-medium text-gray-500 mb-1">Highest Value</h3>
+                    <p class="text-base sm:text-xl font-bold text-primary">{{ "{:,}".format(team_stats.highest_value) }}</p>
+                </div>
+                <div class="glass p-3 sm:p-5 rounded-xl bg-white/10 shadow-sm border border-gray-100/20 hover:shadow-md transition-shadow">
+                    <h3 class="text-xs sm:text-sm font-medium text-gray-500 mb-1">Avg. Player Value</h3>
+                    <p class="text-base sm:text-xl font-bold text-primary">{{ "{:,}".format(team_stats.avg_player_value) }}</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Position Distribution -->
+        <div class="mb-6">
+            <h3 class="text-base font-semibold mb-4 text-gray-700 flex items-center">
+                <svg class="w-4 h-4 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                Position Distribution
+            </h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
+                {% for position, count in team_stats.position_counts.items() %}
+                    {% if count > 0 %}
+                    <div class="glass p-3 sm:p-4 rounded-xl bg-white/10 relative hover:shadow-md transition-shadow border border-gray-100/20">
+                        <div class="flex justify-between items-start">
+                            <h4 class="text-xs sm:text-sm font-medium text-gray-500">{{ position }}</h4>
+                            <span class="px-2 py-1 rounded-md text-xs font-medium {{ 
+                                'bg-blue-100 text-blue-800' if position == 'GK' else
+                                'bg-green-100 text-green-800' if position == 'CB' or position == 'RB' or position == 'LB' else
+                                'bg-yellow-100 text-yellow-800' if position == 'CMF' or position == 'DMF' else
+                                'bg-purple-100 text-purple-800' if position == 'AMF' or position == 'RMF' or position == 'LMF' else
+                                'bg-red-100 text-red-800'
+                            }}">{{ count }}</span>
+                        </div>
+                        <div class="mt-2 text-xs text-gray-500">
+                            Avg. Rating: <span class="font-medium">{{ team_stats.position_avg_ratings.get(position, 0) }}</span>
+                        </div>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Squad Players -->
+        <div>
+            <h3 class="text-base font-semibold mb-4 text-gray-700 flex items-center">
+                <svg class="w-4 h-4 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                </svg>
+                Squad Players
+            </h3>
+            <div class="overflow-x-auto rounded-xl shadow-sm border border-gray-100/20">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50/50">
+                        <tr>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                            <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Value</th>
+                            <th class="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white/30 divide-y divide-gray-200">
+                        {% for player in team.players | sort(attribute='overall_rating', reverse=true) %}
+                        <tr class="hover:bg-white/60 transition-colors">
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <div class="h-8 w-8 flex-shrink-0 bg-gray-200 rounded-full flex items-center justify-center">
+                                        <span class="text-xs font-medium text-gray-500">{{ player.name[:2] }}</span>
+                                    </div>
+                                    <div class="ml-3">
+                                        <div class="text-sm font-medium text-gray-900">{{ player.name }}</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full {{ 
+                                    'bg-blue-100 text-blue-800' if player.position == 'GK' else
+                                    'bg-green-100 text-green-800' if player.position == 'CB' or player.position == 'RB' or player.position == 'LB' else
+                                    'bg-yellow-100 text-yellow-800' if player.position == 'CMF' or player.position == 'DMF' else
+                                    'bg-purple-100 text-purple-800' if player.position == 'AMF' or player.position == 'RMF' or player.position == 'LMF' else
+                                    'bg-pink-100 text-pink-800' if player.position == 'RWF' or player.position == 'LWF' else
+                                    'bg-orange-100 text-orange-800' if player.position == 'SS' else
+                                    'bg-red-100 text-red-800'
+                                }}">
+                                    {{ player.position }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-md {{ 
+                                    'bg-green-100 text-green-800' if player.overall_rating >= 85 else
+                                    'bg-blue-100 text-blue-800' if player.overall_rating >= 75 else
+                                    'bg-yellow-100 text-yellow-800' if player.overall_rating >= 65 else
+                                    'bg-gray-100 text-gray-800'
+                                }}">
+                                    {{ player.overall_rating }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-sm">
+                                {{ "{:,}".format(player.acquisition_value) if player.acquisition_value else "N/A" }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
+                                <a href="{{ url_for('player_detail', player_id=player.id) }}" class="text-blue-600 hover:text-blue-900">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="deleteModal" class="hidden fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+        <div class="glass rounded-3xl p-5 sm:p-6 shadow-lg border border-gray-100/20">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Delete Team</h3>
+                <div class="mt-2 px-7 py-3">
+                    <p class="text-sm text-gray-500">
+                        Are you sure you want to delete this team? This action cannot be undone.
+                    </p>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="deleteCancel" 
+                            class="px-4 py-2 bg-gray-500 text-white text-base font-medium rounded-xl w-24 mr-2 hover:bg-gray-600 transition-colors">
+                        Cancel
+                    </button>
+                    <button id="deleteConfirm"
+                            class="px-4 py-2 bg-accent text-white text-base font-medium rounded-xl w-24 hover:bg-accent/90 transition-colors">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function confirmDelete() {
+        const modal = document.getElementById('deleteModal');
+        document.body.style.overflow = 'hidden'; // Prevent background scrolling
+        modal.classList.remove('hidden');
+        
+        document.getElementById('deleteCancel').onclick = function() {
+            modal.classList.add('hidden');
+            document.body.style.overflow = ''; // Restore scrolling
+        };
+
+        document.getElementById('deleteConfirm').onclick = function() {
+            window.location.href = "{{ url_for('delete_team', team_id=team.id) }}";
+        };
+    }
+
+    function editMember(memberId) {
+        // Implement member editing functionality
+        console.log('Edit member:', memberId);
+    }
+
+    function removeMember(memberId) {
+        if (confirm('Are you sure you want to remove this member from the team?')) {
+            fetch(`/api/team/{{ team.id }}/members/${memberId}`, {
+                method: 'DELETE',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token() }}'
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.reload();
+                } else {
+                    alert('Failed to remove team member');
+                }
+            });
+        }
+    }
+
+    // Logo file input handling with progress tracking
+    function setupLogoUpload() {
+        const teamLogo = document.getElementById('teamLogo');
+        const logoPreview = document.getElementById('logoPreview');
+        const previewImg = document.getElementById('previewImg');
+        const uploadIcon = document.getElementById('uploadIcon');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        if (teamLogo) {
+            teamLogo.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                
+                if (file) {
+                    // Validate file size (max 2MB)
+                    if (file.size > 2 * 1024 * 1024) {
+                        showToast('Logo file is too large. Maximum size is 2MB.', 'error');
+                        teamLogo.value = '';
+                        return;
+                    }
+                    
+                    // Validate file type
+                    if (!file.type.match('image.*')) {
+                        showToast('Please select an image file (PNG, JPG, JPEG).', 'error');
+                        teamLogo.value = '';
+                        return;
+                    }
+                    
+                    // Show progress bar
+                    uploadProgress.classList.remove('hidden');
+                    uploadIcon.classList.add('hidden');
+                    progressBar.style.width = '0%';
+                    progressText.textContent = 'Processing...';
+                    
+                    // Simulate upload progress for file reading
+                    let progress = 0;
+                    const progressInterval = setInterval(() => {
+                        progress += Math.random() * 15;
+                        if (progress > 85) {
+                            clearInterval(progressInterval);
+                            progress = 85;
+                        }
+                        progressBar.style.width = progress + '%';
+                        progressText.textContent = `Processing... ${Math.round(progress)}%`;
+                    }, 100);
+                    
+                    // Read and preview the file
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        // Complete the progress
+                        clearInterval(progressInterval);
+                        progressBar.style.width = '100%';
+                        progressText.textContent = 'Complete!';
+                        
+                        // Show the preview after a short delay
+                        setTimeout(() => {
+                            uploadProgress.classList.add('hidden');
+                            previewImg.src = e.target.result;
+                            previewImg.classList.remove('hidden');
+                            
+                            // Change border style to show selection
+                            logoPreview.classList.remove('border-dashed', 'border-gray-300');
+                            logoPreview.classList.add('border-solid', 'border-primary');
+                            
+                            // Add animation
+                            logoPreview.classList.add('animate-logo-appear');
+                            setTimeout(() => {
+                                logoPreview.classList.remove('animate-logo-appear');
+                            }, 500);
+                            
+                            showToast('Logo selected successfully! Save changes to upload.', 'success');
+                        }, 500);
+                    };
+                    
+                    reader.onerror = function() {
+                        clearInterval(progressInterval);
+                        uploadProgress.classList.add('hidden');
+                        uploadIcon.classList.remove('hidden');
+                        showToast('Error reading the file. Please try again.', 'error');
+                        teamLogo.value = '';
+                    };
+                    
+                    reader.readAsDataURL(file);
+                } else {
+                    // Reset preview if no file selected
+                    resetLogoPreview();
+                }
+            });
+        }
+    }
+    
+    // Reset logo preview to default state
+    function resetLogoPreview() {
+        const previewImg = document.getElementById('previewImg');
+        const uploadIcon = document.getElementById('uploadIcon');
+        const logoPreview = document.getElementById('logoPreview');
+        const uploadProgress = document.getElementById('uploadProgress');
+        
+        if (previewImg && uploadIcon && logoPreview) {
+            previewImg.classList.add('hidden');
+            uploadIcon.classList.remove('hidden');
+            uploadProgress.classList.add('hidden');
+            logoPreview.classList.add('border-dashed', 'border-gray-300');
+            logoPreview.classList.remove('border-solid', 'border-primary');
+        }
+    }
+    
+    // Show toast notification
+    function showToast(message, type = 'success') {
+        // Remove any existing toast
+        const existingToast = document.querySelector('.toast-notification');
+        if (existingToast) {
+            existingToast.remove();
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `fixed bottom-4 right-4 px-4 py-3 rounded-lg shadow-lg z-50 toast-notification transform translate-y-2 opacity-0 transition-all duration-300 max-w-sm`;
+        
+        if (type === 'success') {
+            toast.classList.add('bg-green-500', 'text-white');
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    ${message}
+                </div>
+            `;
+        } else {
+            toast.classList.add('bg-red-500', 'text-white');
+            toast.innerHTML = `
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    ${message}
+                </div>
+            `;
+        }
+        
+        document.body.appendChild(toast);
+        
+        // Animate in
+        setTimeout(() => {
+            toast.classList.remove('translate-y-2', 'opacity-0');
+        }, 100);
+        
+        // Auto remove after 4 seconds
+        setTimeout(() => {
+            toast.classList.add('translate-y-2', 'opacity-0');
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 300);
+        }, 4000);
+    }
+    
+    // Form submission handling with improved feedback and upload progress
+    document.getElementById('teamDetailsForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        const formData = new FormData(this);
+        
+        // Check if a logo is being uploaded
+        const logoFile = document.getElementById('teamLogo').files[0];
+        const isUploadingLogo = logoFile && logoFile.size > 0;
+        
+        submitBtn.disabled = true;
+        
+        if (isUploadingLogo) {
+            submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Uploading Logo...';
+        } else {
+            submitBtn.innerHTML = '<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Saving...';
+        }
+        
+        // Create XMLHttpRequest for progress tracking
+        const xhr = new XMLHttpRequest();
+        
+        // Track upload progress
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable && isUploadingLogo) {
+                const percentComplete = (e.loaded / e.total) * 100;
+                submitBtn.innerHTML = `<svg class="animate-spin -ml-1 mr-2 h-4 w-4 inline-block text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Uploading... ${Math.round(percentComplete)}%`;
+            }
+        });
+        
+        xhr.addEventListener('load', function() {
+            if (xhr.status === 200) {
+                try {
+                    const data = JSON.parse(xhr.responseText);
+                    if (data.success) {
+                        showToast(isUploadingLogo ? 'Team details and logo updated successfully!' : 'Team details updated successfully!', 'success');
+                        
+                        // Refresh the page after a short delay to show the new logo
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1500);
+                    } else {
+                        showToast('Failed to update team details: ' + (data.message || 'Unknown error'), 'error');
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    }
+                } catch (error) {
+                    showToast('Invalid response from server', 'error');
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            } else {
+                showToast('Server error occurred. Please try again.', 'error');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+        
+        xhr.addEventListener('error', function() {
+            showToast('Network error. Please check your connection and try again.', 'error');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalText;
+        });
+        
+        xhr.open('POST', this.action);
+        xhr.setRequestHeader('X-CSRFToken', '{{ csrf_token() }}');
+        xhr.send(formData);
+    });
+    
+    // Initialize logo upload functionality when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        setupLogoUpload();
+        
+        // Add required CSS animations
+        if (!document.getElementById('logo-animation-styles')) {
+            const style = document.createElement('style');
+            style.id = 'logo-animation-styles';
+            style.textContent = `
+                @keyframes logoAppear {
+                    0% { transform: scale(0.8); opacity: 0.7; }
+                    50% { transform: scale(1.05); opacity: 1; }
+                    100% { transform: scale(1); opacity: 1; }
+                }
+                
+                .animate-logo-appear {
+                    animation: logoAppear 0.5s ease-out forwards;
+                }
+                
+                /* Progress bar animations */
+                #progressBar {
+                    transition: width 0.3s ease-in-out;
+                }
+                
+                /* Toast animations */
+                .toast-notification {
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+            `;
+            document.head.appendChild(style);
+        }
+    });
+</script>
+{% endblock %}

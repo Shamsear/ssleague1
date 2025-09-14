@@ -1,0 +1,123 @@
+<!-- Budget Planner Component -->
+<div class="glass rounded-3xl p-4 sm:p-6 mb-6 sm:mb-8 hover:shadow-lg transition-all duration-300">
+    <div class="flex items-center mb-6">
+        <div class="bg-primary/10 p-2 rounded-full mr-3">
+            <svg class="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+            </svg>
+        </div>
+        <h2 class="text-xl font-bold text-dark">Budget Planner</h2>
+    </div>
+    
+    {% set remaining_rounds = auction_settings.max_rounds - completed_rounds_count %}
+    {% set total_required_for_remaining = auction_settings.min_balance_per_round * remaining_rounds %}
+    {% set available_for_next_round = current_user.team.balance - (auction_settings.min_balance_per_round * (remaining_rounds - 1)) %}
+    
+    <!-- Key Budget Information -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <!-- Current Situation -->
+        <div class="bg-white/50 rounded-xl p-6 shadow-sm border border-white/30">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                </svg>
+                Current Status
+            </h4>
+            
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Current Balance:</span>
+                    <span class="font-bold text-2xl text-primary">£{{ "{:,}".format(current_user.team.balance) }}</span>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Completed Rounds:</span>
+                    <span class="font-semibold text-lg text-gray-800">{{ completed_rounds_count }} / {{ auction_settings.max_rounds }}</span>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Remaining Rounds:</span>
+                    <span class="font-semibold text-lg text-blue-600">{{ remaining_rounds }}</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Budget Calculations -->
+        <div class="bg-white/50 rounded-xl p-6 shadow-sm border border-white/30">
+            <h4 class="text-lg font-semibold text-gray-800 mb-4 flex items-center">
+                <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path>
+                </svg>
+                Budget Calculations
+            </h4>
+            
+            <div class="space-y-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Required per round:</span>
+                    <span class="font-semibold text-lg text-gray-800">£{{ "{:,}".format(auction_settings.min_balance_per_round) }}</span>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-600">Total needed for remaining:</span>
+                    <span class="font-semibold text-lg text-red-600">£{{ "{:,}".format(total_required_for_remaining) }}</span>
+                </div>
+                
+                {% if remaining_rounds > 0 %}
+                <div class="pt-2 border-t border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <span class="text-gray-600 font-medium">Available for next round:</span>
+                        <span class="font-bold text-2xl {% if available_for_next_round >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                            £{{ "{:,}".format(available_for_next_round) }}
+                        </span>
+                    </div>
+                    {% if available_for_next_round < 0 %}
+                    <p class="text-sm text-red-600 mt-1">⚠️ Insufficient balance for future rounds!</p>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="pt-2 border-t border-gray-200">
+                    <div class="text-center">
+                        <span class="text-lg font-semibold text-gray-600">All rounds completed!</span>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Spending Example -->
+    {% if remaining_rounds > 0 %}
+    <div class="bg-blue-50/80 border border-blue-200/50 rounded-xl p-4 mb-4">
+        <div class="flex items-start">
+            <svg class="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <div>
+                <h5 class="font-medium text-blue-800 mb-2">Spending Calculation</h5>
+                <p class="text-sm text-blue-700">
+                    <strong>Example:</strong> For the next round (Round {{ completed_rounds_count + 1 }}), you can spend up to <strong>£{{ "{:,}".format(available_for_next_round) }}</strong> 
+                    because you need to keep <strong>£{{ "{:,}".format(auction_settings.min_balance_per_round * (remaining_rounds - 1)) }}</strong> 
+                    for the remaining {{ remaining_rounds - 1 }} rounds ({{ remaining_rounds - 1 }} × £{{ "{:,}".format(auction_settings.min_balance_per_round) }}).
+                </p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    <!-- Budget Tips -->
+    <div class="bg-yellow-50/80 border border-yellow-200/50 rounded-xl p-4">
+        <div class="flex items-start">
+            <svg class="w-5 h-5 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd"></path>
+            </svg>
+            <div>
+                <h5 class="font-medium text-yellow-800 mb-1">Quick Tips</h5>
+                <ul class="text-sm text-yellow-700 space-y-1">
+                    <li>• Always keep £{{ "{:,}".format(auction_settings.min_balance_per_round) }} per remaining round as a safety buffer</li>
+                    <li>• The "Available for next round" shows your maximum safe spending limit</li>
+                    <li>• Consider saving extra for high-priority positions or tiebreakers</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>

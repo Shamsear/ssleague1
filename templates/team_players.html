@@ -1,0 +1,471 @@
+{% extends "base.html" %}
+
+{% block title %}My Players - Football Auction{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+    <!-- Header Section -->
+    <div class="glass rounded-3xl p-4 sm:p-6 shadow-lg mb-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div class="mb-2 sm:mb-0">
+                <h2 class="text-2xl font-bold text-dark mb-1">My Players</h2>
+                <p class="text-sm text-gray-500">Manage your acquired players</p>
+            </div>
+            
+            <!-- Filter Controls (for mobile and desktop) -->
+            <div class="w-full sm:w-auto flex flex-col sm:flex-row gap-3 sm:items-center">
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <!-- Position Filter -->
+                    <div class="relative">
+                        <select id="positionFilter" class="pl-10 py-2.5 pr-4 bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm w-full">
+                            <option value="all">All Positions</option>
+                            {% for position in config.POSITIONS %}
+                            <option value="{{ position }}">{{ position }}</option>
+                            {% endfor %}
+                        </select>
+                        <svg class="w-5 h-5 text-gray-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                    
+                    <!-- Position Group Filter -->
+                    <div class="relative">
+                        <select id="positionGroupFilter" class="pl-10 py-2.5 pr-4 bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm w-full">
+                            <option value="all">All Position Groups</option>
+                            {% for position_group in config.POSITION_GROUPS %}
+                            <option value="{{ position_group }}">{{ position_group }}</option>
+                            {% endfor %}
+                        </select>
+                        <svg class="w-5 h-5 text-gray-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                </div>
+                
+                <!-- Search Bar for Mobile and Desktop -->
+                <div class="relative w-full sm:w-64">
+                    <input type="text" id="searchPlayers" placeholder="Search players..." class="w-full pl-10 py-2.5 pr-4 bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm">
+                    <svg class="w-5 h-5 text-gray-500 absolute left-3 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+
+                <a href="{{ url_for('dashboard') }}" class="px-4 py-2.5 rounded-xl bg-white/60 text-primary hover:bg-white/80 transition-all duration-300 text-sm font-medium flex items-center shadow-sm">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Mobile Card View -->
+    <div class="block md:hidden space-y-4 glass rounded-3xl p-4 sm:p-6 shadow-lg">
+        {% for player in current_user.team.players %}
+        <div class="glass-card p-4 rounded-2xl hover:shadow-lg transition-all duration-300 backdrop-blur-sm bg-white/50 border border-white/30 player-card-mobile overflow-hidden"
+             data-player-name="{{ player.name | lower }}" 
+             data-player-position="{{ player.position | lower }}"
+             data-player-group="{{ player.position_group }}"
+             style="transition: all 0.3s ease-in-out; transform-origin: center center;">
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center space-x-3">
+                    <div class="h-14 w-14 rounded-full overflow-hidden flex items-center justify-center shadow-md border border-white/40">
+                        {% if player.player_id %}
+                            <img src="{{ url_for('static', filename='images/player_photos/' + player.player_id|string + '.png') }}"
+                                 alt="{{ player.name }}"
+                                 class="h-full w-full object-cover"
+                                 onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'text-lg font-bold text-primary\'>{{ player.name[0] }}</span>'; this.parentElement.classList.add('bg-primary/10');">
+                        {% else %}
+                            <div class="h-14 w-14 bg-primary/10 rounded-full flex items-center justify-center">
+                                <span class="text-lg font-bold text-primary">{{ player.name[0] }}</span>
+                            </div>
+                        {% endif %}
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-gray-800 text-base">{{ player.name }}</h4>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                {% if player.position == 'GK' %}bg-yellow-100 text-yellow-800
+                                {% elif player.position == 'CB' or player.position == 'RB' or player.position == 'LB' %}bg-blue-100 text-blue-800
+                                {% elif player.position == 'DMF' %}bg-indigo-100 text-indigo-800
+                                {% elif player.position == 'CMF' or player.position == 'RMF' or player.position == 'LMF' %}bg-purple-100 text-purple-800
+                                {% elif player.position == 'AMF' %}bg-pink-100 text-pink-800
+                                {% elif player.position == 'RWF' or player.position == 'LWF' %}bg-pink-100 text-pink-800
+                                {% elif player.position == 'SS' %}bg-orange-100 text-orange-800
+                                {% elif player.position == 'CF' %}bg-red-100 text-red-800
+                                {% else %}bg-gray-100 text-gray-800
+                                {% endif %}">
+                                {{ player.position }}
+                            </span>
+                            {% if player.position_group %}
+                            <span class="text-xs px-2 py-0.5 bg-primary/10 text-primary rounded-lg">{{ player.position_group }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <span class="flex items-center justify-center h-10 w-10 rounded-full shadow-sm
+                    {% if player.overall_rating >= 85 %}
+                        bg-green-100 text-green-800 border border-green-200
+                    {% elif player.overall_rating >= 75 %}
+                        bg-blue-100 text-blue-800 border border-blue-200
+                    {% elif player.overall_rating >= 65 %}
+                        bg-yellow-100 text-yellow-800 border border-yellow-200
+                    {% else %}
+                        bg-gray-100 text-gray-800 border border-gray-200
+                    {% endif %}">
+                    <span class="font-bold text-sm">{{ player.overall_rating }}</span>
+                </span>
+            </div>
+            
+            <div class="mt-4 pt-3 border-t border-gray-200/50 flex justify-between items-center">
+                <div class="text-sm text-gray-700">
+                    <span class="font-medium text-xs text-gray-500">Acquisition Value</span><br>
+                    <span class="text-base font-semibold {% if player.acquisition_value %}text-primary{% else %}text-gray-500{% endif %}">
+                        {% if player.acquisition_value %}
+                            £{{ "{:,}".format(player.acquisition_value) }}
+                        {% else %}
+                            Free Transfer
+                        {% endif %}
+                    </span>
+                </div>
+                <a href="{{ url_for('player_detail', player_id=player.id) }}" class="px-4 py-2 rounded-xl bg-primary text-white hover:bg-primary/90 transition-colors duration-200 flex items-center text-sm shadow-sm">
+                    <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    Details
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <div class="glass-card p-8 rounded-2xl text-center backdrop-blur-sm bg-white/40 border border-white/20 shadow-lg">
+            <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            <p class="text-gray-700 text-lg font-medium mb-2">No players acquired yet</p>
+            <p class="text-gray-500 text-sm mb-4">Join an active round to bid on players</p>
+            <a href="{{ url_for('team_players_data') }}" class="inline-flex items-center px-4 py-2 rounded-xl bg-primary text-white shadow-md hover:bg-primary/90 transition-all duration-300">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Browse Players
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Desktop Table View -->
+    <div class="hidden md:block glass rounded-3xl p-4 sm:p-6 shadow-lg overflow-hidden">
+        <div class="overflow-x-auto rounded-xl">
+            <table id="playersTable" class="min-w-full divide-y divide-gray-200 bg-white/40 backdrop-blur-sm">
+                <thead class="bg-gray-50/80">
+                    <tr>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Group</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acquisition Value</th>
+                        <th class="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-200 bg-white/30">
+                    {% for player in current_user.team.players %}
+                    <tr class="hover:bg-white/70 transition-all duration-200" 
+                        data-player-name="{{ player.name | lower }}"
+                        data-player-position="{{ player.position | lower }}"
+                        data-player-group="{{ player.position_group }}">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="flex items-center">
+                                <div class="flex-shrink-0 h-12 w-12 rounded-full overflow-hidden flex items-center justify-center border border-white/40 shadow-sm">
+                                    {% if player.player_id %}
+                                        <img src="{{ url_for('static', filename='images/player_photos/' + player.player_id|string + '.png') }}"
+                                             alt="{{ player.name }}"
+                                             class="h-full w-full object-cover"
+                                             onerror="this.onerror=null; this.parentElement.innerHTML='<span class=\'text-base font-medium text-primary\'>{{ player.name[0] }}</span>'; this.parentElement.classList.add('bg-primary/10');">
+                                    {% else %}
+                                        <span class="text-base font-medium text-primary">{{ player.name[0] }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="ml-4">
+                                    <div class="text-sm font-medium text-gray-800">{{ player.name }}</div>
+                                </div>
+                            </div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium 
+                                {% if player.position == 'GK' %}bg-yellow-100 text-yellow-800
+                                {% elif player.position == 'CB' or player.position == 'RB' or player.position == 'LB' %}bg-blue-100 text-blue-800
+                                {% elif player.position == 'DMF' %}bg-indigo-100 text-indigo-800
+                                {% elif player.position == 'CMF' or player.position == 'RMF' or player.position == 'LMF' %}bg-purple-100 text-purple-800
+                                {% elif player.position == 'AMF' %}bg-pink-100 text-pink-800
+                                {% elif player.position == 'RWF' or player.position == 'LWF' %}bg-pink-100 text-pink-800
+                                {% elif player.position == 'SS' %}bg-orange-100 text-orange-800
+                                {% elif player.position == 'CF' %}bg-red-100 text-red-800
+                                {% else %}bg-gray-100 text-gray-800
+                                {% endif %}">
+                                {{ player.position }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if player.position_group %}
+                            <span class="px-2.5 py-1 rounded-md text-xs font-medium bg-primary/10 text-primary">
+                                {{ player.position_group }}
+                            </span>
+                            {% else %}
+                            <span class="text-gray-500">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="flex items-center justify-center h-8 w-8 rounded-full text-xs font-medium
+                                {% if player.overall_rating >= 85 %}
+                                    bg-green-100 text-green-800 border border-green-200
+                                {% elif player.overall_rating >= 75 %}
+                                    bg-blue-100 text-blue-800 border border-blue-200
+                                {% elif player.overall_rating >= 65 %}
+                                    bg-yellow-100 text-yellow-800 border border-yellow-200
+                                {% else %}
+                                    bg-gray-100 text-gray-800 border border-gray-200
+                                {% endif %}">
+                                {{ player.overall_rating }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="{% if player.acquisition_value %}text-primary font-medium{% else %}text-gray-500{% endif %}">
+                            {% if player.acquisition_value %}
+                                £{{ "{:,}".format(player.acquisition_value) }}
+                            {% else %}
+                                Free Transfer
+                            {% endif %}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <a href="{{ url_for('player_detail', player_id=player.id) }}" class="inline-flex items-center px-3 py-1.5 rounded-lg bg-primary text-white hover:bg-primary/90 transition-all duration-200 shadow-sm">
+                                <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View Details
+                            </a>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-6 py-10 whitespace-nowrap text-sm text-gray-500 text-center">
+                            <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <p class="text-gray-700 text-lg font-medium mb-2">No players acquired yet</p>
+                            <p class="text-gray-500 text-sm mb-4">Join an active round to bid on players</p>
+                            <a href="{{ url_for('team_players_data') }}" class="inline-flex items-center px-4 py-2 rounded-xl bg-primary text-white shadow-md hover:bg-primary/90 transition-all duration-300">
+                                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                Browse Players
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get filter elements
+    const positionFilter = document.getElementById('positionFilter');
+    const positionGroupFilter = document.getElementById('positionGroupFilter');
+    const searchInput = document.getElementById('searchPlayers');
+    
+    // Get player cards and table rows
+    const mobileCards = document.querySelectorAll('.player-card-mobile');
+    const tableRows = document.querySelectorAll('#playersTable tbody tr');
+    
+    // Function to apply all filters
+    function applyFilters() {
+        const selectedPosition = positionFilter ? positionFilter.value.toLowerCase() : 'all';
+        const selectedGroup = positionGroupFilter ? positionGroupFilter.value : 'all';
+        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        
+        // Function to determine if an element matches the filter criteria
+        function matchesFilters(element) {
+            const playerName = element.getAttribute('data-player-name') || '';
+            const playerPosition = element.getAttribute('data-player-position') || '';
+            const playerGroup = element.getAttribute('data-player-group') || '';
+            
+            // Check if matches search and filters
+            const matchesSearch = searchTerm === '' || 
+                                 playerName.includes(searchTerm) || 
+                                 playerPosition.includes(searchTerm);
+                                 
+            const matchesPosition = selectedPosition === 'all' || playerPosition.toUpperCase() === selectedPosition.toUpperCase();
+            const matchesGroup = selectedGroup === 'all' || playerGroup === selectedGroup;
+            
+            return matchesSearch && matchesPosition && matchesGroup;
+        }
+        
+        // Apply to mobile cards with animation
+        mobileCards.forEach(function(card) {
+            if (matchesFilters(card)) {
+                card.style.display = '';
+                setTimeout(() => {
+                    card.style.opacity = '1';
+                    card.style.transform = 'scale(1)';
+                }, 10);
+            } else {
+                card.style.opacity = '0';
+                card.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    card.style.display = 'none';
+                }, 300);
+            }
+        });
+        
+        // Apply to desktop table rows
+        tableRows.forEach(function(row) {
+            if (row.querySelectorAll('td').length <= 1) return; // Skip empty state row
+            
+            if (matchesFilters(row)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+        
+        // Check if we need to show empty states
+        const hasVisibleMobileCards = Array.from(mobileCards).some(card => card.style.display !== 'none');
+        const hasVisibleTableRows = Array.from(tableRows).some(row => row.style.display !== 'none' && row.querySelectorAll('td').length > 1);
+        
+        // Handle empty states for mobile and desktop if needed
+        const mobileContainer = document.querySelector('.block.md\\:hidden');
+        const desktopContainer = document.querySelector('.hidden.md\\:block');
+        
+        if (mobileContainer) {
+            // Show empty state if no visible cards
+            const mobileEmptyState = mobileContainer.querySelector('.glass-card:not(.player-card-mobile)');
+            const mobilePlayerCards = mobileContainer.querySelectorAll('.player-card-mobile');
+            
+            if (mobileEmptyState && mobilePlayerCards.length > 0) {
+                if (!hasVisibleMobileCards) {
+                    // Create and show "No results found" message for mobile
+                    if (!document.getElementById('mobile-no-results')) {
+                        const noResults = document.createElement('div');
+                        noResults.id = 'mobile-no-results';
+                        noResults.className = 'p-6 text-center';
+                        noResults.innerHTML = `
+                            <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <p class="text-gray-700 text-lg font-medium mb-1">No matches found</p>
+                            <p class="text-gray-500 text-sm">Try adjusting your filters</p>
+                        `;
+                        mobileContainer.appendChild(noResults);
+                    }
+                } else {
+                    // Remove "No results found" message if it exists
+                    const noResults = document.getElementById('mobile-no-results');
+                    if (noResults) noResults.remove();
+                }
+            }
+        }
+        
+        if (desktopContainer) {
+            // Handle desktop empty state similarly if needed
+            const noResultsRow = document.getElementById('desktop-no-results-row');
+            
+            if (!hasVisibleTableRows && tableRows.length > 1) {
+                // Show "No results found" message for desktop table
+                if (!noResultsRow) {
+                    const tbody = document.querySelector('#playersTable tbody');
+                    if (tbody) {
+                        const newRow = document.createElement('tr');
+                        newRow.id = 'desktop-no-results-row';
+                        newRow.innerHTML = `
+                            <td colspan="6" class="px-6 py-10 whitespace-nowrap text-sm text-gray-500 text-center">
+                                <svg class="w-12 h-12 mx-auto text-gray-400 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <p class="text-gray-700 text-lg font-medium mb-1">No matches found</p>
+                                <p class="text-gray-500 text-sm">Try adjusting your filters</p>
+                            </td>
+                        `;
+                        tbody.appendChild(newRow);
+                    }
+                }
+            } else if (noResultsRow) {
+                // Remove "No results found" message if there are results
+                noResultsRow.remove();
+            }
+        }
+    }
+    
+    // Add event listeners to filters
+    if (positionFilter) {
+        positionFilter.addEventListener('change', applyFilters);
+    }
+    
+    if (positionGroupFilter) {
+        positionGroupFilter.addEventListener('change', applyFilters);
+    }
+    
+    // Add event listener to search input
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            applyFilters();
+            
+            // Add or remove clear button
+            const clearButton = document.getElementById('clearSearch');
+            if (this.value && !clearButton) {
+                const newClearButton = document.createElement('button');
+                newClearButton.id = 'clearSearch';
+                newClearButton.className = 'absolute right-3 top-3 text-gray-400 hover:text-gray-600 focus:outline-none';
+                newClearButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+                newClearButton.addEventListener('click', function() {
+                    searchInput.value = '';
+                    searchInput.focus();
+                    searchInput.dispatchEvent(new Event('input'));
+                    this.remove();
+                });
+                searchInput.parentNode.appendChild(newClearButton);
+            } else if (!this.value && clearButton) {
+                clearButton.remove();
+            }
+        });
+    }
+    
+    // Apply filters on initial page load
+    applyFilters();
+    
+    // Add card hover effects for mobile
+    mobileCards.forEach(card => {
+        card.addEventListener('touchstart', () => {
+            card.classList.add('shadow-lg');
+            card.classList.add('scale-[1.02]');
+        }, { passive: true });
+        
+        card.addEventListener('touchend', () => {
+            card.classList.remove('shadow-lg');
+            card.classList.remove('scale-[1.02]');
+        }, { passive: true });
+    });
+    
+    // Add responsive table for desktop
+    const table = document.getElementById('playersTable');
+    if (table) {
+        // Make table responsive on smaller screens
+        const handleResize = () => {
+            if (window.innerWidth < 1024 && window.innerWidth >= 768) {
+                table.classList.add('table-compact');
+            } else {
+                table.classList.remove('table-compact');
+            }
+        };
+        
+        window.addEventListener('resize', handleResize);
+        handleResize(); // Initial check
+    }
+});
+</script>
+{% endblock %} 

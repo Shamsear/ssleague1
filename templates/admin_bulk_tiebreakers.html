@@ -1,0 +1,449 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Tiebreakers - Admin Dashboard{% endblock %}
+
+{% block content %}
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="flex flex-col items-center bg-white/90 p-6 rounded-2xl shadow-lg max-w-sm mx-auto text-center">
+        <div class="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-700 font-medium" id="loading-message">Processing data...</p>
+        <p class="text-xs text-gray-500 mt-2">This may take a moment</p>
+    </div>
+</div>
+
+<!-- Auto-refresh Indicator -->
+<div id="sse-indicator" class="fixed bottom-4 right-4 bg-white/80 backdrop-blur-sm shadow-md rounded-full px-3 py-1.5 text-xs flex items-center z-30">
+    <div id="sse-connected" class="flex items-center text-green-600">
+        <svg class="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4"/>
+        </svg>
+        Live updates active
+    </div>
+    <div id="sse-disconnected" class="hidden flex items-center text-red-600">
+        <svg class="w-3 h-3 mr-1.5" fill="currentColor" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="4"/>
+        </svg>
+        Connection lost
+    </div>
+</div>
+
+<div class="container mx-auto px-3 sm:px-4 py-4 sm:py-6">
+    <div class="glass rounded-3xl p-4 sm:p-6 mb-6">
+        <div class="flex flex-col gap-3 mb-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                <h2 class="text-2xl font-bold gradient-text">Bulk Bidding Tiebreakers</h2>
+                
+                <!-- Navigation Links -->
+                <div class="flex flex-wrap gap-2">
+                    <a href="{{ url_for('dashboard') }}" class="inline-flex items-center px-4 py-2.5 rounded-xl bg-white/60 text-gray-700 hover:bg-white/80 transition-all duration-200 backdrop-blur-sm border border-gray-200/50">
+                        <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                        </svg>
+                        Back to Dashboard
+                    </a>
+                    <a href="{{ url_for('admin_bulk_rounds') }}" class="inline-flex items-center px-4 py-2.5 rounded-xl bg-white/60 text-gray-700 hover:bg-white/80 transition-all duration-200 backdrop-blur-sm border border-gray-200/50">
+                        <svg class="w-5 h-5 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        All Bulk Rounds
+                    </a>
+                </div>
+            </div>
+            
+            <div class="glass p-4 rounded-xl backdrop-blur-sm bg-white/10 mb-5">
+                <p class="text-gray-700 mb-3">
+                    This page shows all active bulk bid tiebreakers that need to be resolved.
+                </p>
+                <p class="text-gray-700">
+                    You can manually resolve tiebreakers if teams are not actively participating or if you need to move the auction process forward.
+                </p>
+            </div>
+        </div>
+        
+        {% if tiebreakers_by_round %}
+            <div id="tiebreakers-container">
+            {% for round_id, round_data in tiebreakers_by_round.items() %}
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Bulk Round #{{ round_id }} - {{ round_data.round.start_time.strftime('%Y-%m-%d') }}
+                    <span class="ml-2 text-xs font-medium px-2.5 py-1 rounded-full {{ 'bg-green-100 text-green-800' if round_data.round.is_active else 'bg-blue-100 text-blue-800' }}">
+                        {{ round_data.round.status|capitalize }}
+                    </span>
+                </h3>
+                
+                <div class="space-y-4">
+                    {% for tiebreaker in round_data.tiebreakers %}
+                    <div class="glass rounded-xl p-4 border border-purple-200/30 hover:shadow-md transition-all duration-200">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div class="col-span-1">
+                                <h4 class="font-semibold text-gray-800 mb-2">Player Details</h4>
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0 w-10 h-10 rounded-md flex items-center justify-center mr-3 bg-primary/10 text-primary font-bold">
+                                        {{ tiebreaker.player.position }}
+                                    </div>
+                                    <div>
+                                        <p class="font-medium">{{ tiebreaker.player.name }}</p>
+                                        <p class="text-sm text-gray-500">{{ tiebreaker.player.team_name }} • {{ tiebreaker.player.position }}</p>
+                                        {% if tiebreaker.player.overall_rating %}
+                                        <div class="flex items-center mt-1">
+                                            <div class="w-5 h-5 rounded-full flex items-center justify-center {% if tiebreaker.player.overall_rating >= 85 %}bg-green-500{% elif tiebreaker.player.overall_rating >= 75 %}bg-blue-500{% else %}bg-gray-500{% endif %} text-white text-xs font-bold">
+                                                {{ tiebreaker.player.overall_rating }}
+                                            </div>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-span-1">
+                                <h4 class="font-semibold text-gray-800 mb-2">Bidding Status</h4>
+                                
+                                <!-- Basic info -->
+                                <div class="flex flex-wrap gap-3 mb-3">
+                                    <div class="bg-white/30 rounded-lg px-3 py-1.5">
+                                        <p class="text-xs text-gray-500">Current Amount</p>
+                                        <p class="font-semibold">£{{ tiebreaker.current_amount }}</p>
+                                    </div>
+                                    
+                                    <div class="bg-white/30 rounded-lg px-3 py-1.5">
+                                        <p class="text-xs text-gray-500">Teams</p>
+                                        <p class="font-semibold">{{ tiebreaker_details[tiebreaker.id].teams|length }}</p>
+                                    </div>
+                                    
+                                    <div class="bg-white/30 rounded-lg px-3 py-1.5">
+                                        <p class="text-xs text-gray-500">Highest Bid</p>
+                                        <p class="font-semibold">
+                                            {% if tiebreaker_details[tiebreaker.id].highest_bid > 0 %}
+                                                £{{ tiebreaker_details[tiebreaker.id].highest_bid }}
+                                            {% else %}
+                                                No bids yet
+                                            {% endif %}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                <!-- Competing teams -->
+                                <h5 class="text-sm font-medium mb-1.5">Competing Teams:</h5>
+                                <ul class="space-y-1 text-sm">
+                                    {% for team_tiebreaker in tiebreaker_details[tiebreaker.id].teams %}
+                                    <li class="flex justify-between items-center">
+                                        <span>{{ team_tiebreaker.team.name }}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full {% if team_tiebreaker.last_bid %}bg-green-100 text-green-800{% else %}bg-gray-100 text-gray-600{% endif %}">
+                                            {% if team_tiebreaker.last_bid %}
+                                                £{{ team_tiebreaker.last_bid }}
+                                            {% else %}
+                                                No bid
+                                            {% endif %}
+                                        </span>
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                            
+                            <div class="col-span-1 flex flex-col justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Actions</h4>
+                                    {% if tiebreaker_details[tiebreaker.id].highest_bidder %}
+                                        <p class="text-sm text-gray-600 mb-2">
+                                            Current highest bidder is <span class="font-medium">{{ tiebreaker_details[tiebreaker.id].highest_bidder.name }}</span> with a bid of <span class="font-medium">£{{ tiebreaker_details[tiebreaker.id].highest_bid }}</span>.
+                                        </p>
+                                    {% else %}
+                                        <p class="text-sm text-gray-600 mb-2">
+                                            No bids have been placed yet. If resolved now, a random team will be selected.
+                                        </p>
+                                    {% endif %}
+                                </div>
+                                
+                                <form action="{{ url_for('admin_resolve_bulk_tiebreaker', tiebreaker_id=tiebreaker.id) }}" method="POST" class="flex justify-end">
+                                    <button type="submit" class="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition-colors">
+                                        Resolve Tiebreaker
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endfor %}
+            </div>
+        {% else %}
+            <div id="no-tiebreakers" class="text-center py-8 glass rounded-xl">
+                <svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <h3 class="mt-2 text-lg font-medium text-gray-500">No active tiebreakers</h3>
+                <p class="mt-1 text-gray-500">All tiebreakers have been resolved</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    // Show loading overlay with custom message
+    function showLoading(message = 'Processing data...') {
+        const overlay = document.getElementById('loading-overlay');
+        const messageElement = document.getElementById('loading-message');
+        if (messageElement) {
+            messageElement.textContent = message;
+        }
+        overlay.classList.remove('opacity-0', 'pointer-events-none');
+    }
+    
+    // Hide loading overlay
+    function hideLoading() {
+        const overlay = document.getElementById('loading-overlay');
+        overlay.classList.add('opacity-0', 'pointer-events-none');
+    }
+    
+    // SSE connection management
+    let eventSource = null;
+    let reconnectTimeout = null;
+    let lastUpdateHash = null;
+    
+    function showConnectionStatus(connected) {
+        const connectedEl = document.getElementById('sse-connected');
+        const disconnectedEl = document.getElementById('sse-disconnected');
+        
+        if (connected) {
+            connectedEl.classList.remove('hidden');
+            disconnectedEl.classList.add('hidden');
+        } else {
+            connectedEl.classList.add('hidden');
+            disconnectedEl.classList.remove('hidden');
+        }
+    }
+    
+    function updateTiebreakersDisplay(data) {
+        // Only update if data has changed
+        const dataHash = JSON.stringify(data);
+        if (dataHash === lastUpdateHash) {
+            return; // No changes, skip update
+        }
+        lastUpdateHash = dataHash;
+        
+        const container = document.getElementById('tiebreakers-container');
+        const noTiebreakers = document.getElementById('no-tiebreakers');
+        
+        if (data.tiebreakers_count === 0) {
+            // No tiebreakers, show empty state
+            if (container) container.innerHTML = '';
+            if (!noTiebreakers) {
+                // Create no tiebreakers element if it doesn't exist
+                const emptyHtml = `
+                    <div id="no-tiebreakers" class="text-center py-8 glass rounded-xl">
+                        <svg class="w-12 h-12 mx-auto text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h3 class="mt-2 text-lg font-medium text-gray-500">No active tiebreakers</h3>
+                        <p class="mt-1 text-gray-500">All tiebreakers have been resolved</p>
+                    </div>
+                `;
+                if (container && container.parentNode) {
+                    container.parentNode.insertAdjacentHTML('beforeend', emptyHtml);
+                }
+            }
+        } else {
+            // Has tiebreakers, rebuild the display
+            if (noTiebreakers) noTiebreakers.remove();
+            
+            if (!container) {
+                // Create container if it doesn't exist
+                const containerHtml = '<div id="tiebreakers-container"></div>';
+                const glassDiv = document.querySelector('.glass.rounded-3xl');
+                if (glassDiv) {
+                    glassDiv.insertAdjacentHTML('beforeend', containerHtml);
+                }
+            }
+            
+            // Build HTML for tiebreakers
+            let html = '';
+            data.tiebreakers_by_round.forEach(roundData => {
+                const round = roundData.round_data;
+                html += `
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <svg class="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Bulk Round #${roundData.round_id} - ${round.round.start_time}
+                        <span class="ml-2 text-xs font-medium px-2.5 py-1 rounded-full ${round.round.is_active ? 'bg-green-100 text-green-800' : 'bg-blue-100 text-blue-800'}">
+                            ${round.round.status.charAt(0).toUpperCase() + round.round.status.slice(1)}
+                        </span>
+                    </h3>
+                    
+                    <div class="space-y-4">
+                `;
+                
+                round.tiebreakers.forEach(tiebreaker => {
+                    const highestBidText = tiebreaker.highest_bid > 0 ? `£${tiebreaker.highest_bid}` : 'No bids yet';
+                    const currentHighestBidder = tiebreaker.highest_bidder ? 
+                        `Current highest bidder is <span class="font-medium">${tiebreaker.highest_bidder.name}</span> with a bid of <span class="font-medium">£${tiebreaker.highest_bid}</span>.` :
+                        'No bids have been placed yet. If resolved now, a random team will be selected.';
+                    
+                    html += `
+                    <div class="glass rounded-xl p-4 border border-purple-200/30 hover:shadow-md transition-all duration-200">
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div class="col-span-1">
+                                <h4 class="font-semibold text-gray-800 mb-2">Player Details</h4>
+                                <div class="flex items-start">
+                                    <div class="flex-shrink-0 w-10 h-10 rounded-md flex items-center justify-center mr-3 bg-primary/10 text-primary font-bold">
+                                        ${tiebreaker.player_position}
+                                    </div>
+                                    <div>
+                                        <p class="font-medium">${tiebreaker.player_name}</p>
+                                        <p class="text-sm text-gray-500">${tiebreaker.player_team_name} • ${tiebreaker.player_position}</p>
+                                        ${tiebreaker.player_overall_rating ? `
+                                        <div class="flex items-center mt-1">
+                                            <div class="w-5 h-5 rounded-full flex items-center justify-center ${tiebreaker.player_overall_rating >= 85 ? 'bg-green-500' : tiebreaker.player_overall_rating >= 75 ? 'bg-blue-500' : 'bg-gray-500'} text-white text-xs font-bold">
+                                                ${tiebreaker.player_overall_rating}
+                                            </div>
+                                        </div>
+                                        ` : ''}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-span-1">
+                                <h4 class="font-semibold text-gray-800 mb-2">Bidding Status</h4>
+                                
+                                <div class="flex flex-wrap gap-3 mb-3">
+                                    <div class="bg-white/30 rounded-lg px-3 py-1.5">
+                                        <p class="text-xs text-gray-500">Current Amount</p>
+                                        <p class="font-semibold">£${tiebreaker.current_amount}</p>
+                                    </div>
+                                    
+                                    <div class="bg-white/30 rounded-lg px-3 py-1.5">
+                                        <p class="text-xs text-gray-500">Teams</p>
+                                        <p class="font-semibold">${tiebreaker.teams.length}</p>
+                                    </div>
+                                    
+                                    <div class="bg-white/30 rounded-lg px-3 py-1.5">
+                                        <p class="text-xs text-gray-500">Highest Bid</p>
+                                        <p class="font-semibold">${highestBidText}</p>
+                                    </div>
+                                </div>
+                                
+                                <h5 class="text-sm font-medium mb-1.5">Competing Teams:</h5>
+                                <ul class="space-y-1 text-sm">
+                    `;
+                    
+                    tiebreaker.teams.forEach(team => {
+                        const bidClass = team.last_bid ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600';
+                        const bidText = team.last_bid ? `£${team.last_bid}` : 'No bid';
+                        html += `
+                                    <li class="flex justify-between items-center">
+                                        <span>${team.name}</span>
+                                        <span class="text-xs px-2 py-0.5 rounded-full ${bidClass}">
+                                            ${bidText}
+                                        </span>
+                                    </li>
+                        `;
+                    });
+                    
+                    html += `
+                                </ul>
+                            </div>
+                            
+                            <div class="col-span-1 flex flex-col justify-between">
+                                <div>
+                                    <h4 class="font-semibold text-gray-800 mb-2">Actions</h4>
+                                    <p class="text-sm text-gray-600 mb-2">${currentHighestBidder}</p>
+                                </div>
+                                
+                                <form action="/admin/resolve_bulk_tiebreaker/${tiebreaker.id}" method="POST" class="flex justify-end">
+                                    <button type="submit" class="px-3 py-2 bg-purple-600 text-white rounded-lg text-sm hover:bg-purple-700 transition-colors">
+                                        Resolve Tiebreaker
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    `;
+                });
+                
+                html += `
+                    </div>
+                </div>
+                `;
+            });
+            
+            // Update container
+            const currentContainer = document.getElementById('tiebreakers-container');
+            if (currentContainer) {
+                currentContainer.innerHTML = html;
+            }
+        }
+    }
+    
+    function connectSSE() {
+        // Close existing connection if any
+        if (eventSource) {
+            eventSource.close();
+        }
+        
+        // Clear any existing reconnect timeout
+        if (reconnectTimeout) {
+            clearTimeout(reconnectTimeout);
+        }
+        
+        // Create new SSE connection
+        eventSource = new EventSource('/admin/bulk_tiebreakers_stream');
+        
+        eventSource.onopen = function() {
+            console.log('SSE connection established');
+            showConnectionStatus(true);
+        };
+        
+        eventSource.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                
+                // Check for errors
+                if (data.error) {
+                    console.error('SSE error:', data.error);
+                    return;
+                }
+                
+                // Update the display with new data
+                updateTiebreakersDisplay(data);
+                
+            } catch (error) {
+                console.error('Error parsing SSE data:', error);
+            }
+        };
+        
+        eventSource.onerror = function(error) {
+            console.error('SSE connection error:', error);
+            showConnectionStatus(false);
+            eventSource.close();
+            
+            // Attempt to reconnect after 5 seconds
+            reconnectTimeout = setTimeout(() => {
+                console.log('Attempting to reconnect SSE...');
+                connectSSE();
+            }, 5000);
+        };
+    }
+    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Connect to SSE for real-time updates
+        connectSSE();
+        
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (eventSource) {
+                eventSource.close();
+            }
+            if (reconnectTimeout) {
+                clearTimeout(reconnectTimeout);
+            }
+        });
+    });
+</script>
+{% endblock %} 

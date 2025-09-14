@@ -1,0 +1,63 @@
+<!-- What's New Modal -->
+<div id="whats-new-modal" class="fixed inset-0 z-50 flex items-center justify-center invisible opacity-0 transition-all duration-300" role="dialog" aria-modal="true" aria-labelledby="whats-new-title" aria-hidden="true">
+    <!-- Backdrop -->
+    <div id="whats-new-backdrop" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+    
+    <!-- Modal Content -->
+    <div class="relative bg-white w-full max-w-2xl mx-auto rounded-3xl shadow-2xl p-6 sm:p-8 max-h-[90vh] overflow-y-auto transform translate-y-8 transition-transform duration-300" role="document">
+        <!-- Modal Header -->
+        <div class="flex justify-between items-center mb-6">
+            <h2 id="whats-new-title" class="text-2xl font-bold gradient-text flex items-center">
+                <svg class="w-7 h-7 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path>
+                </svg>
+                What's New
+            </h2>
+            <button id="close-whats-new" class="text-gray-400 hover:text-gray-600 transition-colors" aria-label="Close what's new dialog">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+            </button>
+        </div>
+        
+        <!-- Version badge -->
+        <div class="inline-block px-3 py-1 bg-primary/10 text-primary text-sm font-medium rounded-full mb-6">
+            Version 2.1.0 | <span id="release-date">April 26, 2025</span>
+        </div>
+        
+        <!-- Updates List -->
+        <div class="space-y-8">
+            <!-- Feature Update - Remember Me -->
+            <div class="feature-update">
+                <h3 class="text-lg font-semibold text-primary flex items-center mb-2">
+                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path>
+                    </svg>
+                    "Remember Me" Login Functionality
+                </h3>
+                <div class="ml-7">
+                    <p class="text-gray-600 mb-3">
+                        Stay logged in securely for longer periods with our new "Remember Me" feature. This uses secure token-based authentication to keep you signed in for 30 days, even after closing your browser.
+                    </p>
+                    <img src="{{ url_for('static', filename='images/updates/remember-me.png') }}" alt="Remember Me Screenshot" class="rounded-lg shadow-md w-full max-w-md mx-auto mb-2">
+                    <p class="text-sm text-gray-500">
+                        Your security is our priority - tokens are stored securely and encrypted.
+                    </p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="mt-8 pt-6 border-t border-gray-200">
+            <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
+                <label class="flex items-center text-sm text-gray-600">
+                    <input type="checkbox" id="dont-show-again" class="mr-2 h-4 w-4 text-primary focus:ring-primary/50 border-gray-300 rounded">
+                    Don't show this again
+                </label>
+                <button id="dismiss-whats-new" class="px-5 py-2 bg-primary text-white rounded-xl hover:bg-primary-dark transition-colors">
+                    Got it!
+                </button>
+            </div>
+        </div>
+    </div>
+</div> 

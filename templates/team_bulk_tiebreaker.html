@@ -1,0 +1,401 @@
+{% extends "base.html" %}
+
+{% block title %}Bulk Bid Tiebreaker - Football Auction{% endblock %}
+
+{% block head %}
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
+    <!-- Tiebreaker Card -->
+    <div class="glass rounded-3xl p-4 sm:p-6">
+        <div class="flex items-center mb-6">
+            <div class="mr-4 flex-shrink-0">
+                <div class="h-12 w-12 flex items-center justify-center rounded-full bg-yellow-50 border border-yellow-200">
+                    <svg class="h-6 w-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+            </div>
+            <div>
+                <h2 class="text-xl font-bold text-dark">Tiebreaker in Progress</h2>
+                <p class="text-sm text-gray-500">Multiple teams have bid on this player. Increase your bid to win.</p>
+            </div>
+        </div>
+        
+        <!-- Player Info Card -->
+        <div class="glass-card mb-6 p-4 rounded-xl backdrop-blur-sm bg-gradient-to-br from-white/30 to-white/10">
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <div class="flex-shrink-0 w-20 h-20 rounded-full flex items-center justify-center bg-primary/10 text-primary font-bold text-xl">
+                    {{ player.position }}
+                </div>
+                <div class="text-center sm:text-left">
+                    <h3 class="text-lg font-bold text-dark">{{ player.name }}</h3>
+                    <p class="text-sm text-gray-500">{{ player.team_name }} • {{ player.position }}</p>
+                    
+                    {% if player.overall_rating %}
+                    <div class="flex items-center justify-center sm:justify-start mt-2">
+                        <div class="w-6 h-6 flex items-center justify-center rounded-full {% if player.overall_rating >= 90 %}bg-green-500{% elif player.overall_rating >= 80 %}bg-blue-500{% elif player.overall_rating >= 70 %}bg-yellow-500{% else %}bg-gray-500{% endif %} text-white text-xs font-bold">
+                            {{ player.overall_rating }}
+                        </div>
+                        <span class="text-xs ml-1">{{ player.playing_style or 'Standard' }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="flex-grow"></div>
+                <div class="text-center bg-white/30 rounded-lg px-4 py-2">
+                    <div class="text-sm text-gray-500">Current Bid</div>
+                    <div id="currentBidAmount" class="text-xl font-bold text-primary">£{{ tiebreaker.current_amount }}</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Competing Teams Section -->
+        <div class="glass-card mb-6 p-4 rounded-xl bg-white/30">
+            <h4 class="font-medium text-dark mb-3">Competing Teams</h4>
+            <div id="competingTeams" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {% for active_team in active_teams %}
+                <div class="p-3 rounded-lg {% if active_team.team_id == current_user.team.id %}bg-primary/10 border border-primary/20{% else %}bg-white/60{% endif %}">
+                    <div class="font-medium text-dark">{{ active_team.team.name }}</div>
+                    {% if active_team.last_bid %}
+                    <div class="text-sm text-gray-500">Last bid: £{{ active_team.last_bid }} ({{ active_team.last_bid_time.strftime('%H:%M:%S') }})</div>
+                    {% else %}
+                    <div class="text-sm text-gray-500">Waiting to bid...</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Bidding Actions -->
+        <div class="glass-card p-4 rounded-xl bg-white/50">
+            <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <h4 class="font-medium text-dark">Your Action</h4>
+                    <p class="text-sm text-gray-500">You can raise the bid or withdraw from this tiebreaker</p>
+                    <div class="mt-1 text-xs text-blue-600">Your current balance: £<span id="currentBalance">{{ current_user.team.balance }}</span></div>
+                </div>
+                
+                <div class="flex flex-col sm:flex-row items-center gap-3">
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-gray-500">£</span>
+                        <input type="number" id="bidAmount" min="{{ tiebreaker.current_amount + 1 }}" max="{{ current_user.team.balance }}" value="{{ tiebreaker.current_amount + 1 }}" class="pl-8 pr-3 py-2 text-sm rounded-lg border border-gray-300 focus:ring-primary focus:border-primary" style="min-width: 120px;">
+                    </div>
+                    
+                    <button onclick="placeBid({{ tiebreaker.id }})" class="px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary/90 transition-colors duration-200">
+                        Place Bid
+                    </button>
+                    
+                    <button onclick="withdrawFromTiebreaker({{ tiebreaker.id }})" class="px-4 py-2 rounded-lg bg-red-500 text-white hover:bg-red-600 transition-colors duration-200">
+                        Withdraw
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Rules Section -->
+        <div class="mt-6 glass-card p-4 rounded-xl bg-blue-50/30 border border-blue-100/20">
+            <h4 class="font-medium text-blue-700 mb-2">Tiebreaker Rules</h4>
+            <ul class="text-sm text-blue-600 space-y-1 list-disc pl-5">
+                <li>This is an open auction with no time limit.</li>
+                <li>You can continue bidding as long as you have sufficient balance.</li>
+                <li>The player will be awarded to the last team remaining.</li>
+                <li>You can withdraw from the tiebreaker at any time.</li>
+                <li>Once you withdraw, you cannot rejoin this tiebreaker.</li>
+                <li>The tiebreaker ends when only one team remains.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript for Bidding -->
+<script>
+    function placeBid(tiebreakerId) {
+        const amount = document.getElementById('bidAmount').value;
+        
+        if (!amount) {
+            alert('Please enter a bid amount.');
+            return;
+        }
+        
+        // Show loading state
+        const bidButton = event.target;
+        const originalText = bidButton.innerHTML;
+        bidButton.innerHTML = '<span class="inline-block animate-spin mr-2">↻</span> Bidding...';
+        bidButton.disabled = true;
+        
+        fetch('/place_bulk_tiebreaker_bid', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0'
+            },
+            body: JSON.stringify({
+                tiebreaker_id: tiebreakerId,
+                amount: amount
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Reset button
+            bidButton.innerHTML = originalText;
+            bidButton.disabled = false;
+            
+            if (data.error) {
+                alert(data.error);
+            } else {
+                // Update the UI with the new data instead of reloading
+                updateTiebreakerUI(data);
+            }
+        })
+        .catch(error => {
+            // Reset button
+            bidButton.innerHTML = originalText;
+            bidButton.disabled = false;
+            
+            console.error('Error placing bid:', error);
+            alert('An error occurred while placing your bid. Please try again.');
+        });
+    }
+    
+    function withdrawFromTiebreaker(tiebreakerId) {
+        if (confirm('Are you sure you want to withdraw from this tiebreaker? You will not be able to bid on this player again in this round.')) {
+            // Show loading state
+            const withdrawButton = event.target;
+            const originalText = withdrawButton.innerHTML;
+            withdrawButton.innerHTML = '<span class="inline-block animate-spin mr-2">↻</span> Withdrawing...';
+            withdrawButton.disabled = true;
+            
+            fetch('/withdraw_from_bulk_tiebreaker', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                },
+                body: JSON.stringify({
+                    tiebreaker_id: tiebreakerId
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Reset button
+                withdrawButton.innerHTML = originalText;
+                withdrawButton.disabled = false;
+                
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    window.location.href = '{{ url_for("team_bulk_round") }}';
+                }
+            })
+            .catch(error => {
+                // Reset button
+                withdrawButton.innerHTML = originalText;
+                withdrawButton.disabled = false;
+                
+                console.error('Error withdrawing from tiebreaker:', error);
+                alert('An error occurred while processing your request. Please try again.');
+            });
+        }
+    }
+    
+    // Update the UI with new tiebreaker data
+    function updateTiebreakerUI(data) {
+        if (data.current_amount) {
+            document.getElementById('currentBidAmount').textContent = '£' + data.current_amount;
+            document.getElementById('bidAmount').min = data.current_amount + 1;
+            document.getElementById('bidAmount').value = data.current_amount + 1;
+        }
+        
+        if (data.active_teams) {
+            const teamsContainer = document.getElementById('competingTeams');
+            teamsContainer.innerHTML = '';
+            
+            data.active_teams.forEach(team => {
+                const teamDiv = document.createElement('div');
+                teamDiv.className = `p-3 rounded-lg ${team.team_id === {{ current_user.team.id }} ? 'bg-primary/10 border border-primary/20' : 'bg-white/60'}`;
+                
+                const nameDiv = document.createElement('div');
+                nameDiv.className = 'font-medium text-dark';
+                nameDiv.textContent = team.team_name;
+                
+                const bidDiv = document.createElement('div');
+                bidDiv.className = 'text-sm text-gray-500';
+                
+                if (team.last_bid) {
+                    bidDiv.textContent = `Last bid: £${team.last_bid} (${team.last_bid_time})`;
+                } else {
+                    bidDiv.textContent = 'Waiting to bid...';
+                }
+                
+                teamDiv.appendChild(nameDiv);
+                teamDiv.appendChild(bidDiv);
+                teamsContainer.appendChild(teamDiv);
+            });
+        }
+        
+        if (data.team_balance) {
+            document.getElementById('currentBalance').textContent = data.team_balance;
+            document.getElementById('bidAmount').max = data.team_balance;
+        }
+
+        // Store the last update timestamp
+        window.lastUpdateTime = Date.now();
+        window.lastData = data;
+    }
+    
+    // Fetch real-time updates - faster polling for immediate updates
+    function fetchTiebreakerUpdates() {
+        fetch('/api/bulk_tiebreaker_status/{{ tiebreaker.id }}?_=' + Date.now(), {
+            method: 'GET',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network response error');
+            return response.json();
+        })
+        .then(data => {
+            updateTiebreakerUI(data);
+            
+            // If not resolved, continue checking at a faster rate
+            if (!data.resolved) {
+                setTimeout(fetchTiebreakerUpdates, 1000); // Check every 1 second
+            } else {
+                handleTiebreakerResolution(data);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching tiebreaker updates:', error);
+            // Continue checking even if there's an error, but with slightly longer delay
+            setTimeout(fetchTiebreakerUpdates, 2000);
+        });
+    }
+    
+    // Check if tiebreaker is resolved
+    function checkTiebreakerStatus() {
+        fetch('/check_bulk_tiebreaker_status/{{ tiebreaker.id }}?_=' + Date.now(), {
+            method: 'GET',
+            headers: {
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network response error');
+            return response.json();
+        })
+        .then(data => handleTiebreakerResolution(data))
+        .catch(error => {
+            console.error('Error checking tiebreaker status:', error);
+            setTimeout(checkTiebreakerStatus, 5000); // Reduced from 10s to 5s
+        });
+    }
+    
+    function handleTiebreakerResolution(data) {
+        if (data.resolved) {
+            // If resolved and current team is the winner, show success message and redirect
+            if (data.winner_team_id === {{ current_user.team.id }}) {
+                // If there's another tiebreaker, go there
+                if (data.next_tiebreaker_id) {
+                    window.location.href = '/team_bulk_tiebreaker/' + data.next_tiebreaker_id;
+                } else {
+                    // Otherwise go to dashboard with success message
+                    window.location.href = '{{ url_for("dashboard") }}?player_won={{ tiebreaker.player.name }}';
+                }
+            } else {
+                // If not the winner, check for next tiebreaker or go to bulk round
+                if (data.next_tiebreaker_id) {
+                    window.location.href = '/team_bulk_tiebreaker/' + data.next_tiebreaker_id;
+                } else {
+                    window.location.href = '{{ url_for("team_bulk_round") }}';
+                }
+            }
+        } else {
+            // If not resolved, continue checking more frequently
+            setTimeout(checkTiebreakerStatus, 3000); // Reduced from 10s to 3s
+        }
+    }
+
+    // Function to create a visual pulse effect when new bids come in
+    function pulseEffect(element) {
+        if (!element) return;
+        
+        // Add pulse class
+        element.classList.add('animate-pulse-fast', 'bg-yellow-100');
+        
+        // Remove it after animation completes
+        setTimeout(() => {
+            element.classList.remove('animate-pulse-fast', 'bg-yellow-100');
+        }, 1000);
+    }
+
+    // Add CSS for faster pulse animation
+    const styleElement = document.createElement('style');
+    styleElement.textContent = `
+        @keyframes pulse-fast {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-fast {
+            animation: pulse-fast 0.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    `;
+    document.head.appendChild(styleElement);
+    
+    // Start checking tiebreaker status and updates
+    checkTiebreakerStatus();
+    fetchTiebreakerUpdates();
+    
+    // Function to push updates instantly when new bids are placed by anyone
+    // This simulates push notifications without websockets
+    function simulatePushUpdates() {
+        const fastCheckInterval = setInterval(() => {
+            fetch('/api/bulk_tiebreaker_status/{{ tiebreaker.id }}?fast=1&_=' + Date.now(), {
+                method: 'GET',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Network response error');
+                return response.json(); 
+            })
+            .then(data => {
+                if (window.lastData && window.lastData.current_amount !== data.current_amount) {
+                    // Bid has changed, update UI and add visual indicator
+                    updateTiebreakerUI(data);
+                    pulseEffect(document.getElementById('currentBidAmount').parentElement);
+                }
+            })
+            .catch(error => {
+                console.error('Error in fast update check:', error);
+            });
+        }, 500); // Check very frequently for new bids (every 500ms)
+
+        // Clear interval when leaving page
+        window.addEventListener('beforeunload', () => {
+            clearInterval(fastCheckInterval);
+        });
+    }
+
+    // Start simulated push updates
+    simulatePushUpdates();
+</script>
+{% endblock %} 

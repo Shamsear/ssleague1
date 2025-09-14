@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Timer Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .timer-display {
+            font-size: 48px;
+            font-weight: bold;
+            color: #333;
+            margin: 20px 0;
+        }
+        .debug-info {
+            background: #f0f0f0;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Bulk Timer Debug Page</h1>
+    
+    <div>
+        <label for="round-id">Bulk Round ID:</label>
+        <input type="number" id="round-id" value="1" />
+        <button onclick="startTimer()">Start Timer</button>
+        <button onclick="stopTimer()">Stop Timer</button>
+        <button onclick="testFetch()">Test Single Fetch</button>
+    </div>
+    
+    <div class="timer-display" id="timer">--:--</div>
+    
+    <div class="debug-info">
+        <h3>Debug Information:</h3>
+        <div id="debug-log"></div>
+    </div>
+    
+    <div class="debug-info">
+        <h3>Last Response:</h3>
+        <pre id="last-response">No response yet</pre>
+    </div>
+
+    <script>
+    let timerInterval;
+    let fetchCount = 0;
+    
+    function log(message, type = 'info') {
+        const debugLog = document.getElementById('debug-log');
+        const timestamp = new Date().toLocaleTimeString();
+        const color = type === 'error' ? 'red' : type === 'success' ? 'green' : 'black';
+        debugLog.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+        debugLog.scrollTop = debugLog.scrollHeight;
+    }
+    
+    function updateTimer() {
+        const roundId = document.getElementById('round-id').value;
+        fetchCount++;
+        log(`Fetch #${fetchCount}: Requesting /check_bulk_round_status/${roundId}`);
+        
+        fetch(`/check_bulk_round_status/${roundId}`)
+            .then(response => {
+                log(`Response status: ${response.status}`, response.ok ? 'success' : 'error');
+                return response.json();
+            })
+            .then(data => {
+                // Display raw response
+                document.getElementById('last-response').textContent = JSON.stringify(data, null, 2);
+                
+                log(`Response received: active=${data.active}, remaining=${data.remaining}`, 'success');
+                
+                if (data.active) {
+                    let remaining = Math.floor(data.remaining);
+                    let minutes = Math.floor(remaining / 60);
+                    let seconds = remaining % 60;
+                    
+                    const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    document.getElementById('timer').textContent = timeString;
+                    
+                    log(`Timer updated: ${timeString} (${remaining} seconds remaining)`);
+                    
+                    if (remaining <= 0) {
+                        log('Timer expired! Stopping interval.', 'error');
+                        clearInterval(timerInterval);
+                    }
+                } else {
+                    log('Round is not active. Stopping timer.', 'error');
+                    document.getElementById('timer').textContent = 'INACTIVE';
+                    clearInterval(timerInterval);
+                }
+            })
+            .catch(error => {
+                log(`Error: ${error.message}`, 'error');
+                console.error('Full error:', error);
+            });
+    }
+    
+    function startTimer() {
+        log('Starting timer with 1-second interval', 'success');
+        fetchCount = 0;
+        stopTimer(); // Clear any existing interval
+        updateTimer(); // Initial update
+        timerInterval = setInterval(updateTimer, 1000);
+    }
+    
+    function stopTimer() {
+        if (timerInterval) {
+            log('Stopping timer', 'info');
+            clearInterval(timerInterval);
+            timerInterval = null;
+        }
+    }
+    
+    function testFetch() {
+        log('Testing single fetch...', 'info');
+        updateTimer();
+    }
+    
+    // Test on page load
+    window.addEventListener('DOMContentLoaded', function() {
+        log('Page loaded. Ready to test.', 'success');
+    });
+    </script>
+</body>
+</html>

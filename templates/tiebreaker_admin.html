@@ -1,0 +1,570 @@
+{% extends "base.html" %}
+
+{% block title %}Tiebreaker - Admin View{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-6 sm:py-8 max-w-5xl">
+    <div class="glass rounded-3xl p-5 sm:p-8 mx-auto shadow-lg shadow-primary/5 border border-white/20 backdrop-blur-md hover:shadow-xl transition-all duration-300">
+        <!-- Header Section -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 border-b border-gray-200/60 pb-5">
+            <div class="flex items-center">
+                <div class="bg-yellow-100 p-2.5 rounded-xl mr-4 shadow-sm">
+                    <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div>
+                    <div class="flex items-center">
+                        <h2 class="text-xl sm:text-2xl font-bold text-dark bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">Tiebreaker Management</h2>
+                        {% if not tiebreaker.resolved %}
+                        <span class="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                            <span class="animate-ping absolute h-2 w-2 rounded-full bg-yellow-400 opacity-75 mr-2"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500 mr-2"></span>
+                            Active
+                        </span>
+                        {% else %}
+                        <span class="ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500 mr-2"></span>
+                            Resolved
+                        </span>
+                        {% endif %}
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1 flex items-center">
+                        <svg class="w-4 h-4 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        Round #{{ tiebreaker.round.id }} • {% if tiebreaker.timestamp %}{{ tiebreaker.timestamp.strftime('%d %b %Y, %H:%M') }}{% else %}N/A{% endif %}
+                    </p>
+                </div>
+            </div>
+            
+            <div id="timer-container" class="bg-gray-100 px-4 py-2 rounded-xl flex items-center shadow-sm hover:shadow transition-all duration-300 text-sm font-medium">
+                <svg class="w-4 h-4 mr-2 text-primary animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span id="timer-text">Auto-refreshing</span>
+            </div>
+        </div>
+        
+        <!-- Two-column layout for player info and status -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <!-- Player Info Card -->
+            <div class="md:col-span-1">
+                <div class="flex items-center mb-4">
+                    <div class="p-1.5 rounded-lg bg-primary/10 mr-2">
+                        <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zm-4 7a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                        </svg>
+                    </div>
+                    <h3 class="text-base font-semibold text-dark">Player Information</h3>
+                </div>
+                <div class="bg-white/60 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 transform hover:scale-[1.01] border border-gray-100/20">
+                    <div class="flex flex-col items-center mb-4">
+                        <div class="relative w-28 h-28 mb-3 bg-gray-100 rounded-xl flex items-center justify-center overflow-hidden shadow-md">
+                            {% if player.photo_url %}
+                            <img src="{{ player.photo_url }}" alt="{{ player.name }}" class="object-cover w-full h-full">
+                            {% else %}
+                            <div class="bg-primary/10 w-full h-full flex items-center justify-center">
+                                <span class="text-5xl font-bold text-primary">{{ player.position[0] }}</span>
+                            </div>
+                            {% endif %}
+                            <div class="absolute bottom-0 right-0 bg-primary text-white text-xs font-bold py-1 px-2 rounded-tl-lg shadow">
+                                {% if player.overall_rating %}{{ player.overall_rating }}{% else %}--{% endif %}
+                            </div>
+                        </div>
+                        <h4 class="text-xl font-semibold text-dark text-center">{{ player.name }}</h4>
+                        <div class="flex items-center mt-2 space-x-2">
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium 
+                                {% if player.position == 'QB' %}bg-red-100 text-red-800
+                                {% elif player.position == 'RB' %}bg-blue-100 text-blue-800
+                                {% elif player.position == 'WR' %}bg-green-100 text-green-800
+                                {% elif player.position == 'TE' %}bg-purple-100 text-purple-800
+                                {% elif player.position == 'K' %}bg-yellow-100 text-yellow-800
+                                {% elif player.position == 'DST' %}bg-gray-100 text-gray-800
+                                {% endif %}">
+                                {{ player.position }}
+                            </span>
+                            {% if player.nfl_team %}
+                            <span class="text-xs bg-gray-100 px-2 py-0.5 rounded-md text-gray-600">{{ player.nfl_team }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="border-t border-gray-200/60 pt-4 mt-2">
+                        <div class="grid grid-cols-2 gap-3 text-sm">
+                            <div class="bg-gray-50/80 p-2 rounded-lg">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">Original Bid</p>
+                                <p class="font-medium text-primary text-base">£{{ "{:,}".format(tiebreaker.original_amount) }}</p>
+                            </div>
+                            <div class="bg-gray-50/80 p-2 rounded-lg">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">Tied Teams</p>
+                                <p class="font-medium text-primary text-base flex items-center">
+                                    <svg class="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                                    </svg>
+                                    {{ team_tiebreakers|length }}
+                                </p>
+                            </div>
+                            <div class="bg-gray-50/80 p-2 rounded-lg">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">Created</p>
+                                <p class="font-medium text-gray-700 text-sm">{% if tiebreaker.timestamp %}{{ tiebreaker.timestamp.strftime('%d %b, %H:%M') }}{% else %}N/A{% endif %}</p>
+                            </div>
+                            <div class="bg-gray-50/80 p-2 rounded-lg">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">Duration</p>
+                                <p class="font-medium text-gray-700 text-sm flex items-center">
+                                    <svg class="w-3.5 h-3.5 mr-1 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    {{ tiebreaker.duration or '2' }} min
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                    {% if not tiebreaker.resolved %}
+                    <a href="{{ url_for('player_detail', player_id=player.id) }}" class="mt-5 block text-center w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors text-sm font-medium flex items-center justify-center">
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                        View Complete Player Details
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Status and Summary -->
+            <div class="md:col-span-2">
+                <!-- Status Alert -->
+                <div class="bg-yellow-50 border-l-4 border-yellow-400 p-5 mb-6 rounded-xl shadow-sm">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0 mt-0.5">
+                            <svg class="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-yellow-700 leading-relaxed">
+                                A tie was detected for <strong class="text-yellow-800">{{ player.name }}</strong> at the amount of <strong class="text-yellow-800">£{{ "{:,}".format(tiebreaker.original_amount) }}</strong>. 
+                                {{ team_tiebreakers|length }} teams need to submit new bids to resolve this tiebreaker.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Tiebreaker Status -->
+                <div class="mb-6">
+                    <div class="flex items-center mb-4">
+                        <div class="p-1.5 rounded-lg bg-primary/10 mr-2">
+                            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-base font-semibold text-dark">Status</h3>
+                    </div>
+                    
+                    <div class="bg-white/60 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border border-gray-100/20">
+                        <div class="flex items-center">
+                            {% if tiebreaker.resolved %}
+                            <div class="bg-green-100 p-2.5 rounded-xl mr-4 shadow-sm">
+                                <svg class="w-5 h-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-green-600 text-lg">Resolved</span>
+                                <p class="text-sm text-gray-600 mt-1">Winning bid: <span class="font-medium text-green-700">£{{ "{:,}".format(tiebreaker.winning_bid.new_amount) }}</span> by <span class="font-medium text-gray-700">{{ tiebreaker.winning_bid.team.name }}</span></p>
+                            </div>
+                            {% else %}
+                            <div class="bg-orange-100 p-2.5 rounded-xl mr-4 shadow-sm">
+                                <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                            </div>
+                            <div>
+                                <span class="font-semibold text-orange-600 text-lg">In Progress</span>
+                                <p class="text-sm text-gray-600 mt-1">Waiting for all teams to submit new bids</p>
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="bg-gray-100 px-4 py-2 rounded-xl shadow-inner flex items-center justify-center">
+                            <div class="flex flex-col items-center">
+                                <div class="flex items-center">
+                                    <span class="text-lg font-bold text-primary">{{ teams_submitted }}</span>
+                                    <span class="text-gray-400 mx-1">/</span>
+                                    <span class="text-lg font-medium text-gray-700">{{ team_tiebreakers|length }}</span>
+                                </div>
+                                <span class="text-xs text-gray-500">teams submitted</span>
+                            </div>
+                            
+                            <!-- Progress bar -->
+                            <div class="w-24 ml-3 bg-gray-200 rounded-full h-2.5 overflow-hidden">
+                                {% if team_tiebreakers|length > 0 %}
+                                    {% set width_percent = (teams_submitted / team_tiebreakers|length * 100)|round|int %}
+                                {% else %}
+                                    {% set width_percent = 0 %}
+                                {% endif %}
+                                <div class="bg-primary h-2.5 rounded-full" 
+                                     style="width: {{ width_percent }}%;">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Bid Summary Card -->
+                <div class="mb-6">
+                    <div class="flex items-center mb-4">
+                        <div class="p-1.5 rounded-lg bg-primary/10 mr-2">
+                            <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                            </svg>
+                        </div>
+                        <h3 class="text-base font-semibold text-dark">Bid Summary</h3>
+                    </div>
+                    
+                    <div class="bg-white/60 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 border border-gray-100/20">
+                        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            <div class="bg-primary/5 rounded-xl p-4 flex-1 hover:bg-primary/10 transition-colors">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">Original Bid</p>
+                                <p class="text-xl font-semibold text-dark mt-1">£{{ "{:,}".format(tiebreaker.original_amount) }}</p>
+                            </div>
+                            
+                            <div class="bg-primary/5 rounded-xl p-4 flex-1 hover:bg-primary/10 transition-colors">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">Highest New Bid</p>
+                                <p class="text-xl font-semibold text-dark mt-1">
+                                    {% set highest_bid = {'amount': 0} %}
+                                    {% for team_bid in team_tiebreakers %}
+                                        {% if team_bid.new_amount and team_bid.new_amount > highest_bid.amount %}
+                                            {% if highest_bid.update({'amount': team_bid.new_amount}) %}{% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if highest_bid.amount > 0 %}
+                                        £{{ "{:,}".format(highest_bid.amount) }}
+                                    {% else %}
+                                        <span class="text-gray-400 text-lg">None yet</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                            
+                            <div class="bg-primary/5 rounded-xl p-4 flex-1 hover:bg-primary/10 transition-colors">
+                                <p class="text-xs text-gray-500 uppercase tracking-wide">Average New Bid</p>
+                                <p class="text-xl font-semibold text-dark mt-1">
+                                    {% set sum_bids = {'amount': 0, 'count': 0} %}
+                                    {% for team_bid in team_tiebreakers %}
+                                        {% if team_bid.new_amount %}
+                                            {% if sum_bids.update({'amount': sum_bids.amount + team_bid.new_amount, 'count': sum_bids.count + 1}) %}{% endif %}
+                                        {% endif %}
+                                    {% endfor %}
+                                    
+                                    {% if sum_bids.count > 0 %}
+                                        £{{ "{:,}".format((sum_bids.amount / sum_bids.count)|int) }}
+                                    {% else %}
+                                        <span class="text-gray-400 text-lg">None yet</span>
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Teams Table -->
+        <div class="mb-6">
+            <div class="flex items-center mb-4">
+                <div class="p-1.5 rounded-lg bg-primary/10 mr-2">
+                    <svg class="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-base font-semibold text-dark">Tied Teams</h3>
+            </div>
+            
+            <div class="bg-white/60 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden border border-gray-100/20">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead>
+                            <tr class="bg-gray-50/80">
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Bid</th>
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Bid</th>
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Updated</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-gray-200 bg-white/50">
+                            {% for team_tiebreaker in team_tiebreakers %}
+                            <tr class="hover:bg-gray-50/80 transition-colors {% if tiebreaker.winning_bid and team_tiebreaker.id == tiebreaker.winning_bid.id %}bg-green-50/80{% endif %}">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center">
+                                        <div class="flex-shrink-0 h-9 w-9 bg-primary/10 rounded-full flex items-center justify-center shadow-sm">
+                                            <span class="text-sm font-medium text-primary">{{ team_tiebreaker.team.name[0] }}</span>
+                                        </div>
+                                        <div class="ml-3">
+                                            <p class="font-semibold text-gray-900">{{ team_tiebreaker.team.name }}</p>
+                                            <div class="flex items-center text-xs text-gray-500 mt-0.5">
+                                                <svg class="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                </svg>
+                                                Balance: £{{ "{:,}".format(team_tiebreaker.team.balance) }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="text-gray-900 font-medium">£{{ "{:,}".format(tiebreaker.original_amount) }}</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {% if team_tiebreaker.new_amount %}
+                                    <span class="font-medium text-primary">£{{ "{:,}".format(team_tiebreaker.new_amount) }}</span>
+                                    {% if tiebreaker.winning_bid and team_tiebreaker.id == tiebreaker.winning_bid.id %}
+                                    <span class="ml-2 inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                                        <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                        Winner
+                                    </span>
+                                    {% endif %}
+                                    {% else %}
+                                    <div class="text-orange-600 flex items-center">
+                                        <svg class="animate-pulse mr-1.5 h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        <span>Pending</span>
+                                    </div>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {% if team_tiebreaker.new_amount %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                        <span class="relative flex h-2 w-2 mr-1">
+                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                        </span>
+                                        Submitted
+                                    </span>
+                                    {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                        <span class="relative flex h-2 w-2 mr-1">
+                                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                            <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                                        </span>
+                                        Waiting
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500">
+                                    {% if team_tiebreaker.timestamp %}
+                                    <div class="flex items-center">
+                                        <svg class="w-3 h-3 mr-1 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        {{ team_tiebreaker.timestamp.strftime('%d %b, %H:%M:%S') }}
+                                    </div>
+                                    {% else %}
+                                    <span class="text-gray-400">-</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                
+                <!-- Mobile View for Teams -->
+                <div class="sm:hidden block">
+                    <div class="px-4 py-3 border-t border-gray-200/60 bg-gray-50/80">
+                        <p class="text-xs font-medium text-gray-500 uppercase tracking-wider">Teams List</p>
+                    </div>
+                    {% for team_tiebreaker in team_tiebreakers %}
+                    <div class="px-4 py-4 border-t border-gray-200/30 {% if tiebreaker.winning_bid and team_tiebreaker.id == tiebreaker.winning_bid.id %}bg-green-50/80{% endif %}">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center">
+                                <div class="h-8 w-8 bg-primary/10 rounded-full flex items-center justify-center shadow-sm mr-2">
+                                    <span class="text-sm font-medium text-primary">{{ team_tiebreaker.team.name[0] }}</span>
+                                </div>
+                                <span class="font-semibold text-gray-900">{{ team_tiebreaker.team.name }}</span>
+                            </div>
+                            {% if team_tiebreaker.new_amount %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                <span class="relative flex h-2 w-2 mr-1">
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+                                </span>
+                                Submitted
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                                <span class="relative flex h-2 w-2 mr-1">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                                </span>
+                                Waiting
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-sm mt-3">
+                            <div>
+                                <p class="text-xs text-gray-500">Original Bid:</p>
+                                <p class="font-medium text-gray-800">£{{ "{:,}".format(tiebreaker.original_amount) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">New Bid:</p>
+                                {% if team_tiebreaker.new_amount %}
+                                <p class="font-medium text-primary">£{{ "{:,}".format(team_tiebreaker.new_amount) }}</p>
+                                {% else %}
+                                <div class="text-orange-600 flex items-center text-sm">
+                                    <svg class="animate-pulse mr-1 h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    <span>Pending</span>
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Balance:</p>
+                                <p class="font-medium text-gray-700">£{{ "{:,}".format(team_tiebreaker.team.balance) }}</p>
+                            </div>
+                            <div>
+                                <p class="text-xs text-gray-500">Last Updated:</p>
+                                <p class="font-medium text-gray-600 text-xs">
+                                    {% if team_tiebreaker.timestamp %}
+                                    {{ team_tiebreaker.timestamp.strftime('%H:%M:%S') }}
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        {% if tiebreaker.winning_bid and team_tiebreaker.id == tiebreaker.winning_bid.id %}
+                        <div class="mt-2 bg-green-100 text-green-800 text-xs p-2 rounded-lg font-medium flex items-center justify-center">
+                            <svg class="mr-1 h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            Winning Bid
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 border-t border-gray-200/60 pt-6">
+            <a href="{{ url_for('dashboard') }}" class="flex items-center text-gray-600 hover:text-primary transition-colors group bg-white/50 px-4 py-2 rounded-xl hover:bg-white/70 shadow-sm">
+                <svg class="w-4 h-4 mr-2 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Back to Dashboard
+            </a>
+            
+            <div class="flex gap-3">
+                <a href="{{ url_for('admin_rounds') }}" class="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors shadow-sm font-medium text-sm flex items-center">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    View All Rounds
+                </a>
+                
+                {% if not tiebreaker.resolved %}
+                <button id="forceResolveBtn" class="px-4 py-2.5 bg-gradient-to-r from-primary to-secondary text-white rounded-xl hover:from-primary/90 hover:to-secondary/90 transition-all duration-200 shadow-md font-medium text-sm flex items-center">
+                    <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    Force Resolve
+                </button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Setup auto-refresh with visual indicator
+    let refreshCounter = 5;
+    const timerContainer = document.getElementById('timer-container');
+    const timerText = document.getElementById('timer-text');
+    
+    function updateRefreshTimer() {
+        timerText.textContent = `Refreshing in ${refreshCounter}s`;
+        
+        if (refreshCounter <= 2) {
+            timerContainer.classList.add('bg-blue-100', 'text-blue-600');
+            timerContainer.classList.remove('bg-gray-100', 'text-gray-600');
+        }
+        
+        refreshCounter -= 1;
+        
+        if (refreshCounter >= 0) {
+            setTimeout(updateRefreshTimer, 1000);
+        } else {
+            timerText.textContent = 'Refreshing...';
+            location.reload();
+        }
+    }
+    
+    // Start the refresh timer
+    updateRefreshTimer();
+    
+    // Handle force resolve button if present
+    const forceResolveBtn = document.getElementById('forceResolveBtn');
+    if (forceResolveBtn) {
+        forceResolveBtn.addEventListener('click', async function() {
+            if (confirm('Are you sure you want to force resolve this tiebreaker? This will select the highest current bid as the winner.')) {
+                // Show loading state
+                forceResolveBtn.innerHTML = `
+                    <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                `;
+                forceResolveBtn.disabled = true;
+                
+                try {
+                    const response = await fetch('/admin/force_resolve_tiebreaker/{{ tiebreaker.id }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        }
+                    });
+                    
+                    if (response.ok) {
+                        location.reload();
+                    } else {
+                        const data = await response.json();
+                        alert(data.error || 'Failed to resolve tiebreaker');
+                        
+                        // Reset button
+                        forceResolveBtn.innerHTML = `
+                            <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Force Resolve
+                        `;
+                        forceResolveBtn.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    alert('An error occurred. Please try again.');
+                    
+                    // Reset button
+                    forceResolveBtn.innerHTML = `
+                        <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        Force Resolve
+                    `;
+                    forceResolveBtn.disabled = false;
+                }
+            }
+        });
+    }
+    
+    // Initialize progress bars and other animations on load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add any additional initializations here
+    });
+</script>
+{% endblock %} 
