@@ -1046,7 +1046,7 @@
                     {% if current_user.is_authenticated and current_user.team and current_user.team.get_logo_url() %}
                         <img src="{{ current_user.team.get_logo_url() }}" 
                              alt="{{ current_user.team.name }} logo" 
-                             class="w-10 h-10 rounded-full object-cover ring-2 ring-gray-200 shadow-sm">
+                             class="w-10 h-10 object-contain">
                     {% else %}
                         <div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center ring-2 ring-gray-200 shadow-sm">
                             <span class="text-white font-bold text-sm">{% if current_user.is_authenticated and current_user.team %}{{ current_user.team.name[0] }}{% elif current_user.is_authenticated %}{{ current_user.username[0]|upper }}{% else %}SS{% endif %}</span>

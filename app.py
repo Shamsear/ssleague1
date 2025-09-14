@@ -20,6 +20,7 @@ from team_management_routes import team_management
 from bs4 import BeautifulSoup
 import re
 from github_service import github_service
+from imagekit_service import imagekit_service
 
 # Import compression for ultra-fast responses
 try:
@@ -123,6 +124,44 @@ if 'neon.tech' in app.config.get('SQLALCHEMY_DATABASE_URI', ''):
         print("Ultra performance module not available")
     except Exception as e:
         print(f"Could not install ultra performance: {e}")
+
+# Storage service helper functions
+def get_best_logo_storage_service():
+    """Get the best available logo storage service based on configuration and availability"""
+    preferred = app.config.get('PREFERRED_LOGO_STORAGE', 'imagekit')
+    
+    if preferred == 'imagekit' and imagekit_service.is_configured():
+        return imagekit_service, 'imagekit'
+    elif preferred == 'github' and github_service.is_configured():
+        return github_service, 'github'
+    elif imagekit_service.is_configured():
+        return imagekit_service, 'imagekit'
+    elif github_service.is_configured():
+        return github_service, 'github'
+    else:
+        return None, 'local'
+
+def upload_logo_to_best_service(team, logo_file_content, filename):
+    """Upload logo to the best available service"""
+    service, storage_type = get_best_logo_storage_service()
+    
+    if storage_type == 'imagekit':
+        result = service.upload_team_logo(team.id, team.name, logo_file_content, filename)
+        if result and result.get('success'):
+            team.logo_storage_type = 'imagekit'
+            team.imagekit_file_id = result.get('file_id')
+            team.logo_url = result.get('url')
+            return True, result
+    elif storage_type == 'github':
+        result = service.upload_team_logo(team.id, team.name, logo_file_content, filename)
+        if result and result.get('success'):
+            team.logo_storage_type = 'github'
+            team.logo_url = result.get('download_url')
+            team.github_logo_sha = result.get('sha')
+            return True, result
+    
+    # Fallback to local storage
+    return False, None
 
 # Add template global functions
 @app.template_global()
@@ -439,6 +478,7 @@ def register():
             logo_url = None
             logo_storage_type = 'local'  # Default fallback
             github_logo_sha = None
+            imagekit_file_id = None
             
             if 'team_logo' in request.files:
                 logo_file = request.files['team_logo']
@@ -452,28 +492,45 @@ def register():
                             # Read the logo file content
                             logo_content = logo_file.read()
                             
-                            # Try GitHub upload first if configured
-                            if github_service.is_configured():
-                                github_result = github_service.upload_team_logo(
+                            # Try to upload to the best available service
+                            service, storage_type = get_best_logo_storage_service()
+                            upload_success = False
+                            
+                            if storage_type == 'imagekit':
+                                result = service.upload_team_logo(
                                     999999,  # Temporary ID - will be updated after team is created
                                     team_name,
                                     logo_content,
                                     logo_file.filename
                                 )
                                 
-                                if github_result and github_result.get('success'):
+                                if result and result.get('success'):
+                                    # Store ImageKit URL and metadata
+                                    logo_url = result['url']
+                                    logo_storage_type = 'imagekit'
+                                    imagekit_file_id = result.get('file_id')
+                                    flash('Team logo uploaded to ImageKit successfully!', 'success')
+                                    upload_success = True
+                                
+                            elif storage_type == 'github':
+                                result = service.upload_team_logo(
+                                    999999,  # Temporary ID - will be updated after team is created
+                                    team_name,
+                                    logo_content,
+                                    logo_file.filename
+                                )
+                                
+                                if result and result.get('success'):
                                     # Store GitHub URL and metadata
-                                    logo_url = github_result['download_url']
+                                    logo_url = result['download_url']
                                     logo_storage_type = 'github'
-                                    github_logo_sha = github_result.get('sha')
+                                    github_logo_sha = result.get('sha')
                                     flash('Team logo uploaded to GitHub successfully!', 'success')
-                                else:
-                                    flash('GitHub upload failed, using local storage', 'warning')
-                                    raise Exception("GitHub upload failed")
-                            else:
-                                # GitHub not configured, use local storage
-                                flash('GitHub not configured, using local storage', 'info')
-                                raise Exception("GitHub not configured")
+                                    upload_success = True
+                            
+                            if not upload_success:
+                                flash(f'{storage_type.title()} upload failed, using local storage', 'warning')
+                                raise Exception(f"{storage_type} upload failed")
                         
                         except Exception as github_error:
                             # Fall back to local storage
@@ -507,6 +564,7 @@ def register():
             team.logo_url = logo_url
             team.logo_storage_type = logo_storage_type
             team.github_logo_sha = github_logo_sha
+            team.imagekit_file_id = imagekit_file_id
             db.session.add(team)
         
         db.session.commit()
@@ -751,36 +809,16 @@ def edit_profile():
                         # Read the logo file content
                         logo_content = logo_file.read()
                         
-                        # Try GitHub upload first if configured
-                        if github_service.is_configured():
-                            # Delete old GitHub logo if exists
-                            if team.logo_storage_type == 'github' and team.logo_url:
-                                # Extract info from current logo to delete
-                                old_extension = team.logo_url.split('.')[-1] if '.' in team.logo_url else 'png'
-                                github_service.delete_team_logo(team.id, team.name, old_extension)
-                            
-                            # Upload to GitHub
-                            github_result = github_service.upload_team_logo(
-                                team.id, 
-                                team.name, 
-                                logo_content, 
-                                logo_file.filename
-                            )
-                            
-                            if github_result and github_result.get('success'):
-                                # Store GitHub URL and metadata
-                                team.logo_url = github_result['download_url']
-                                team.logo_storage_type = 'github'
-                                team.github_logo_sha = github_result.get('sha')
-                                logo_updated = True
-                                flash('Team logo uploaded to GitHub successfully!', 'success')
-                            else:
-                                flash('GitHub upload failed, using local storage', 'warning')
-                                raise Exception("GitHub upload failed")
+                        # Try to upload to the best available service
+                        success, result = upload_logo_to_best_service(team, logo_content, logo_file.filename)
+                        
+                        if success:
+                            logo_updated = True
+                            storage_type = team.logo_storage_type
+                            flash(f'Team logo uploaded to {storage_type.title()} successfully!', 'success')
                         else:
-                            # GitHub not configured, use local storage
-                            flash('GitHub not configured, using local storage', 'info')
-                            raise Exception("GitHub not configured")
+                            flash('Upload to cloud services failed, using local storage', 'warning')
+                            raise Exception("Cloud upload failed")
                     
                     except Exception as github_error:
                         # Fall back to local storage
@@ -813,6 +851,7 @@ def edit_profile():
                             team.logo_url = f"uploads/logos/{unique_filename}"
                             team.logo_storage_type = 'local'
                             team.github_logo_sha = None  # Clear GitHub metadata
+                            team.imagekit_file_id = None  # Clear ImageKit metadata
                             logo_updated = True
                             
                         except Exception as local_error:
@@ -2576,6 +2615,7 @@ def admin_add_team():
     logo_url = None
     logo_storage_type = 'local'  # Default fallback
     github_logo_sha = None
+    imagekit_file_id = None
     
     if 'logo' in request.files:
         logo_file = request.files['logo']
@@ -2589,25 +2629,40 @@ def admin_add_team():
                     # Read the logo file content
                     logo_content = logo_file.read()
                     
-                    # Try GitHub upload first if configured
-                    if github_service.is_configured():
-                        github_result = github_service.upload_team_logo(
+                    # Try to upload to the best available service
+                    service, storage_type = get_best_logo_storage_service()
+                    upload_success = False
+                    
+                    if storage_type == 'imagekit':
+                        result = service.upload_team_logo(
                             999999,  # Temporary ID - will be updated after team is created
                             name,
                             logo_content,
                             logo_file.filename
                         )
                         
-                        if github_result and github_result.get('success'):
-                            # Store GitHub URL and metadata
-                            logo_url = github_result['download_url']
+                        if result and result.get('success'):
+                            logo_url = result['url']
+                            logo_storage_type = 'imagekit'
+                            imagekit_file_id = result.get('file_id')
+                            upload_success = True
+                    
+                    elif storage_type == 'github':
+                        result = service.upload_team_logo(
+                            999999,  # Temporary ID - will be updated after team is created
+                            name,
+                            logo_content,
+                            logo_file.filename
+                        )
+                        
+                        if result and result.get('success'):
+                            logo_url = result['download_url']
                             logo_storage_type = 'github'
-                            github_logo_sha = github_result.get('sha')
-                        else:
-                            raise Exception("GitHub upload failed")
-                    else:
-                        # GitHub not configured, use local storage
-                        raise Exception("GitHub not configured")
+                            github_logo_sha = result.get('sha')
+                            upload_success = True
+                    
+                    if not upload_success:
+                        raise Exception(f"{storage_type} upload failed")
                 
                 except Exception as github_error:
                     # Fall back to local storage
@@ -2631,6 +2686,7 @@ def admin_add_team():
                         logo_url = f"uploads/logos/{unique_filename}"
                         logo_storage_type = 'local'
                         github_logo_sha = None
+                        imagekit_file_id = None
                         
                     except Exception as local_error:
                         pass  # Continue without logo if both methods fail
@@ -2641,6 +2697,7 @@ def admin_add_team():
     team.logo_url = logo_url
     team.logo_storage_type = logo_storage_type
     team.github_logo_sha = github_logo_sha
+    team.imagekit_file_id = imagekit_file_id
     
     db.session.add(team)
     db.session.commit()
@@ -2705,31 +2762,11 @@ def admin_edit_team(team_id):
                         # Read the logo file content
                         logo_content = logo_file.read()
                         
-                        # Try GitHub upload first if configured
-                        if github_service.is_configured():
-                            # Delete old GitHub logo if exists
-                            if team.logo_storage_type == 'github' and team.logo_url:
-                                old_extension = team.logo_url.split('.')[-1] if '.' in team.logo_url else 'png'
-                                github_service.delete_team_logo(team.id, team.name, old_extension)
-                            
-                            # Upload new logo to GitHub
-                            github_result = github_service.upload_team_logo(
-                                team.id,
-                                name,
-                                logo_content,
-                                logo_file.filename
-                            )
-                            
-                            if github_result and github_result.get('success'):
-                                # Store GitHub URL and metadata
-                                team.logo_url = github_result['download_url']
-                                team.logo_storage_type = 'github'
-                                team.github_logo_sha = github_result.get('sha')
-                            else:
-                                raise Exception("GitHub upload failed")
-                        else:
-                            # GitHub not configured, use local storage
-                            raise Exception("GitHub not configured")
+                        # Try to upload to the best available service
+                        success, result = upload_logo_to_best_service(team, logo_content, logo_file.filename)
+                        
+                        if not success:
+                            raise Exception("Cloud upload failed")
                     
                     except Exception as github_error:
                         # Fall back to local storage
@@ -2762,6 +2799,7 @@ def admin_edit_team(team_id):
                             team.logo_url = f"uploads/logos/{unique_filename}"
                             team.logo_storage_type = 'local'
                             team.github_logo_sha = None  # Clear GitHub metadata
+                            team.imagekit_file_id = None  # Clear ImageKit metadata
                             
                         except Exception as local_error:
                             pass  # Continue without updating logo if both methods fail

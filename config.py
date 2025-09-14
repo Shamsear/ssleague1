@@ -122,4 +122,12 @@ class Config:
     MINIMUM_BID = 10
     MAX_PLAYERS_PER_TEAM = 25
     POSITIONS = ['GK', 'CB', 'RB', 'LB', 'DMF', 'CMF', 'AMF', 'LMF', 'RMF', 'RWF', 'LWF', 'SS', 'CF']
-    POSITION_GROUPS = ['CB-1', 'CB-2', 'DMF-1', 'DMF-2', 'CMF-1', 'CMF-2', 'AMF-1', 'AMF-2', 'CF-1', 'CF-2'] 
+    POSITION_GROUPS = ['CB-1', 'CB-2', 'DMF-1', 'DMF-2', 'CMF-1', 'CMF-2', 'AMF-1', 'AMF-2', 'CF-1', 'CF-2']
+    
+    # ImageKit.io Configuration
+    IMAGEKIT_PRIVATE_KEY = os.environ.get('IMAGEKIT_PRIVATE_KEY')
+    IMAGEKIT_PUBLIC_KEY = os.environ.get('IMAGEKIT_PUBLIC_KEY')
+    IMAGEKIT_URL_ENDPOINT = os.environ.get('IMAGEKIT_URL_ENDPOINT')
+    
+    # Storage preference order: imagekit > github > local
+    PREFERRED_LOGO_STORAGE = os.environ.get('PREFERRED_LOGO_STORAGE', 'imagekit')

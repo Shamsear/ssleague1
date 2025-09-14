@@ -121,18 +121,38 @@ class Team(db.Model):
     name = db.Column(db.String(100), unique=True, nullable=False)
     balance = db.Column(db.Integer, default=15000)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
-    logo_url = db.Column(db.String(500), nullable=True)  # Increased length for GitHub URLs
-    logo_storage_type = db.Column(db.String(20), default='local')  # 'local' or 'github'
+    logo_url = db.Column(db.String(500), nullable=True)  # Increased length for GitHub/ImageKit URLs
+    logo_storage_type = db.Column(db.String(20), default='local')  # 'local', 'github', or 'imagekit'
     github_logo_sha = db.Column(db.String(100), nullable=True)  # SHA hash for GitHub file updates
+    imagekit_file_id = db.Column(db.String(100), nullable=True)  # ImageKit file ID for better URL generation
     players = db.relationship('Player', backref='team', lazy=True)
     team_members = db.relationship('TeamMember', backref='team', lazy=True)
     home_matches = db.relationship('Match', foreign_keys='Match.home_team_id', backref='home_team', lazy=True)
     away_matches = db.relationship('Match', foreign_keys='Match.away_team_id', backref='away_team', lazy=True)
     team_stats = db.relationship('TeamStats', backref='team', uselist=False, lazy=True)
     
-    def get_logo_url(self):
-        """Get the appropriate logo URL based on storage type"""
-        if self.logo_storage_type == 'github' and self.logo_url:
+    def get_logo_url(self, context='card'):
+        """Get the appropriate logo URL based on storage type
+        
+        Args:
+            context: ImageKit transformation context (thumbnail, card, hero, avatar)
+        """
+        if self.logo_storage_type == 'imagekit' and self.imagekit_file_id:
+            try:
+                from imagekit_service import imagekit_service
+                # Use ImageKit with optimized transformations
+                transformations = imagekit_service.get_optimized_transformations(context)
+                return imagekit_service.get_logo_url_by_file_id(
+                    self.imagekit_file_id, 
+                    transformations, 
+                    self.logo_url
+                )
+            except Exception as e:
+                # Fallback to direct URL if available
+                if self.logo_url:
+                    return self.logo_url
+                return None
+        elif self.logo_storage_type == 'github' and self.logo_url:
             return self.logo_url  # GitHub URLs are stored directly
         elif self.logo_storage_type == 'local' and self.logo_url:
             try:
