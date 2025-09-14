@@ -123,6 +123,222 @@
             background: rgba(0, 0, 0, 0.25);
         }
 
+        /* Enhanced Modern Mobile Navigation Styles */
+        .modern-mobile-nav {
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.95) 0%,
+                rgba(248, 248, 250, 0.98) 50%,
+                rgba(255, 255, 255, 0.95) 100%);
+            backdrop-filter: blur(40px) saturate(1.5);
+            -webkit-backdrop-filter: blur(40px) saturate(1.5);
+            border-top: 0.5px solid rgba(0, 102, 255, 0.1);
+            box-shadow: 
+                0 -10px 40px rgba(0, 102, 255, 0.08),
+                0 -2px 10px rgba(0, 0, 0, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            position: relative;
+            overflow: visible;
+            border-radius: 24px 24px 0 0;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            min-height: 72px;
+        }
+        
+        .nav-item {
+            position: relative;
+            padding: 10px 8px;
+            border-radius: 14px;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            min-width: 64px;
+            min-height: 56px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+            background: transparent;
+            border: none;
+            color: #6B7280;
+        }
+        
+        .nav-item.active {
+            color: #0066FF;
+            transform: translateY(-1px);
+        }
+        
+        .nav-item:not(.active):hover {
+            color: #374151;
+            transform: scale(1.05) translateY(-2px);
+        }
+        
+        .icon-container {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        
+        .tab-label {
+            display: block;
+            font-size: 11px;
+            font-weight: 500;
+            letter-spacing: 0.2px;
+            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            opacity: 0.9;
+            line-height: 1;
+        }
+        
+        .nav-item.active .tab-label {
+            font-weight: 600;
+            color: #0066FF;
+            opacity: 1;
+        }
+        
+        .nav-item:not(.active) .tab-label {
+            font-weight: 400;
+            color: #6B7280;
+            opacity: 0.8;
+        }
+        
+        /* Morphing Pill with Light Theme */
+        .morphing-pill {
+            position: absolute;
+            background: linear-gradient(135deg, 
+                rgba(0, 102, 255, 0.15) 0%,
+                rgba(149, 128, 255, 0.15) 50%,
+                rgba(0, 102, 255, 0.15) 100%);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-radius: 14px;
+            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            z-index: 1;
+            border: 0.5px solid rgba(0, 102, 255, 0.2);
+            box-shadow: 
+                0 4px 20px rgba(0, 102, 255, 0.15),
+                0 2px 8px rgba(149, 128, 255, 0.1),
+                inset 0 1px 0 rgba(255, 255, 255, 0.3);
+        }
+        
+        .morphing-pill::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100%;
+            height: 100%;
+            transform: translate(-50%, -50%);
+            background: radial-gradient(circle, 
+                rgba(0, 102, 255, 0.2) 0%,
+                transparent 70%);
+            filter: blur(20px);
+            animation: pulseGlow 3s ease-in-out infinite;
+            z-index: -1;
+            pointer-events: none;
+        }
+        
+        @keyframes pulseGlow {
+            0%, 100% {
+                opacity: 0.6;
+                transform: translate(-50%, -50%) scale(1);
+            }
+            50% {
+                opacity: 1;
+                transform: translate(-50%, -50%) scale(1.2);
+            }
+        }
+        
+        /* Enhanced Dropdown for Mobile Nav */
+        .mobile-nav .dropdown {
+            position: static;
+        }
+        
+        .mobile-nav .dropdown-menu {
+            position: fixed;
+            bottom: 75px;
+            right: 16px;
+            margin-bottom: 0;
+            background: linear-gradient(135deg, 
+                rgba(255, 255, 255, 0.98) 0%,
+                rgba(248, 248, 250, 1) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-radius: 16px;
+            padding: 8px;
+            min-width: 150px;
+            max-width: 200px;
+            max-height: min(250px, 40vh);
+            overflow-y: auto;
+            border: 0.5px solid rgba(0, 102, 255, 0.1);
+            box-shadow: 
+                0 10px 40px rgba(0, 102, 255, 0.1),
+                0 2px 10px rgba(0, 0, 0, 0.05),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            animation: dropdownSlideUp 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+            transform-origin: bottom right;
+            z-index: 9999;
+            transform: translateY(0);
+        }
+        
+        /* Ensure dropdown appears above everything */
+        .mobile-nav .dropdown-menu:not(.hidden) {
+            display: block !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+        
+        /* More dropdown positioned above More button */
+        .mobile-nav #more-dropdown {
+            right: 16px;
+            left: auto;
+        }
+        
+        /* Admin dropdown centered above Admin button */
+        .mobile-nav #admin-dropdown {
+            left: 50%;
+            right: auto;
+            transform: translateX(-50%) translateY(0);
+            transform-origin: bottom center;
+        }
+        
+        @keyframes dropdownSlideUp {
+            from { 
+                opacity: 0; 
+                transform: scale(0.95);
+            }
+            to { 
+                opacity: 1; 
+                transform: scale(1);
+            }
+        }
+        
+        .mobile-nav .dropdown-menu a {
+            display: block;
+            padding: 10px 14px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #374151;
+            border-radius: 10px;
+            transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1);
+            text-decoration: none;
+        }
+        
+        .mobile-nav .dropdown-menu a:hover,
+        .mobile-nav .dropdown-menu a.active {
+            background: linear-gradient(135deg, 
+                rgba(0, 102, 255, 0.08) 0%,
+                rgba(149, 128, 255, 0.08) 100%);
+            color: #0066FF;
+            transform: translateX(2px);
+        }
+        
+        /* Hide scrollbars for horizontal scrollers */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
         /* Vision OS Glass morphism */
         .glass {
             background: rgba(255, 255, 255, 0.4);
@@ -140,11 +356,11 @@
         }
 
         .nav-glass {
-            background: rgba(255, 255, 255, 0.5);
-            backdrop-filter: blur(15px);
-            -webkit-backdrop-filter: blur(15px);
-            border-bottom: 1px solid rgba(0, 0, 0, 0.05);
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+            border: none;
         }
 
         /* Animations */
@@ -172,6 +388,60 @@
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
+        }
+        
+        /* Modern mobile header styling */
+        .mobile-header-modern {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Remove any default borders and separators */
+        .no-separator {
+            border: none !important;
+            border-bottom: none !important;
+            box-shadow: none !important;
+        }
+        
+        /* Enhanced mobile header interactions */
+        @media (max-width: 640px) {
+            #full-header {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                transform: translateZ(0);
+                will-change: opacity, transform;
+            }
+            
+            #minimized-header {
+                transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                transform: translateZ(0);
+                will-change: opacity, transform;
+            }
+            
+            /* Remove any potential borders or separators */
+            header, .nav-glass, #mobile-header, #full-header, #minimized-header {
+                border-bottom: none !important;
+                border-top: none !important;
+                border: none !important;
+            }
+            
+            /* Ensure main content has no unwanted margins */
+            main {
+                margin-top: 0 !important;
+                padding-top: 1rem;
+            }
+            
+            /* Remove any container borders */
+            .container {
+                border: none !important;
+                border-top: none !important;
+            }
         }
         
         /* Ensure hidden class works reliably for password toggles */
@@ -289,88 +559,59 @@
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
-        /* Mobile adaptations */
-        @media (max-width: 640px) {
-            .mobile-nav {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                padding: 12px;
-                z-index: 50;
-                /* Safe area inset for devices with home indicators */
-                padding-bottom: max(12px, env(safe-area-inset-bottom));
-                /* Smooth transition for browser UI changes */
-                transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94), bottom 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-                /* Ensure proper positioning */
-                transform: translateY(0);
-            }
-            
-            .mobile-nav-content {
-                border-radius: 28px;
-                padding: 10px;
-            }
-            
-            .mobile-spacer {
-                height: 80px;
-            }
-            
-            /* Mobile dropdown menu */
-            .dropdown-menu {
-                transition: all 0.2s ease;
-                transform-origin: bottom center;
-                z-index: 60;
-                animation: dropdownFadeIn 0.2s ease-out forwards;
-            }
-            
-            @keyframes dropdownFadeIn {
-                from { opacity: 0; transform: translateY(8px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-            
-            /* Active state for dropdown button */
-            .dropdown button.active {
-                color: var(--color-primary, #0066FF);
-            }
-            
-            /* Ensure dropdown opens on tap for mobile */
-            .mobile-nav .dropdown {
-                position: static;
-            }
-            
-            .mobile-nav .dropdown-menu {
-                min-width: 160px;
-                box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-            }
-            
-            /* Ensure compact spacing for nav items */
-            .mobile-nav .flex.justify-around > a,
-            .mobile-nav .flex.justify-around > div {
-                padding: 0.5rem 0.25rem;
-                min-width: 60px;
-            }
-            
-            /* Touch-friendly target sizes */
-            .mobile-nav svg {
-                width: 1.25rem;
-                height: 1.25rem;
-            }
-            
-            /* Disable transitions for users who prefer reduced motion */
-            @media (prefers-reduced-motion: reduce) {
+            /* Mobile adaptations */
+            @media (max-width: 640px) {
                 .mobile-nav {
-                    transition: none !important;
+                    position: fixed;
+                    bottom: 0;
+                    left: 0;
+                    right: 0;
+                    z-index: 50;
+                    padding: 0;
+                    background: transparent;
+                }
+                
+                .mobile-spacer {
+                    height: 88px;
+                }
+                
+                /* Mobile page container styling */
+                body {
+                    background: #f8f9fa;
+                }
+                
+                main.container {
+                    background: white;
+                    margin: 0;
+                    padding: 0;
+                    min-height: 100vh;
+                }
+                
+                main.container > * {
+                    padding-left: 1.25rem;
+                    padding-right: 1.25rem;
+                }
+                
+                /* Disable transitions for users who prefer reduced motion */
+                @media (prefers-reduced-motion: reduce) {
+                    .mobile-nav,
+                    .morphing-pill {
+                        transition: none !important;
+                    }
+                    
+                    @keyframes pulseGlow {
+                        0%, 100% { opacity: 0.6; }
+                    }
+                }
+                
+                /* PWA standalone mode adjustments */
+                @media (display-mode: standalone) {
+                    .modern-mobile-nav {
+                        /* Additional padding for PWA mode */
+                        padding-bottom: max(16px, env(safe-area-inset-bottom));
+                    }
                 }
             }
-            
-            /* PWA standalone mode adjustments */
-            @media (display-mode: standalone) {
-                .mobile-nav {
-                    /* Additional padding for PWA mode */
-                    padding-bottom: max(16px, env(safe-area-inset-bottom));
-                }
-            }
-        }
     </style>
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.1.1/css/all.min.css">
@@ -398,35 +639,448 @@
         </div>
     </nav>
 
-    <!-- Mobile header -->
-    <header class="sm:hidden nav-glass sticky top-0 z-40 p-4">
-        <div class="flex justify-center items-center">
-            <a href="{% if current_user.is_authenticated %}{{ url_for('dashboard') }}{% else %}{{ url_for('index') }}{% endif %}" class="flex items-center">
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="South Soccers PES Super League" class="h-8 mr-2 hover-float">
-                <span class="text-xl font-bold {% if current_user.is_authenticated and current_user.is_admin %}admin-gradient-text{% else %}gradient-text{% endif %} vision-text-shadow">SS League Auction</span>
-            </a>
+    <!-- Mobile header - Part of page content (scrolls with page) -->
+    <header class="sm:hidden bg-white">
+        {% block mobile_header %}
+        {% if request.endpoint in ['dashboard', 'login', 'register', 'index'] %}
+        <!-- Full dashboard-style header for main pages -->
+        <div class="flex items-center justify-between px-5 pt-6 pb-2">
+            <div class="flex-1">
+                <!-- Dynamic title based on current page -->
+                <h1 class="text-2xl font-bold text-slate-900">
+                    {% if request.endpoint == 'login' %}
+                        Welcome Back
+                    {% elif request.endpoint == 'register' %}
+                        Join SS League
+                    {% elif request.endpoint == 'index' %}
+                        SS League
+                    {% elif request.endpoint == 'dashboard' %}
+                        {% if current_user.is_authenticated %}
+                            {% if current_user.is_admin %}
+                                Admin Dashboard
+                            {% elif current_user.team %}
+                                {{ current_user.team.name }}
+                            {% else %}
+                                Dashboard
+                            {% endif %}
+                        {% else %}
+                            Dashboard
+                        {% endif %}
+                    {% elif request.endpoint == 'profile_edit' %}
+                        Edit Profile
+                    {% elif request.endpoint == 'logout' %}
+                        Logging Out
+                    {% elif request.endpoint == 'offline' %}
+                        Offline
+                    
+                    {# Team Pages #}
+                    {% elif request.endpoint == 'team_players' %}
+                        Your Players
+                    {% elif request.endpoint == 'team_players_data' %}
+                        Players Database
+                    {% elif request.endpoint == 'team_bids' %}
+                        Your Bids
+                    {% elif request.endpoint == 'team_round' %}
+                        Live Auction
+                    {% elif request.endpoint == 'team_bulk_round' %}
+                        Bulk Bidding
+                    {% elif request.endpoint == 'team_bulk_tiebreaker' %}
+                        Bulk Tiebreaker
+                    {% elif request.endpoint == 'budget_planner' %}
+                        Budget Overview
+                    {% elif request.endpoint == 'team_transfers' %}
+                        Transfer History
+                    {% elif request.endpoint == 'team_profile' %}
+                        Team Profile
+                    {% elif request.endpoint == 'team_compare' %}
+                        Compare Teams
+                    {% elif request.endpoint == 'team_matches' %}
+                        Match History
+                    {% elif request.endpoint == 'team_squad' %}
+                        Team Squad
+                    {% elif request.endpoint == 'teams' or request.endpoint == 'all_teams' %}
+                        All Teams
+                    
+                    {# Player Pages #}
+                    {% elif request.endpoint == 'all_players' or request.endpoint == 'players' %}
+                        All Players
+                    {% elif request.endpoint == 'player_detail' %}
+                        Player Details
+                    {% elif request.endpoint == 'players_position' %}
+                        Players by Position
+                    
+                    {# Admin Pages #}
+                    {% elif request.endpoint == 'admin_players' %}
+                        Manage Players
+                    {% elif request.endpoint == 'admin_teams' %}
+                        Manage Teams
+                    {% elif request.endpoint == 'admin_rounds' %}
+                        Auction Rounds
+                    {% elif request.endpoint == 'admin_round_detail' %}
+                        Round Details
+                    {% elif request.endpoint == 'admin_users' %}
+                        User Management
+                    {% elif request.endpoint == 'admin_database' %}
+                        Database Control
+                    {% elif request.endpoint == 'admin_auction_settings' %}
+                        Auction Settings
+                    {% elif request.endpoint == 'admin_player_selection' %}
+                        Player Selection
+                    {% elif request.endpoint == 'admin_position_groups' %}
+                        Position Groups
+                    {% elif request.endpoint == 'admin_position_group_players' %}
+                        Group Players
+                    {% elif request.endpoint == 'admin_bulk_rounds' %}
+                        Bulk Rounds
+                    {% elif request.endpoint == 'admin_bulk_round' %}
+                        Bulk Round Details
+                    {% elif request.endpoint == 'admin_bulk_tiebreakers' %}
+                        Bulk Tiebreakers
+                    {% elif request.endpoint == 'admin_password_requests' %}
+                        Password Requests
+                    {% elif request.endpoint == 'admin_team' %}
+                        Team Details
+                    {% elif request.endpoint == 'admin_export_players' %}
+                        Export Players
+                    {% elif request.endpoint == 'admin_export_round' %}
+                        Export Round
+                    
+                    {# Password Reset #}
+                    {% elif request.endpoint == 'reset_password_request' %}
+                        Reset Password
+                    {% elif request.endpoint == 'reset_password' or 'reset_password' in request.endpoint %}
+                        New Password
+                    
+                    {# Tiebreaker Pages #}
+                    {% elif request.endpoint == 'tiebreaker' %}
+                        Tiebreaker
+                    {% elif request.endpoint == 'check_tiebreaker_status' %}
+                        Tiebreaker Status
+                    
+                    {# API/AJAX Update Pages #}
+                    {% elif request.endpoint == 'admin_teams_update' %}
+                        Teams Update
+                    {% elif request.endpoint == 'admin_users_update' %}
+                        Users Update
+                    {% elif request.endpoint == 'admin_rounds_update' %}
+                        Rounds Update
+                    {% elif request.endpoint == 'admin_auction_settings_update' %}
+                        Settings Update
+                    {% elif request.endpoint == 'admin_bulk_round_update' %}
+                        Bulk Round Update
+                    {% elif request.endpoint == 'admin_bulk_tiebreakers_update' %}
+                        Tiebreakers Update
+                    {% elif request.endpoint == 'admin_dashboard_update' %}
+                        Dashboard Update
+                    {% elif request.endpoint == 'team_dashboard_update' %}
+                        Dashboard Update
+                    
+                    {# Team Management Module #}
+                    {% elif request.endpoint and request.endpoint.startswith('team_management.') %}
+                        {% if 'dashboard' in request.endpoint %}
+                            Team Management
+                        {% elif 'category' in request.endpoint %}
+                            {% if 'new' in request.endpoint %}
+                                New Category
+                            {% elif 'edit' in request.endpoint %}
+                                Edit Category
+                            {% else %}
+                                Categories
+                            {% endif %}
+                        {% elif 'leaderboard' in request.endpoint %}
+                            Leaderboard
+                        {% elif 'match' in request.endpoint %}
+                            {% if 'new' in request.endpoint %}
+                                New Match
+                            {% elif 'edit' in request.endpoint %}
+                                Edit Match
+                            {% else %}
+                                Matches
+                            {% endif %}
+                        {% else %}
+                            Team Management
+                        {% endif %}
+                    
+                    {# Default fallback #}
+                    {% else %}
+                        {% if current_user.is_authenticated %}{{ current_user.team.name }}{% else %}SS League{% endif %}
+                    {% endif %}
+                </h1>
+                
+                <!-- Dynamic subtitle based on current page -->
+                <p class="text-sm text-slate-500">
+                    {% if request.endpoint == 'login' %}
+                        Sign in to your Football Auction account
+                    {% elif request.endpoint == 'register' %}
+                        Create your team account
+                    {% elif request.endpoint == 'index' %}
+                        Welcome to the auction
+                    {% elif request.endpoint == 'dashboard' %}
+                        {% if current_user.is_admin %}Manage your football auction{% else %}Team Dashboard{% endif %}
+                    {% elif request.endpoint == 'profile_edit' %}
+                        Update your account information
+                    {% elif request.endpoint == 'logout' %}
+                        See you soon!
+                    {% elif request.endpoint == 'offline' %}
+                        You are currently offline
+                    
+                    {# Team Pages #}
+                    {% elif request.endpoint == 'team_players' %}
+                        Manage your squad
+                    {% elif request.endpoint == 'team_players_data' %}
+                        Complete player statistics
+                    {% elif request.endpoint == 'team_bids' %}
+                        Track your bidding history
+                    {% elif request.endpoint == 'team_round' %}
+                        Bid on players now
+                    {% elif request.endpoint == 'team_bulk_round' %}
+                        Submit bulk bids for players
+                    {% elif request.endpoint == 'team_bulk_tiebreaker' %}
+                        Resolve bulk bidding tie
+                    {% elif request.endpoint == 'budget_planner' %}
+                        Manage your team budget
+                    {% elif request.endpoint == 'team_transfers' %}
+                        View all player movements
+                    {% elif request.endpoint == 'team_profile' %}
+                        Team information and stats
+                    {% elif request.endpoint == 'team_compare' %}
+                        Compare team statistics
+                    {% elif request.endpoint == 'team_matches' %}
+                        View match results
+                    {% elif request.endpoint == 'team_squad' %}
+                        View team squad details
+                    {% elif request.endpoint == 'teams' or request.endpoint == 'all_teams' %}
+                        Browse all participating teams
+                    
+                    {# Player Pages #}
+                    {% elif request.endpoint == 'all_players' or request.endpoint == 'players' %}
+                        Browse all available players
+                    {% elif request.endpoint == 'player_detail' %}
+                        View player statistics
+                    {% elif request.endpoint == 'players_position' %}
+                        Filter players by position
+                    
+                    {# Admin Pages #}
+                    {% elif request.endpoint == 'admin_players' %}
+                        Add, edit, or remove players
+                    {% elif request.endpoint == 'admin_teams' %}
+                        Configure team settings
+                    {% elif request.endpoint == 'admin_rounds' %}
+                        Control auction rounds
+                    {% elif request.endpoint == 'admin_round_detail' %}
+                        View round bidding details
+                    {% elif request.endpoint == 'admin_users' %}
+                        Manage user accounts
+                    {% elif request.endpoint == 'admin_database' %}
+                        Database operations
+                    {% elif request.endpoint == 'admin_auction_settings' %}
+                        Configure auction parameters
+                    {% elif request.endpoint == 'admin_player_selection' %}
+                        Select eligible players
+                    {% elif request.endpoint == 'admin_position_groups' %}
+                        Manage position groups
+                    {% elif request.endpoint == 'admin_position_group_players' %}
+                        View players in groups
+                    {% elif request.endpoint == 'admin_bulk_rounds' %}
+                        Manage bulk bidding rounds
+                    {% elif request.endpoint == 'admin_bulk_round' %}
+                        View bulk round details
+                    {% elif request.endpoint == 'admin_bulk_tiebreakers' %}
+                        Resolve bulk tiebreakers
+                    {% elif request.endpoint == 'admin_password_requests' %}
+                        Review password reset requests
+                    {% elif request.endpoint == 'admin_team' %}
+                        View and manage team details
+                    {% elif request.endpoint == 'admin_export_players' %}
+                        Export player database
+                    {% elif request.endpoint == 'admin_export_round' %}
+                        Export round results
+                    
+                    {# Password Reset #}
+                    {% elif request.endpoint == 'reset_password_request' %}
+                        Request a password reset
+                    {% elif request.endpoint == 'reset_password' or 'reset_password' in request.endpoint %}
+                        Set your new password
+                    
+                    {# Tiebreaker Pages #}
+                    {% elif request.endpoint == 'tiebreaker' %}
+                        Resolve bidding tie
+                    {% elif request.endpoint == 'check_tiebreaker_status' %}
+                        Checking tiebreaker progress
+                    
+                    {# API/AJAX Update Pages #}
+                    {% elif request.endpoint == 'admin_teams_update' %}
+                        Updating teams data
+                    {% elif request.endpoint == 'admin_users_update' %}
+                        Updating users data
+                    {% elif request.endpoint == 'admin_rounds_update' %}
+                        Updating rounds data
+                    {% elif request.endpoint == 'admin_auction_settings_update' %}
+                        Updating auction settings
+                    {% elif request.endpoint == 'admin_bulk_round_update' %}
+                        Updating bulk round
+                    {% elif request.endpoint == 'admin_bulk_tiebreakers_update' %}
+                        Updating tiebreakers
+                    {% elif request.endpoint == 'admin_dashboard_update' %}
+                        Refreshing dashboard
+                    {% elif request.endpoint == 'team_dashboard_update' %}
+                        Refreshing dashboard
+                    
+                    {# Team Management Module #}
+                    {% elif request.endpoint and request.endpoint.startswith('team_management.') %}
+                        {% if 'dashboard' in request.endpoint %}
+                            Manage team operations
+                        {% elif 'category' in request.endpoint %}
+                            {% if 'new' in request.endpoint %}
+                                Create a new category
+                            {% elif 'edit' in request.endpoint %}
+                                Edit category settings
+                            {% else %}
+                                Configure player categories
+                            {% endif %}
+                        {% elif 'leaderboard' in request.endpoint %}
+                            View team rankings
+                        {% elif 'match' in request.endpoint %}
+                            {% if 'new' in request.endpoint %}
+                                Schedule a new match
+                            {% elif 'edit' in request.endpoint %}
+                                Edit match details
+                            {% else %}
+                                Manage match results
+                            {% endif %}
+                        {% else %}
+                            Team management tools
+                        {% endif %}
+                    
+                    {# Default fallback #}
+                    {% else %}
+                        {% if current_user.is_authenticated %}
+                            {% if current_user.is_admin %}Admin Panel{% else %}Welcome back{% endif %}
+                        {% else %}
+                            Football auction platform
+                        {% endif %}
+                    {% endif %}
+                </p>
+            </div>
+            <div class="ml-3">
+                {% if current_user.is_authenticated and current_user.team and current_user.team.get_logo_url() %}
+                    <img src="{{ current_user.team.get_logo_url() }}" 
+                         alt="{{ current_user.team.name }} logo" 
+                         class="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow">
+                {% else %}
+                    <div class="w-12 h-12 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center ring-2 ring-white shadow">
+                        <span class="text-white font-bold text-sm">{% if current_user.is_authenticated and current_user.team %}{{ current_user.team.name[0] }}{% elif current_user.is_authenticated %}{{ current_user.username[0]|upper }}{% else %}SS{% endif %}</span>
+                    </div>
+                {% endif %}
+            </div>
         </div>
+        {% else %}
+        <!-- Simple centered header with back button (sticky) -->
+        <div class="sticky top-0 z-40 bg-white/95 backdrop-blur-sm">
+            <div class="flex items-center justify-between px-4 py-4">
+                <!-- Back button with smart navigation -->
+                <button id="mobile-back-button"
+                        onclick="{% if current_user.is_authenticated %}{% if current_user.is_admin and request.endpoint.startswith('admin') %}window.location.href='{{ url_for('dashboard') }}'{% elif request.endpoint in ['team_players', 'team_bids', 'team_round', 'team_bulk_round', 'team_transfers', 'budget_planner'] %}window.location.href='{{ url_for('dashboard') }}'{% elif request.endpoint == 'player_detail' %}window.history.back(){% elif request.endpoint.startswith('team_management.') %}window.location.href='{{ url_for('team_management.team_management_dashboard') }}'{% else %}window.location.href='{{ url_for('dashboard') }}'{% endif %}{% else %}window.location.href='{{ url_for('index') }}'{% endif %}" 
+                        class="glass p-2 rounded-full hover:bg-white/90 transition-all duration-300 shadow-sm">
+                    <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                    </svg>
+                </button>
+                
+                <!-- Centered page title -->
+                <div class="flex-1 text-center">
+                <h1 class="text-lg font-semibold text-gray-900">
+                    {% if request.endpoint == 'team_players' %}
+                        Your Players
+                    {% elif request.endpoint == 'team_players_data' %}
+                        Players Database
+                    {% elif request.endpoint == 'team_bids' %}
+                        Your Bids
+                    {% elif request.endpoint == 'team_round' %}
+                        Live Auction
+                    {% elif request.endpoint == 'team_bulk_round' %}
+                        Bulk Bidding
+                    {% elif request.endpoint == 'budget_planner' %}
+                        Budget
+                    {% elif request.endpoint == 'team_transfers' %}
+                        Transfers
+                    {% elif request.endpoint == 'all_teams' %}
+                        All Teams
+                    {% elif request.endpoint == 'player_detail' %}
+                        Player Details
+                    {% elif request.endpoint == 'admin_players' %}
+                        Manage Players
+                    {% elif request.endpoint == 'admin_teams' %}
+                        Manage Teams
+                    {% elif request.endpoint == 'admin_rounds' %}
+                        Auction Rounds
+                    {% elif request.endpoint == 'admin_users' %}
+                        User Management
+                    {% elif request.endpoint == 'admin_database' %}
+                        Database
+                    {% elif request.endpoint == 'admin_auction_settings' %}
+                        Settings
+                    {% elif request.endpoint == 'admin_player_selection' %}
+                        Player Selection
+                    {% elif request.endpoint == 'tiebreaker' %}
+                        Tiebreaker
+                    {% elif request.endpoint == 'team_bulk_tiebreaker' %}
+                        Bulk Tiebreaker
+                    {% elif request.endpoint and request.endpoint.startswith('team_management.') %}
+                        {% if 'category' in request.endpoint %}
+                            Categories
+                        {% elif 'leaderboard' in request.endpoint %}
+                            Leaderboard
+                        {% elif 'match' in request.endpoint %}
+                            Matches
+                        {% else %}
+                            Team Management
+                        {% endif %}
+                    {% else %}
+                        {{ request.endpoint|replace('_', ' ')|title if request.endpoint else 'Page' }}
+                    {% endif %}
+                </h1>
+                </div>
+                <!-- Profile image on the right -->
+                <div class="w-10 h-10">
+                    {% if current_user.is_authenticated and current_user.team and current_user.team.get_logo_url() %}
+                        <img src="{{ current_user.team.get_logo_url() }}" 
+                             alt="{{ current_user.team.name }} logo" 
+                             class="w-10 h-10 rounded-full object-cover ring-2 ring-gray-200 shadow-sm">
+                    {% else %}
+                        <div class="w-10 h-10 bg-gradient-to-br from-primary to-secondary rounded-full flex items-center justify-center ring-2 ring-gray-200 shadow-sm">
+                            <span class="text-white font-bold text-sm">{% if current_user.is_authenticated and current_user.team %}{{ current_user.team.name[0] }}{% elif current_user.is_authenticated %}{{ current_user.username[0]|upper }}{% else %}SS{% endif %}</span>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        {% endblock %}
     </header>
 
-    <main class="container mx-auto p-6 flex-grow page-transition">
+    <main class="container mx-auto sm:p-6 flex-grow page-transition">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <div class="glass mb-6 px-5 py-4 rounded-3xl animate__animated animate__fadeIn" role="alert">
-                        <div class="flex items-center">
-                            <svg class="w-6 h-6 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                            </svg>
-                            <span class="block">{{ message }}</span>
+                <div class="px-5 sm:px-0">
+                    {% for category, message in messages %}
+                        <div class="glass mb-6 px-5 py-4 rounded-3xl animate__animated animate__fadeIn" role="alert">
+                            <div class="flex items-center">
+                                <svg class="w-6 h-6 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                </svg>
+                                <span class="block">{{ message }}</span>
+                            </div>
                         </div>
-                    </div>
-                {% endfor %}
+                    {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
 
-        {% block content %}{% endblock %}
+        <div class="{% if request.endpoint %}px-5 pb-6{% endif %} sm:px-0">
+            {% block content %}{% endblock %}
+        </div>
         
-
         <!-- Screen reader announcer element -->
         <div id="screen-reader-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
@@ -448,135 +1102,237 @@
         </div>
     </footer>
 
-    <!-- Mobile Bottom Navigation -->
-    <nav class="mobile-nav sm:hidden">
-        <div class="glass mobile-nav-content">
-            <div class="flex justify-around items-center">
+    <!-- Enhanced Mobile Bottom Navigation -->
+    <nav class="mobile-nav sm:hidden" role="navigation" aria-label="Main navigation">
+        <div class="modern-mobile-nav relative overflow-visible">
+            <!-- Morphing Pill Indicator -->
+            <div id="morphing-pill" class="morphing-pill"></div>
+            
+            <!-- Navigation container -->
+            <div class="flex justify-around items-center px-3 py-2 relative z-10">
                 {% if current_user.is_authenticated %}
-                    <a href="{{ url_for('dashboard') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'dashboard' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                        </svg>
-                        <span class="text-xs mt-1">Home</span>
-                    </a>
+                    <button class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}" 
+                            data-tab="home" 
+                            aria-label="Home" 
+                            role="tab" 
+                            aria-selected="{% if request.endpoint == 'dashboard' %}true{% else %}false{% endif %}"
+                            onclick="window.location.href='{{ url_for('dashboard') }}'">
+                        <div class="icon-container">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                            </svg>
+                        </div>
+                        <span class="tab-label">Home</span>
+                    </button>
                     
                     {% if current_user.is_admin %}
                         <!-- Admin Navigation -->
-                        <div class="dropdown relative group">
-                            <button class="flex flex-col items-center p-2 text-gray-400 group-hover:text-primary">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
-                                </svg>
-                                <span class="text-xs mt-1">Menu</span>
+                        <div class="dropdown relative">
+                            <button class="nav-item {% if request.endpoint in ['admin_players', 'admin_teams', 'admin_rounds', 'admin_users', 'admin_database'] %}active{% endif %}" 
+                                    data-tab="menu" 
+                                    aria-label="Menu" 
+                                    role="tab" 
+                                    aria-selected="false"
+                                    id="admin-menu-btn"
+                                    type="button">
+                                <div class="icon-container">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/>
+                                    </svg>
+                                </div>
+                                <span class="tab-label">Menu</span>
                             </button>
-                            <div class="dropdown-menu hidden group-hover:block absolute bottom-full mb-2 left-0 bg-white rounded-xl shadow-lg p-2 w-32 border border-gray-100">
-                                <a href="{{ url_for('admin_players') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'admin_players' %}bg-gray-100{% endif %}">
+                            <div class="dropdown-menu hidden" id="admin-dropdown">
+                                <a href="{{ url_for('admin_players') }}" class="{% if request.endpoint == 'admin_players' %}active{% endif %}">
                                     Players
                                 </a>
-                                <a href="{{ url_for('admin_teams') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'admin_teams' %}bg-gray-100{% endif %}">
+                                <a href="{{ url_for('admin_teams') }}" class="{% if request.endpoint == 'admin_teams' %}active{% endif %}">
                                     Teams
                                 </a>
-                                <a href="{{ url_for('admin_rounds') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'admin_rounds' %}bg-gray-100{% endif %}">
+                                <a href="{{ url_for('admin_rounds') }}" class="{% if request.endpoint == 'admin_rounds' %}active{% endif %}">
                                     Rounds
                                 </a>
-                                <a href="{{ url_for('admin_users') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'admin_users' %}bg-gray-100{% endif %}">
+                                <a href="{{ url_for('admin_users') }}" class="{% if request.endpoint == 'admin_users' %}active{% endif %}">
                                     Users
                                 </a>
-                                <a href="{{ url_for('admin_database') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'admin_database' %}bg-gray-100{% endif %}">
+                                <a href="{{ url_for('admin_database') }}" class="{% if request.endpoint == 'admin_database' %}active{% endif %}">
                                     Database
                                 </a>
                             </div>
                         </div>
 
-                        <a href="{{ url_for('team_management.team_management_dashboard') }}" class="flex flex-col items-center p-2 {% if request.endpoint and request.endpoint.startswith('team_management.') %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-                            </svg>
-                            <span class="text-xs mt-1">Team</span>
-                        </a>
+                        <button class="nav-item {% if request.endpoint and request.endpoint.startswith('team_management.') %}active{% endif %}" 
+                                data-tab="team" 
+                                aria-label="Team" 
+                                role="tab" 
+                                aria-selected="{% if request.endpoint and request.endpoint.startswith('team_management.') %}true{% else %}false{% endif %}"
+                                onclick="window.location.href='{{ url_for('team_management.team_management_dashboard') }}'">
+                            <div class="icon-container">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                                </svg>
+                            </div>
+                            <span class="tab-label">Team</span>
+                        </button>
                         
-                        <a href="{{ url_for('admin_auction_settings') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'admin_auction_settings' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span class="text-xs mt-1">Settings</span>
-                        </a>
+                        <button class="nav-item {% if request.endpoint == 'admin_auction_settings' %}active{% endif %}" 
+                                data-tab="settings" 
+                                aria-label="Settings" 
+                                role="tab" 
+                                aria-selected="{% if request.endpoint == 'admin_auction_settings' %}true{% else %}false{% endif %}"
+                                onclick="window.location.href='{{ url_for('admin_auction_settings') }}'">
+                            <div class="icon-container">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                                </svg>
+                            </div>
+                            <span class="tab-label">Settings</span>
+                        </button>
                     {% else %}
                         <!-- Team User Navigation -->
-                        <a href="{{ url_for('team_players') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_players' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <span class="text-xs mt-1">Players</span>
-                        </a>
+                        <button class="nav-item {% if request.endpoint == 'team_players' %}active{% endif %}" 
+                                data-tab="players" 
+                                aria-label="Players" 
+                                role="tab" 
+                                aria-selected="{% if request.endpoint == 'team_players' %}true{% else %}false{% endif %}"
+                                onclick="window.location.href='{{ url_for('team_players') }}'">
+                            <div class="icon-container">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                                </svg>
+                            </div>
+                            <span class="tab-label">Players</span>
+                        </button>
                         
-                        <a href="{{ url_for('team_management.team_leaderboard') }}" class="flex flex-col items-center p-2 {% if request.endpoint and request.endpoint.startswith('team_management.') %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                            </svg>
-                            <span class="text-xs mt-1">Tables</span>
-                        </a>
+                        <button class="nav-item {% if request.endpoint and request.endpoint.startswith('team_management.') %}active{% endif %}" 
+                                data-tab="tables" 
+                                aria-label="Tables" 
+                                role="tab" 
+                                aria-selected="{% if request.endpoint and request.endpoint.startswith('team_management.') %}true{% else %}false{% endif %}"
+                                onclick="window.location.href='{{ url_for('team_management.team_leaderboard') }}'">
+                            <div class="icon-container">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/>
+                                </svg>
+                            </div>
+                            <span class="tab-label">Tables</span>
+                        </button>
                         
                         {% if active_rounds %}
-                            <a href="{{ url_for('team_round') }}" class="flex flex-col items-center p-2 text-green-600 hover:text-green-700">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                                </svg>
-                                <span class="text-xs mt-1">Active</span>
-                            </a>
+                            <button class="nav-item active" 
+                                    data-tab="active" 
+                                    aria-label="Active" 
+                                    role="tab" 
+                                    aria-selected="true"
+                                    onclick="window.location.href='{{ url_for('team_round') }}'">
+                                <div class="icon-container">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M7 2v11h3v9l7-12h-4l4-8z"/>
+                                    </svg>
+                                </div>
+                                <span class="tab-label">Active</span>
+                            </button>
                         {% else %}
-                            <a href="{{ url_for('team_bids') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'team_bids' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                </svg>
-                                <span class="text-xs mt-1">Bids</span>
-                            </a>
+                            <button class="nav-item {% if request.endpoint == 'team_bids' %}active{% endif %}" 
+                                    data-tab="bids" 
+                                    aria-label="Bids" 
+                                    role="tab" 
+                                    aria-selected="{% if request.endpoint == 'team_bids' %}true{% else %}false{% endif %}"
+                                    onclick="window.location.href='{{ url_for('team_bids') }}'">
+                                <div class="icon-container">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"/>
+                                    </svg>
+                                </div>
+                                <span class="tab-label">Bids</span>
+                            </button>
                         {% endif %}
                         
-                        <div class="dropdown relative group">
-                            <button class="flex flex-col items-center p-2 text-gray-400 group-hover:text-primary">
-                                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7" />
-                                </svg>
-                                <span class="text-xs mt-1">More</span>
+                        <div class="dropdown relative">
+                            <button class="nav-item {% if request.endpoint in ['teams', 'all_teams', 'team_players_data', 'team_transfers', 'budget_planner'] %}active{% endif %}"
+                                    data-tab="more" 
+                                    aria-label="More" 
+                                    role="tab" 
+                                    aria-selected="false"
+                                    id="more-menu-btn"
+                                    type="button">
+                                <div class="icon-container">
+                                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M6 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm12 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm-6 0c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
+                                    </svg>
+                                </div>
+                                <span class="tab-label">More</span>
                             </button>
-                            <div class="dropdown-menu hidden group-hover:block absolute bottom-full mb-2 right-0 bg-white rounded-xl shadow-lg p-2 w-32 border border-gray-100">
-                                <a href="{{ url_for('all_teams') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'all_teams' %}bg-gray-100{% endif %}">
+                            <div class="dropdown-menu hidden" id="more-dropdown">
+                                <a href="{{ url_for('all_teams') }}" class="{% if request.endpoint in ['teams', 'all_teams'] %}active{% endif %}">
                                     All Teams
                                 </a>
-                                <a href="{{ url_for('team_players_data') }}" class="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 rounded-lg {% if request.endpoint == 'team_players_data' %}bg-gray-100{% endif %}">
+                                <a href="{{ url_for('team_players_data') }}" class="{% if request.endpoint == 'team_players_data' %}active{% endif %}">
                                     Players Data
+                                </a>
+                                <a href="{{ url_for('team_transfers') }}" class="{% if request.endpoint == 'team_transfers' %}active{% endif %}">
+                                    Transfers
+                                </a>
+                                <a href="{{ url_for('budget_planner') }}" class="{% if request.endpoint == 'budget_planner' %}active{% endif %}">
+                                    Budget
                                 </a>
                             </div>
                         </div>
                     {% endif %}
                     
-                    <a href="{{ url_for('logout') }}" class="flex flex-col items-center p-2 text-gray-400 hover:text-accent">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path>
-                        </svg>
-                        <span class="text-xs mt-1">Logout</span>
-                    </a>
+                    <button class="nav-item" 
+                            data-tab="logout" 
+                            aria-label="Logout" 
+                            role="tab" 
+                            aria-selected="false"
+                            onclick="window.location.href='{{ url_for('logout') }}'">
+                        <div class="icon-container">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+                            </svg>
+                        </div>
+                        <span class="tab-label">Logout</span>
+                    </button>
                 {% else %}
-                    <a href="{{ url_for('index') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'index' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
-                        </svg>
-                        <span class="text-xs mt-1">Home</span>
-                    </a>
-                    <a href="{{ url_for('login') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'login' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path>
-                        </svg>
-                        <span class="text-xs mt-1">Login</span>
-                    </a>
-                    <a href="{{ url_for('register') }}" class="flex flex-col items-center p-2 {% if request.endpoint == 'register' %}text-primary{% else %}text-gray-400 hover:text-primary{% endif %}">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
-                        </svg>
-                        <span class="text-xs mt-1">Register</span>
-                    </a>
+                    <button class="nav-item {% if request.endpoint == 'index' %}active{% endif %}" 
+                            data-tab="home" 
+                            aria-label="Home" 
+                            role="tab" 
+                            aria-selected="{% if request.endpoint == 'index' %}true{% else %}false{% endif %}"
+                            onclick="window.location.href='{{ url_for('index') }}'">
+                        <div class="icon-container">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                            </svg>
+                        </div>
+                        <span class="tab-label">Home</span>
+                    </button>
+                    <button class="nav-item {% if request.endpoint == 'login' %}active{% endif %}" 
+                            data-tab="login" 
+                            aria-label="Login" 
+                            role="tab" 
+                            aria-selected="{% if request.endpoint == 'login' %}true{% else %}false{% endif %}"
+                            onclick="window.location.href='{{ url_for('login') }}'">
+                        <div class="icon-container">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M10 17l5-5-5-5v3H3v4h7v3zm9-13h2c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2h-2v2h-2v-2h-2v-2h2V6h-2V4h2V2h2v2zm0 2v12h2V6h-2z"/>
+                            </svg>
+                        </div>
+                        <span class="tab-label">Login</span>
+                    </button>
+                    <button class="nav-item {% if request.endpoint == 'register' %}active{% endif %}" 
+                            data-tab="register" 
+                            aria-label="Register" 
+                            role="tab" 
+                            aria-selected="{% if request.endpoint == 'register' %}true{% else %}false{% endif %}"
+                            onclick="window.location.href='{{ url_for('register') }}'">
+                        <div class="icon-container">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M15 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm-9-2V7H4v3H1v2h3v3h2v-3h3v-2H6zm9 4c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                            </svg>
+                        </div>
+                        <span class="tab-label">Register</span>
+                    </button>
                 {% endif %}
             </div>
         </div>
@@ -590,61 +1346,155 @@
     </button>
 
     <script>
-        // Back to top button visibility control
         document.addEventListener('DOMContentLoaded', function() {
+            // Back to top button and mobile back button visibility control
             const backToTopButton = document.getElementById('backToTopBtn');
+            const mobileBackButton = document.getElementById('mobile-back-button');
             
+            // Throttle scroll events for better performance
+            let scrollTimeout;
             window.addEventListener('scroll', function() {
-                if (window.scrollY > 300) {
-                    backToTopButton.classList.remove('translate-y-20', 'opacity-0');
-                    backToTopButton.classList.add('translate-y-0', 'opacity-100');
-                } else {
-                    backToTopButton.classList.remove('translate-y-0', 'opacity-100');
-                    backToTopButton.classList.add('translate-y-20', 'opacity-0');
+                // Use requestAnimationFrame for smooth scroll handling
+                if (scrollTimeout) {
+                    return;
+                }
+                
+                scrollTimeout = requestAnimationFrame(() => {
+                    const scrollY = window.scrollY;
+                    
+                    // Back to top button logic
+                    if (scrollY > 300) {
+                        backToTopButton.classList.remove('translate-y-20', 'opacity-0');
+                        backToTopButton.classList.add('translate-y-0', 'opacity-100');
+                    } else {
+                        backToTopButton.classList.remove('translate-y-0', 'opacity-100');
+                        backToTopButton.classList.add('translate-y-20', 'opacity-0');
+                    }
+                    
+                    // Mobile back button - no longer dependent on scroll
+                    // Button is always visible for better UX
+                    
+                    scrollTimeout = null;
+                });
+            }, { passive: true });
+            
+            // Enhanced Morphing Pill Tab Switching
+            const morphingPill = document.getElementById('morphing-pill');
+            const navItems = document.querySelectorAll('.nav-item');
+            
+            // Initialize pill position
+            function initializePill() {
+                const activeItem = document.querySelector('.nav-item.active');
+                if (activeItem && morphingPill) {
+                    updatePillPosition(activeItem, true);
+                }
+            }
+            
+            // Update pill position and size
+            function updatePillPosition(targetItem, immediate = false) {
+                if (!morphingPill) return;
+                
+                const container = targetItem.closest('.modern-mobile-nav');
+                if (!container) return;
+                
+                const containerRect = container.getBoundingClientRect();
+                const targetRect = targetItem.getBoundingClientRect();
+                
+                const left = targetRect.left - containerRect.left;
+                const top = targetRect.top - containerRect.top;
+                
+                morphingPill.style.left = left + 'px';
+                morphingPill.style.top = top + 'px';
+                morphingPill.style.width = targetRect.width + 'px';
+                morphingPill.style.height = targetRect.height + 'px';
+                
+                if (immediate) {
+                    morphingPill.style.transition = 'none';
+                    setTimeout(() => {
+                        morphingPill.style.transition = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+                    }, 10);
+                }
+            }
+            
+            // Handle nav item clicks (for visual feedback only, navigation handled by onclick)
+            navItems.forEach(item => {
+                // Don't override dropdown buttons
+                if (!item.id || (!item.id.includes('menu-btn'))) {
+                    item.addEventListener('click', function(e) {
+                        // Haptic feedback simulation
+                        this.style.transform = 'scale(0.95)';
+                        setTimeout(() => {
+                            this.style.transform = '';
+                        }, 100);
+                        
+                        // Update active state for non-navigation items
+                        if (!this.hasAttribute('onclick')) {
+                            e.preventDefault();
+                        }
+                    });
                 }
             });
             
             // Handle mobile navigation dropdowns
-            const dropdownToggles = document.querySelectorAll('.dropdown button');
+            const adminMenuBtn = document.getElementById('admin-menu-btn');
+            const adminDropdown = document.getElementById('admin-dropdown');
+            const moreMenuBtn = document.getElementById('more-menu-btn');
+            const moreDropdown = document.getElementById('more-dropdown');
             
-            dropdownToggles.forEach(toggle => {
-                toggle.addEventListener('click', function(e) {
+            function setupDropdown(button, menu) {
+                if (!button || !menu) return;
+                
+                button.addEventListener('click', function(e) {
                     e.preventDefault();
                     e.stopPropagation();
                     
-                    const dropdown = this.closest('.dropdown');
-                    const menu = dropdown.querySelector('.dropdown-menu');
+                    // Haptic feedback
+                    this.style.transform = 'scale(0.95)';
+                    setTimeout(() => {
+                        this.style.transform = '';
+                    }, 100);
                     
-                    // Check if this menu is already open
                     const isMenuOpen = !menu.classList.contains('hidden');
                     
+                    // Close all dropdowns first
+                    document.querySelectorAll('.dropdown-menu').forEach(dropdown => {
+                        dropdown.classList.add('hidden');
+                    });
+                    
                     // Toggle this dropdown
-                    if (isMenuOpen) {
-                        menu.classList.add('hidden');
-                        this.classList.remove('active');
-                    } else {
+                    if (!isMenuOpen) {
                         menu.classList.remove('hidden');
-                        this.classList.add('active');
-                        
-                        // Close other dropdowns
-                        document.querySelectorAll('.dropdown-menu').forEach(otherMenu => {
-                            if (otherMenu !== menu && !otherMenu.classList.contains('hidden')) {
-                                otherMenu.classList.add('hidden');
-                                otherMenu.closest('.dropdown').querySelector('button').classList.remove('active');
-                            }
-                        });
                     }
                 });
-            });
+            }
+            
+            // Set up both dropdowns
+            setupDropdown(adminMenuBtn, adminDropdown);
+            setupDropdown(moreMenuBtn, moreDropdown);
             
             // Close dropdowns when clicking outside
             document.addEventListener('click', function(e) {
                 if (!e.target.closest('.dropdown')) {
                     document.querySelectorAll('.dropdown-menu').forEach(menu => {
                         menu.classList.add('hidden');
-                        const button = menu.closest('.dropdown').querySelector('button');
-                        if (button) button.classList.remove('active');
                     });
+                }
+            });
+            
+            // Initialize pill on load
+            if (window.innerWidth <= 640) {
+                setTimeout(() => {
+                    initializePill();
+                }, 100);
+            }
+            
+            // Handle resize
+            window.addEventListener('resize', () => {
+                if (window.innerWidth <= 640) {
+                    const activeItem = document.querySelector('.nav-item.active');
+                    if (activeItem) {
+                        updatePillPosition(activeItem, true);
+                    }
                 }
             });
             

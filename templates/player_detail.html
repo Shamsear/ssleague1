@@ -23,8 +23,8 @@
 {% block content %}
 <div class="container mx-auto px-4 py-8">
     <div class="glass rounded-3xl p-6 sm:p-8 max-w-5xl mx-auto hover:shadow-lg transition-all duration-300">
-        <!-- Header with Back Button -->
-        <div class="flex items-center justify-between mb-8">
+        <!-- Header with Back Button (hidden on mobile) -->
+        <div class="flex items-center justify-between mb-8 hidden sm:flex">
             {% if current_user.is_admin %}
             <a href="{{ url_for('admin_players') }}" class="flex items-center text-gray-600 hover:text-primary transition-colors">
                 <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -48,6 +48,13 @@
             </a>
             {% endif %}
             
+            <div class="flex items-center">
+                <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Player ID: {{ player.player_id }}</span>
+            </div>
+        </div>
+        
+        <!-- Player ID Display (mobile only) -->
+        <div class="flex justify-end mb-8 sm:hidden">
             <div class="flex items-center">
                 <span class="px-3 py-1 bg-gray-100 rounded-full text-sm text-gray-600">Player ID: {{ player.player_id }}</span>
             </div>

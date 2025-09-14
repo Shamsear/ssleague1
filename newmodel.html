@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Team Dashboard - TripGlide</title>
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <meta name="color-scheme" content="light dark" />
+  <style>
+    /* Hide scrollbars for horizontal scrollers */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    
+    /* Enhanced Mobile Navigation Styles */
+    .modern-mobile-nav {
+      background: linear-gradient(135deg, 
+        rgba(17, 17, 27, 0.95) 0%,
+        rgba(23, 23, 37, 0.98) 50%,
+        rgba(17, 17, 27, 0.95) 100%);
+      backdrop-filter: blur(40px) saturate(1.5);
+      -webkit-backdrop-filter: blur(40px) saturate(1.5);
+      border-top: 0.5px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 
+        0 -10px 40px rgba(0, 0, 0, 0.4),
+        0 -2px 10px rgba(0, 0, 0, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.06);
+      position: relative;
+      overflow: visible;
+      border-radius: 20px 20px 0 0;
+      transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+      min-height: 70px;
+    }
+    
+    .nav-item {
+      position: relative;
+      padding: 10px 8px;
+      border-radius: 14px;
+      transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+      min-width: 64px;
+      min-height: 56px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      background: transparent;
+      border: none;
+      color: rgba(255, 255, 255, 0.65);
+    }
+    
+    .nav-item.active {
+      color: #ffffff;
+      transform: translateY(-1px);
+    }
+    
+    .nav-item:not(.active):hover {
+      color: rgba(255, 255, 255, 0.85);
+      background: rgba(255, 255, 255, 0.05);
+      transform: scale(1.05) translateY(-2px);
+    }
+    
+    .icon-container {
+      width: 22px;
+      height: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+    }
+    
+    .tab-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+      transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+      opacity: 0.9;
+      line-height: 1;
+    }
+    
+    .nav-item.active .tab-label {
+      font-weight: 600;
+      color: #ffffff;
+      opacity: 1;
+    }
+    
+    .nav-item:not(.active) .tab-label {
+      font-weight: 400;
+      color: rgba(255, 255, 255, 0.55);
+      opacity: 0.8;
+    }
+    
+    /* Morphing Pill */
+    .morphing-pill {
+      position: absolute;
+      background: linear-gradient(135deg, 
+        #6366f1 0%,
+        #8b5cf6 50%,
+        #a855f7 100%);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 14px;
+      transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      z-index: 1;
+      border: 0.5px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 
+        0 4px 20px rgba(139, 92, 246, 0.4),
+        0 2px 8px rgba(99, 102, 241, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    }
+    
+    .morphing-pill::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 100%;
+      height: 100%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, 
+        rgba(147, 51, 234, 0.4) 0%,
+        transparent 70%);
+      filter: blur(20px);
+      animation: pulseGlow 3s ease-in-out infinite;
+      z-index: -1;
+      pointer-events: none;
+    }
+    
+    @keyframes pulseGlow {
+      0%, 100% {
+        opacity: 0.6;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      50% {
+        opacity: 1;
+        transform: translate(-50%, -50%) scale(1.2);
+      }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen antialiased">
+  <div class="max-w-[420px] mx-auto min-h-screen bg-white sm:rounded-[32px] shadow-xl flex flex-col">
+    <!-- Header -->
+    <header class="flex items-center justify-between px-5 pt-6 pb-2">
+      <div>
+        <h1 class="text-2xl font-bold text-slate-900">Team Dashboard</h1>
+        <p class="text-sm text-slate-500">Manage your travel team</p>
+      </div>
+      <img class="w-12 h-12 rounded-full object-cover ring-2 ring-white shadow" src="https://i.pravatar.cc/150?img=5" alt="Profile" />
+    </header>
+
+    <main class="flex-1 px-5 pb-28 overflow-y-auto">
+      <!-- Team Stats Overview -->
+      <section class="mt-4 grid grid-cols-3 gap-3">
+        <div class="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl p-3 text-white">
+          <p class="text-xs opacity-90">Active Teams</p>
+          <p class="text-2xl font-bold mt-1">12</p>
+          <p class="text-[10px] mt-1 opacity-80">+2 this week</p>
+        </div>
+        <div class="bg-gradient-to-br from-green-500 to-green-600 rounded-2xl p-3 text-white">
+          <p class="text-xs opacity-90">Members</p>
+          <p class="text-2xl font-bold mt-1">48</p>
+          <p class="text-[10px] mt-1 opacity-80">4 online</p>
+        </div>
+        <div class="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl p-3 text-white">
+          <p class="text-xs opacity-90">Trips</p>
+          <p class="text-2xl font-bold mt-1">7</p>
+          <p class="text-[10px] mt-1 opacity-80">3 upcoming</p>
+        </div>
+      </section>
+
+      <!-- Quick Actions -->
+      <section class="mt-6">
+        <h2 class="text-lg font-semibold text-slate-900 mb-3">Quick Actions</h2>
+        <div class="grid grid-cols-2 gap-3">
+          <button class="bg-slate-50 rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-slate-100 transition">
+            <div class="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+              <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+            </div>
+            <span class="text-xs font-medium text-slate-700">Create Team</span>
+          </button>
+          <button class="bg-slate-50 rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-slate-100 transition">
+            <div class="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+              <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-medium text-slate-700">Add Member</span>
+          </button>
+          <button class="bg-slate-50 rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-slate-100 transition">
+            <div class="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+              <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-medium text-slate-700">Schedule Trip</span>
+          </button>
+          <button class="bg-slate-50 rounded-xl p-4 flex flex-col items-center gap-2 hover:bg-slate-100 transition">
+            <div class="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+              <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+              </svg>
+            </div>
+            <span class="text-xs font-medium text-slate-700">View Reports</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Current Teams -->
+      <section class="mt-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold text-slate-900">Active Teams</h2>
+          <button class="text-sm text-blue-600 font-medium">View all</button>
+        </div>
+        
+        <div class="space-y-3">
+          <!-- Team Card 1 -->
+          <div class="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <h3 class="font-semibold text-slate-900">Brazil Expedition</h3>
+                <p class="text-xs text-slate-500 mt-1">Rio de Janeiro • Mar 15-22</p>
+                <div class="flex items-center gap-2 mt-3">
+                  <div class="flex -space-x-2">
+                    <img class="w-6 h-6 rounded-full border-2 border-white" src="https://i.pravatar.cc/150?img=1" alt="">
+                    <img class="w-6 h-6 rounded-full border-2 border-white" src="https://i.pravatar.cc/150?img=2" alt="">
+                    <img class="w-6 h-6 rounded-full border-2 border-white" src="https://i.pravatar.cc/150?img=3" alt="">
+                    <div class="w-6 h-6 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center">
+                      <span class="text-[10px] font-medium text-slate-600">+5</span>
+                    </div>
+                  </div>
+                  <span class="text-xs text-slate-500">8 members</span>
+                </div>
+              </div>
+              <span class="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">Active</span>
+            </div>
+          </div>
+
+          <!-- Team Card 2 -->
+          <div class="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <h3 class="font-semibold text-slate-900">Argentina Adventure</h3>
+                <p class="text-xs text-slate-500 mt-1">Buenos Aires • Apr 5-12</p>
+                <div class="flex items-center gap-2 mt-3">
+                  <div class="flex -space-x-2">
+                    <img class="w-6 h-6 rounded-full border-2 border-white" src="https://i.pravatar.cc/150?img=4" alt="">
+                    <img class="w-6 h-6 rounded-full border-2 border-white" src="https://i.pravatar.cc/150?img=5" alt="">
+                    <img class="w-6 h-6 rounded-full border-2 border-white" src="https://i.pravatar.cc/150?img=6" alt="">
+                  </div>
+                  <span class="text-xs text-slate-500">6 members</span>
+                </div>
+              </div>
+              <span class="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs font-medium rounded-full">Planning</span>
+            </div>
+          </div>
+
+          <!-- Team Card 3 -->
+          <div class="bg-white border border-slate-200 rounded-xl p-4 hover:shadow-md transition">
+            <div class="flex items-start justify-between">
+              <div class="flex-1">
+                <h3 class="font-semibold text-slate-900">Europe Tour</h3>
+                <p class="text-xs text-slate-500 mt-1">Multiple Cities • May 1-15</p>
+                <div class="flex items-center gap-2 mt-3">
+                  <div class="flex -space-x-2">
+                    <img class="w-6 h-6 rounded-full border-2 border-white" src="https://i.pravatar.cc/150?img=7" alt="">
+                    <img class="w-6 h-6 rounded-full border-2 border-white" src="https://i.pravatar.cc/150?img=8" alt="">
+                    <img class="w-6 h-6 rounded-full border-2 border-white" src="https://i.pravatar.cc/150?img=9" alt="">
+                    <div class="w-6 h-6 rounded-full border-2 border-white bg-slate-200 flex items-center justify-center">
+                      <span class="text-[10px] font-medium text-slate-600">+9</span>
+                    </div>
+                  </div>
+                  <span class="text-xs text-slate-500">12 members</span>
+                </div>
+              </div>
+              <span class="px-2 py-1 bg-blue-100 text-blue-700 text-xs font-medium rounded-full">Upcoming</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Recent Activity -->
+      <section class="mt-6">
+        <h2 class="text-lg font-semibold text-slate-900 mb-3">Recent Activity</h2>
+        <div class="space-y-3">
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <p class="text-sm text-slate-900">New team member joined <span class="font-medium">Brazil Expedition</span></p>
+              <p class="text-xs text-slate-500 mt-0.5">2 hours ago</p>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <p class="text-sm text-slate-900">Trip to <span class="font-medium">Rio de Janeiro</span> confirmed</p>
+              <p class="text-xs text-slate-500 mt-0.5">5 hours ago</p>
+            </div>
+          </div>
+          
+          <div class="flex items-start gap-3">
+            <div class="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+              <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <p class="text-sm text-slate-900">New trip scheduled for <span class="font-medium">Europe Tour</span></p>
+              <p class="text-xs text-slate-500 mt-0.5">Yesterday</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Upcoming Destinations -->
+      <section class="mt-6">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-lg font-semibold text-slate-900">Upcoming Destinations</h2>
+          <button class="text-sm text-blue-600 font-medium">Browse</button>
+        </div>
+        
+        <div class="flex gap-3 overflow-x-auto no-scrollbar">
+          <!-- Mini Destination Card 1 -->
+          <article class="relative w-40 h-48 rounded-2xl overflow-hidden shrink-0">
+            <img src="https://images.unsplash.com/photo-1483729558449-99ef09a8c325?w=400&h=500&fit=crop" alt="Rio de Janeiro" class="absolute inset-0 w-full h-full object-cover" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-3 text-white">
+              <p class="text-[10px] opacity-90">BRAZIL</p>
+              <h3 class="text-sm font-semibold">Rio de Janeiro</h3>
+              <p class="text-[10px] mt-1 opacity-80">Mar 15-22</p>
+            </div>
+          </article>
+
+          <!-- Mini Destination Card 2 -->
+          <article class="relative w-40 h-48 rounded-2xl overflow-hidden shrink-0">
+            <img src="https://images.unsplash.com/photo-1589909202802-8f4aadce1849?w=400&h=500&fit=crop" alt="Buenos Aires" class="absolute inset-0 w-full h-full object-cover" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-3 text-white">
+              <p class="text-[10px] opacity-90">ARGENTINA</p>
+              <h3 class="text-sm font-semibold">Buenos Aires</h3>
+              <p class="text-[10px] mt-1 opacity-80">Apr 5-12</p>
+            </div>
+          </article>
+
+          <!-- Mini Destination Card 3 -->
+          <article class="relative w-40 h-48 rounded-2xl overflow-hidden shrink-0">
+            <img src="https://images.unsplash.com/photo-1499856871958-5b9627545d1a?w=400&h=500&fit=crop" alt="Paris" class="absolute inset-0 w-full h-full object-cover" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent"></div>
+            <div class="absolute bottom-0 left-0 right-0 p-3 text-white">
+              <p class="text-[10px] opacity-90">FRANCE</p>
+              <h3 class="text-sm font-semibold">Paris</h3>
+              <p class="text-[10px] mt-1 opacity-80">May 1-5</p>
+            </div>
+          </article>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Enhanced Mobile Navigation -->
+    <nav class="fixed bottom-0 left-0 right-0 z-50" role="tablist" aria-label="Main navigation">
+      <div class="modern-mobile-nav relative overflow-hidden">
+        <!-- Morphing Pill Indicator -->
+        <div id="morphing-pill" class="morphing-pill"></div>
+        
+        <!-- Navigation container -->
+        <div class="flex justify-around items-center px-3 py-2 relative z-10">
+          <!-- Explore -->
+          <button class="nav-item" data-tab="explore" aria-label="Explore" role="tab" aria-selected="false" onclick="window.location.href='index.html'">
+            <div class="icon-container">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.94-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/>
+              </svg>
+            </div>
+            <span class="tab-label">Explore</span>
+          </button>
+
+          <!-- Trips -->
+          <button class="nav-item" data-tab="trips" aria-label="Trips" role="tab" aria-selected="false">
+            <div class="icon-container">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M21 16v-2l-8-5V3.5c0-.83-.67-1.5-1.5-1.5S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+              </svg>
+            </div>
+            <span class="tab-label">Trips</span>
+          </button>
+
+          <!-- Saved -->
+          <button class="nav-item" data-tab="saved" aria-label="Saved" role="tab" aria-selected="false">
+            <div class="icon-container">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+              </svg>
+            </div>
+            <span class="tab-label">Saved</span>
+          </button>
+
+          <!-- Teams (Active on this page) -->
+          <button class="nav-item active" data-tab="teams" aria-label="Teams" role="tab" aria-selected="true">
+            <div class="icon-container">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+              </svg>
+            </div>
+            <span class="tab-label">Teams</span>
+          </button>
+
+          <!-- Profile -->
+          <button class="nav-item" data-tab="profile" aria-label="Profile" role="tab" aria-selected="false">
+            <div class="icon-container">
+              <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
+            <span class="tab-label">Profile</span>
+          </button>
+        </div>
+      </div>
+    </nav>
+  </div>
+  <script>
+    // Enhanced Morphing Pill Tab Switching
+    const morphingPill = document.getElementById('morphing-pill');
+    const navItems = document.querySelectorAll('.nav-item');
+    
+    // Initialize pill position
+    function initializePill() {
+      const activeItem = document.querySelector('.nav-item.active');
+      if (activeItem) {
+        updatePillPosition(activeItem, true);
+      }
+    }
+    
+    // Update pill position and size
+    function updatePillPosition(targetItem, immediate = false) {
+      const container = targetItem.closest('.modern-mobile-nav');
+      const containerRect = container.getBoundingClientRect();
+      const targetRect = targetItem.getBoundingClientRect();
+      
+      const left = targetRect.left - containerRect.left;
+      const top = targetRect.top - containerRect.top;
+      
+      morphingPill.style.left = left + 'px';
+      morphingPill.style.top = top + 'px';
+      morphingPill.style.width = targetRect.width + 'px';
+      morphingPill.style.height = targetRect.height + 'px';
+      
+      if (immediate) {
+        morphingPill.style.transition = 'none';
+        setTimeout(() => {
+          morphingPill.style.transition = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
+        }, 10);
+      }
+    }
+    
+    navItems.forEach(item => {
+      item.addEventListener('click', function(e) {
+        // Don't prevent default for Explore tab as it has navigation
+        if (this.dataset.tab !== 'explore') {
+          e.preventDefault();
+        }
+        
+        // Haptic feedback simulation
+        this.style.transform = 'scale(0.95)';
+        setTimeout(() => {
+          this.style.transform = '';
+        }, 100);
+        
+        // Update active state
+        navItems.forEach(navItem => {
+          navItem.classList.remove('active');
+          navItem.setAttribute('aria-selected', 'false');
+        });
+        this.classList.add('active');
+        this.setAttribute('aria-selected', 'true');
+        
+        // Update pill position
+        updatePillPosition(this);
+      });
+    });
+    
+    // Initialize on load
+    document.addEventListener('DOMContentLoaded', () => {
+      initializePill();
+    });
+    
+    // Handle resize
+    window.addEventListener('resize', () => {
+      const activeItem = document.querySelector('.nav-item.active');
+      if (activeItem) {
+        updatePillPosition(activeItem, true);
+      }
+    });
+  </script>
+</body>
+</html>
