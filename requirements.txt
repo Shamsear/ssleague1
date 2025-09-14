@@ -3,6 +3,7 @@ Flask-SQLAlchemy==3.1.1
 Flask-Login==0.6.3
 Flask-Migrate==4.0.5
 Flask-SocketIO==5.3.6
+Flask-Compress==1.14
 python-socketio==5.11.0
 python-engineio==4.8.0
 python-dotenv==1.0.1
@@ -25,4 +26,5 @@ python-jose==3.3.0
 cryptography==41.0.7
 requests==2.31.0
 redis==5.0.1
-beautifulsoup4==4.12.2 
+beautifulsoup4==4.12.2
+imagekitio==3.2.0
