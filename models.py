@@ -3,6 +3,7 @@ from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta, timezone
 import secrets
+import json
 
 db = SQLAlchemy()
 
@@ -522,4 +523,165 @@ class TeamBulkTiebreaker(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     
     # Relationships
-    team = db.relationship('Team', backref='bulk_tiebreakers') 
+    team = db.relationship('Team', backref='bulk_tiebreakers')
+
+# Telegram Notification Models
+class TelegramUser(db.Model):
+    """Model for storing Telegram user information"""
+    __tablename__ = 'telegram_user'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False, unique=True)
+    telegram_chat_id = db.Column(db.String(50), nullable=False, unique=True)
+    telegram_username = db.Column(db.String(100), nullable=True)
+    first_name = db.Column(db.String(100), nullable=True)
+    last_name = db.Column(db.String(100), nullable=True)
+    is_active = db.Column(db.Boolean, default=True)
+    
+    # Notification preferences
+    notify_login = db.Column(db.Boolean, default=True)
+    notify_bids = db.Column(db.Boolean, default=True)
+    notify_auction_start = db.Column(db.Boolean, default=True)
+    notify_auction_end = db.Column(db.Boolean, default=True)
+    notify_team_changes = db.Column(db.Boolean, default=True)
+    notify_admin_actions = db.Column(db.Boolean, default=True)
+    notify_system_alerts = db.Column(db.Boolean, default=True)
+    
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    user = db.relationship('User', backref=db.backref('telegram_user', uselist=False))
+    notifications_sent = db.relationship('NotificationLog', backref='telegram_user', lazy=True)
+    
+    def __repr__(self):
+        return f"<TelegramUser {self.telegram_chat_id} for user {self.user_id}>"
+    
+    @classmethod
+    def get_by_chat_id(cls, chat_id):
+        """Get telegram user by chat ID"""
+        return cls.query.filter_by(telegram_chat_id=str(chat_id)).first()
+    
+    @classmethod
+    def get_active_users(cls):
+        """Get all active telegram users"""
+        return cls.query.filter_by(is_active=True).all()
+    
+    @classmethod
+    def get_users_for_notification_type(cls, notification_type):
+        """Get users who want to receive a specific type of notification"""
+        notification_map = {
+            'login': cls.notify_login,
+            'bids': cls.notify_bids,
+            'auction_start': cls.notify_auction_start,
+            'auction_end': cls.notify_auction_end,
+            'team_changes': cls.notify_team_changes,
+            'admin_actions': cls.notify_admin_actions,
+            'system_alerts': cls.notify_system_alerts
+        }
+        
+        field = notification_map.get(notification_type)
+        if field is not None:
+            return cls.query.filter_by(is_active=True).filter(field == True).all()
+        return cls.get_active_users()
+
+class NotificationLog(db.Model):
+    """Model for logging all sent notifications"""
+    __tablename__ = 'notification_log'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    telegram_user_id = db.Column(db.Integer, db.ForeignKey('telegram_user.id', ondelete='SET NULL'), nullable=True)
+    notification_type = db.Column(db.String(50), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    user_action = db.Column(db.String(100), nullable=True)  # The action that triggered the notification
+    actor_user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=True)  # User who performed the action
+    
+    # Delivery status
+    status = db.Column(db.String(20), default='pending')  # pending, sent, failed, delivered
+    sent_at = db.Column(db.DateTime, nullable=True)
+    delivered_at = db.Column(db.DateTime, nullable=True)
+    failed_reason = db.Column(db.Text, nullable=True)
+    
+    # Metadata
+    message_data = db.Column(db.Text, nullable=True)  # JSON string for additional data
+    telegram_message_id = db.Column(db.String(50), nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    actor_user = db.relationship('User', foreign_keys=[actor_user_id], backref='triggered_notifications')
+    
+    def __repr__(self):
+        return f"<NotificationLog {self.id}: {self.notification_type} - {self.status}>"
+    
+    @classmethod
+    def create_log(cls, telegram_user_id, notification_type, message, 
+                   user_action=None, actor_user_id=None, message_data=None):
+        """Create a new notification log entry"""
+        log = cls(
+            telegram_user_id=telegram_user_id,
+            notification_type=notification_type,
+            message=message,
+            user_action=user_action,
+            actor_user_id=actor_user_id,
+            message_data=json.dumps(message_data) if message_data else None
+        )
+        db.session.add(log)
+        return log
+    
+    def mark_sent(self, telegram_message_id=None):
+        """Mark notification as sent"""
+        self.status = 'sent'
+        self.sent_at = datetime.now(timezone.utc)
+        if telegram_message_id:
+            self.telegram_message_id = str(telegram_message_id)
+    
+    def mark_failed(self, reason):
+        """Mark notification as failed"""
+        self.status = 'failed'
+        self.failed_reason = reason
+    
+    def mark_delivered(self):
+        """Mark notification as delivered"""
+        self.status = 'delivered'
+        self.delivered_at = datetime.now(timezone.utc)
+
+class NotificationSettings(db.Model):
+    """Global notification settings for the bot"""
+    __tablename__ = 'notification_settings'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    setting_name = db.Column(db.String(100), nullable=False, unique=True)
+    setting_value = db.Column(db.Text, nullable=True)
+    description = db.Column(db.Text, nullable=True)
+    
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    def __repr__(self):
+        return f"<NotificationSettings {self.setting_name}: {self.setting_value}>"
+    
+    @classmethod
+    def get_setting(cls, name, default=None):
+        """Get a setting value by name"""
+        setting = cls.query.filter_by(setting_name=name).first()
+        return setting.setting_value if setting else default
+    
+    @classmethod
+    def set_setting(cls, name, value, description=None):
+        """Set a setting value"""
+        setting = cls.query.filter_by(setting_name=name).first()
+        if setting:
+            setting.setting_value = str(value)
+            if description:
+                setting.description = description
+            setting.updated_at = datetime.now(timezone.utc)
+        else:
+            setting = cls(
+                setting_name=name,
+                setting_value=str(value),
+                description=description
+            )
+            db.session.add(setting)
+        return setting

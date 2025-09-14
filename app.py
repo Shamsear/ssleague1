@@ -20,6 +20,19 @@ from team_management_routes import team_management
 from bs4 import BeautifulSoup
 import re
 from github_service import github_service
+from telegram_service import init_telegram_bot
+from notification_service import init_notification_service, get_notification_service, track_user_action
+from telegram_routes import telegram_bp
+from admin_notification_routes import admin_notifications_bp
+from profile_telegram_integration import profile_telegram_bp
+from admin_telegram_routes import admin_telegram_bp
+
+# Import compression for ultra-fast responses
+try:
+    from flask_compress import Compress
+    COMPRESSION_AVAILABLE = True
+except ImportError:
+    COMPRESSION_AVAILABLE = False
 
 # Import performance optimizations (optional)
 try:
@@ -67,6 +80,19 @@ except ImportError:
 app = Flask(__name__)
 app.config.from_object(Config)
 
+# Enable ULTRA compression for faster responses
+if COMPRESSION_AVAILABLE:
+    # Configure compression for maximum speed
+    app.config['COMPRESS_ALGORITHM'] = 'br'  # Brotli compression (best)
+    app.config['COMPRESS_LEVEL'] = 4  # Balance speed vs compression
+    app.config['COMPRESS_MIN_SIZE'] = 500  # Compress anything over 500 bytes
+    app.config['COMPRESS_MIMETYPES'] = [
+        'text/html', 'text/css', 'text/xml', 'text/javascript',
+        'application/json', 'application/javascript'
+    ]
+    Compress(app)
+    print("✅ Brotli compression enabled for ultra-fast responses")
+
 # Apply SQLAlchemy engine options from config
 if hasattr(Config, 'SQLALCHEMY_ENGINE_OPTIONS'):
     for key, value in Config.SQLALCHEMY_ENGINE_OPTIONS.items():
@@ -74,6 +100,10 @@ if hasattr(Config, 'SQLALCHEMY_ENGINE_OPTIONS'):
 
 # Register blueprints
 app.register_blueprint(team_management, url_prefix='/team_management')
+app.register_blueprint(telegram_bp)
+app.register_blueprint(admin_notifications_bp)
+app.register_blueprint(profile_telegram_bp)
+app.register_blueprint(admin_telegram_bp)
 
 
 db.init_app(app)
@@ -84,6 +114,37 @@ login_manager.login_view = 'login'
 
 # Initialize performance monitoring
 setup_performance_monitoring()
+
+# Initialize Telegram bot and notification service
+with app.app_context():
+    try:
+        telegram_bot = init_telegram_bot(app)
+        notification_service = init_notification_service()
+        if telegram_bot and notification_service:
+            print("✅ Telegram notifications enabled")
+        else:
+            print("⚠️ Telegram notifications disabled - check TELEGRAM_BOT_TOKEN configuration")
+    except Exception as e:
+        print(f"❌ Failed to initialize Telegram notifications: {e}")
+
+# Apply ULTRA performance optimizations for maximum speed
+if 'neon.tech' in app.config.get('SQLALCHEMY_DATABASE_URI', ''):
+    print("⚡ ULTRA PERFORMANCE MODE ACTIVATED ⚡")
+    print("✅ Using MAXIMUM Neon connection pool settings:")
+    print("   • Pool size: 50 connections (10x increase!)")
+    print("   • Max overflow: 50 (100 total connections!)")
+    print("   • Connection recycling: 2 minutes (ultra-fresh)")
+    print("   • LIFO pool strategy for HOT connections")
+    print("   • Skip connection reset for speed")
+    
+    # Install ultra performance optimizations
+    try:
+        from ultra_performance import install_ultra_performance
+        install_ultra_performance(app, db)
+    except ImportError:
+        print("Ultra performance module not available")
+    except Exception as e:
+        print(f"Could not install ultra performance: {e}")
 
 # Add template global functions
 @app.template_global()
@@ -228,29 +289,32 @@ def add_header(response):
     
     return response
 
-@login_manager.user_loader
-def load_user(user_id):
-    # This function is called by Flask-Login to load a user from the session
-    # It can receive either a user ID from the session or a remember token
+@app.before_request
+def check_remember_token():
+    '''Check for remember token on every request if user not logged in'''
+    from flask_login import current_user, login_user
     
-    # First try to load the user by ID (normal session case)
-    try:
-        user = User.query.get(int(user_id))
-        if user:
-            return user
-    except (ValueError, TypeError):
-        # user_id might be invalid, fall through to remember token check
-        pass
+    # If user is already authenticated, skip
+    if current_user.is_authenticated:
+        return
     
-    # If user not found by ID, check for remember token in cookies
+    # Check for remember token in cookies
     remember_token = request.cookies.get('remember_token')
     if remember_token:
-        # Try to find and validate user by remember token
+        # Try to find user by token
         user = User.get_by_remember_token(remember_token)
         if user:
-            # Return the user - Flask-Login will handle the session
-            return user
-    
+            # Log the user in
+            login_user(user, remember=False)
+
+@login_manager.user_loader
+def load_user(user_id):
+    # Load user from session ID
+    if user_id:
+        try:
+            return User.query.get(int(user_id))
+        except (ValueError, TypeError):
+            pass
     return None
 
 @app.route('/service-worker.js')
@@ -292,57 +356,94 @@ def login():
     # Check if user is already logged in
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
+
+    #store username to preserve it on errors
+    entered_username = ''
         
     if request.method == 'POST':
-        username = request.form.get('username')
+        username = request.form.get('username', '').strip()
         password = request.form.get('password')
         remember = 'remember' in request.form
+
+        #store the entered username to preserve it on errors
+        entered_username = username
+
+        #validate input
+        if not username:
+            flash('Username is required','error')
+            return render_template('login.html', entered_username = entered_username)
+
+        if not password:
+            flash('Password is required','error')
+            return render_template('login.html', entered_username = entered_username)
         
+        #check if user exists
         user = User.query.filter_by(username=username).first()
-        if user and user.check_password(password):
-            # Check if user is either an admin or has been approved
-            if user.is_admin or user.is_approved:
-                # Login the user
-                login_user(user, remember=False)  # We'll handle remember me manually with secure tokens
-                
-                # Create a response object for redirect
-                response = make_response(redirect(url_for('dashboard')))
-                
-                # If remember me is checked, generate and store a secure token
-                if remember:
-                    # Generate a new remember token
-                    token = user.generate_remember_token(days=30)
-                    # Save the changes to the database
-                    db.session.commit()
-                    
-                    # Calculate expiry date for persistent cookie (GMT format for better compatibility)
-                    from datetime import datetime, timedelta
-                    import time
-                    expires = datetime.utcnow() + timedelta(days=30)
-                    expires_timestamp = int(time.mktime(expires.timetuple()))
-                    
-                    # Set a persistent cookie with the token
-                    # Using both expires and max_age for maximum compatibility
-                    response.set_cookie(
-                        'remember_token', 
-                        token, 
-                        expires=expires,          # Explicit expiry date for persistence
-                        max_age=30*24*60*60,     # 30 days in seconds (backup)
-                        httponly=True,           # XSS protection
-                        samesite='Lax',          # Cross-site compatibility
-                        secure=request.is_secure,# HTTPS only if using secure connection
-                        path='/',                # Available across entire site
-                        domain=None              # Let browser determine domain
-                    )
-                
-                return response
-            else:
-                flash('Your account is pending approval. Please contact an administrator.')
-                return render_template('login.html')
-        flash('Invalid username or password')
-    
+        if not user:
+            flash('Username not found. Please check your username or register for a new account.', 'error')
+            return render_template('login.html', entered_username = entered_username)
+
+        #check password
+        if not user.check_password(password):
+            flash('Incorrect Password. Please try again', 'error')
+            return render_template('login.html', entered_username = entered_username)
+
+        #check if user is either an admin or has been approved
+        if not (user.is_admin or user.is_approved):
+            flash('Your account is pending approval. Please contact an administrator.', 'warning')
+            return render_template('login.html', entered_username = entered_username)
+
+        #login successful - proceed with login
+        login_user(user, remember=False) #we'll handle remember me manually with secure tokens
+
+        # Send login notification
+        try:
+            notification_service = get_notification_service()
+            if notification_service:
+                notification_service.send_user_action_notification(
+                    user_action=f"User logged in",
+                    actor_user_id=user.id,
+                    details={
+                        'username': username,
+                        'remember_me': remember,
+                        'ip_address': request.remote_addr,
+                        'user_agent': request.headers.get('User-Agent', 'unknown')[:100]
+                    },
+                    notification_type='login'
+                )
+        except Exception as e:
+            print(f"Failed to send login notification: {e}")
+
+        # Create a response object for redirect
+        response = make_response(redirect(url_for('dashboard')))
+        
+        # If remember me is checked, generate and store a secure token
+        if remember:
+            # Generate a new remember token
+            token = user.generate_remember_token(days=30)
+            # Save the changes to the database
+            db.session.commit()
+            
+            # Set a persistent cookie with the token (30 days)
+            from datetime import datetime, timedelta, timezone
+            
+            max_age_seconds = 30 * 24 * 60 * 60  # 30 days in seconds
+            expires = datetime.now(timezone.utc) + timedelta(seconds=max_age_seconds)
+            
+            response.set_cookie(
+                'remember_token', 
+                token, 
+                max_age=max_age_seconds,  # Primary method for persistence
+                expires=expires,          # Backup for older browsers
+                httponly=True,           # XSS protection
+                samesite='Lax',          # Cross-site compatibility  
+                secure=False,            # Set to True if using HTTPS only
+                path='/',                # Available across entire site
+                domain=None              # Let browser determine domain
+            )
+        return response
     # Set no-cache headers
-    response = make_response(render_template('login.html'))
+    response = make_response(render_template('login.html', entered_username = entered_username))
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -449,6 +550,26 @@ def register():
             db.session.add(team)
         
         db.session.commit()
+        
+        # Send registration notification
+        try:
+            notification_service = get_notification_service()
+            if notification_service:
+                notification_service.send_user_action_notification(
+                    user_action=f"New user registered",
+                    actor_user_id=user.id,
+                    details={
+                        'username': username,
+                        'team_name': team_name if not is_admin else None,
+                        'is_admin': is_admin,
+                        'logo_uploaded': logo_url is not None,
+                        'logo_storage_type': logo_storage_type
+                    },
+                    notification_type='admin_actions'
+                )
+        except Exception as e:
+            print(f"Failed to send registration notification: {e}")
+        
         return redirect(url_for('login'))
     
     # Set no-cache headers
@@ -792,6 +913,10 @@ def edit_profile():
         minutes = int((time_remaining.total_seconds() % 3600) // 60)
         time_until_change = f"{hours}h {minutes}m"
     
+    # Get Telegram user info
+    from models import TelegramUser
+    telegram_user = TelegramUser.query.filter_by(user_id=current_user.id).first()
+    
     # Add timestamp for cache busting
     import time
     cache_buster = int(time.time())
@@ -802,6 +927,7 @@ def edit_profile():
                           can_change_password=can_change_password,
                           time_until_change=time_until_change,
                           last_password_change=current_user.last_password_change,
+                          telegram_user=telegram_user,
                           cache_buster=cache_buster))
     
     # Comprehensive cache prevention headers
@@ -813,6 +939,53 @@ def edit_profile():
     response.headers["Vary"] = "*"  # Vary on all possible headers
     
     return response
+
+@app.route('/profile/telegram/unlink', methods=['POST'])
+@login_required
+def unlink_telegram():
+    """Unlink Telegram account from user profile"""
+    try:
+        from models import TelegramUser, NotificationLog
+        
+        telegram_user = TelegramUser.query.filter_by(user_id=current_user.id).first()
+        if not telegram_user:
+            flash('No Telegram account is linked to your profile', 'info')
+            return redirect(url_for('edit_profile'))
+        
+        # Store info for notification
+        telegram_username = telegram_user.telegram_username or 'Unknown'
+        
+        # Delete associated notification logs (optional - you might want to keep logs for audit)
+        # NotificationLog.query.filter_by(telegram_user_id=telegram_user.id).delete()
+        
+        # Delete the Telegram user link
+        db.session.delete(telegram_user)
+        db.session.commit()
+        
+        # Send notification about unlink
+        try:
+            notification_service = get_notification_service()
+            if notification_service:
+                notification_service.send_user_action_notification(
+                    user_action="User unlinked Telegram account from profile",
+                    actor_user_id=current_user.id,
+                    details={
+                        'telegram_username': telegram_username,
+                        'method': 'web_profile'
+                    },
+                    notification_type='admin_actions'
+                )
+        except Exception as e:
+            print(f"Failed to send unlink notification: {e}")
+        
+        flash('Telegram account unlinked successfully! You will no longer receive notifications.', 'success')
+        
+    except Exception as e:
+        db.session.rollback()
+        flash('Error unlinking Telegram account. Please try again.', 'error')
+        print(f"Error unlinking Telegram: {e}")
+    
+    return redirect(url_for('edit_profile'))
 
 @app.route('/start_round', methods=['POST'])
 @login_required
@@ -925,6 +1098,23 @@ def start_round():
         player.round_id = round.id
     
     db.session.commit()
+    
+    # Send auction start notification
+    try:
+        notification_service = get_notification_service()
+        if notification_service:
+            notification_service.send_auction_notification(
+                action='auction_start',
+                round_info={
+                    'round_id': round.id,
+                    'position': position,
+                    'duration': f'{duration // 60} minutes',
+                    'max_bids_per_team': max_bids_per_team,
+                    'players_count': len(players)
+                }
+            )
+    except Exception as e:
+        print(f"Failed to send auction start notification: {e}")
     
     return jsonify({
         'success': True,
@@ -1169,7 +1359,22 @@ def process_bids_with_tiebreaker_check(round_id, bids):
     round.status = "completed"
     db.session.commit()
     
-    # Notifications have been removed
+    # Send auction end notification
+    try:
+        notification_service = get_notification_service()
+        if notification_service:
+            notification_service.send_auction_notification(
+                action='auction_end',
+                round_info={
+                    'round_id': round_id,
+                    'position': round.position,
+                    'total_bids': len(all_bids),
+                    'players_allocated': len(allocated_players),
+                    'teams_participated': len(team_bid_counts)
+                }
+            )
+    except Exception as e:
+        print(f"Failed to send auction end notification: {e}")
             
     return {"status": "success"}
 
@@ -1257,6 +1462,32 @@ def place_bid():
     )
     db.session.add(bid)
     db.session.commit()
+    
+    # Send bid placement notification
+    try:
+        notification_service = get_notification_service()
+        if notification_service:
+            player = Player.query.get(player_id)
+            notification_service.send_auction_notification(
+                action='bid_placed',
+                round_info={
+                    'round_id': round_id,
+                    'position': round.position,
+                    'remaining_time': f'{round.get_remaining_time() // 60} minutes'
+                },
+                player_info={
+                    'name': player.name if player else 'Unknown',
+                    'position': player.position if player else 'Unknown',
+                    'team_name': player.team_name if player else 'Unknown'
+                },
+                team_info={
+                    'name': team.name,
+                    'bid_amount': amount,
+                    'remaining_balance': team.balance - amount
+                }
+            )
+    except Exception as e:
+        print(f"Failed to send bid placement notification: {e}")
     
     return jsonify({'message': 'Bid placed successfully', 'bid': bid.to_dict()})
 

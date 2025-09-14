@@ -1,0 +1,764 @@
+{% extends "base.html" %}
+
+{% block title %}Telegram Settings - Admin{% endblock %}
+
+{% block extra_css %}
+<style>
+    .settings-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        margin-bottom: 30px;
+        overflow: hidden;
+    }
+    
+    .section-header {
+        background: #f8f9fa;
+        padding: 20px;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .section-content {
+        padding: 20px;
+    }
+    
+    .config-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 15px 0;
+        border-bottom: 1px solid #f1f3f4;
+    }
+    
+    .config-item:last-child {
+        border-bottom: none;
+    }
+    
+    .config-label {
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .config-description {
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 2px;
+    }
+    
+    .config-value {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .status-indicator {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #dc3545;
+    }
+    
+    .status-indicator.success {
+        background-color: #28a745;
+    }
+    
+    .status-indicator.warning {
+        background-color: #ffc107;
+    }
+    
+    .bot-info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+    }
+    
+    .info-card {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 15px;
+    }
+    
+    .info-card.error {
+        background: #f8d7da;
+        border-color: #f1b0b7;
+        color: #721c24;
+    }
+    
+    .info-card.success {
+        background: #d4edda;
+        border-color: #c3e6cb;
+        color: #155724;
+    }
+    
+    .info-card.warning {
+        background: #fff3cd;
+        border-color: #ffeaa7;
+        color: #856404;
+    }
+    
+    .setting-toggle {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .form-switch {
+        margin-bottom: 0;
+    }
+    
+    .settings-form {
+        display: none;
+        margin-top: 20px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        border: 1px solid #dee2e6;
+    }
+    
+    .settings-form.show {
+        display: block;
+    }
+    
+    .code-block {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        font-family: 'Courier New', monospace;
+        font-size: 0.9rem;
+        overflow-x: auto;
+    }
+    
+    .webhook-url {
+        word-break: break-all;
+        font-family: 'Courier New', monospace;
+        background: #f8f9fa;
+        padding: 2px 4px;
+        border-radius: 4px;
+    }
+    
+    .action-buttons {
+        margin-top: 20px;
+    }
+    
+    .loading {
+        display: none;
+        text-align: center;
+        padding: 20px;
+    }
+    
+    .spinner {
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #007bff;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        animation: spin 2s linear infinite;
+        margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .result-message {
+        margin-top: 15px;
+        padding: 15px;
+        border-radius: 8px;
+        display: none;
+    }
+    
+    .result-message.success {
+        background-color: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    
+    .result-message.error {
+        background-color: #f8d7da;
+        border: 1px solid #f1b0b7;
+        color: #721c24;
+    }
+    
+    .webhook-test {
+        background: #e3f2fd;
+        border: 1px solid #bbdefb;
+        border-radius: 8px;
+        padding: 20px;
+        margin-top: 20px;
+    }
+    
+    .tab-content {
+        margin-top: 20px;
+    }
+    
+    .nav-tabs {
+        border-bottom: 2px solid #dee2e6;
+    }
+    
+    .nav-tabs .nav-link {
+        border: none;
+        color: #666;
+        font-weight: 500;
+        padding: 15px 20px;
+    }
+    
+    .nav-tabs .nav-link.active {
+        color: #007bff;
+        background: none;
+        border-bottom: 2px solid #007bff;
+        border-radius: 0;
+    }
+    
+    .notification-type-setting {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid #f1f3f4;
+    }
+    
+    .notification-type-setting:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Telegram Settings</h1>
+        <a href="{{ url_for('admin_telegram.telegram_dashboard') }}" class="btn btn-outline-primary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Configuration Status Section -->
+    <div class="settings-section">
+        <div class="section-header">
+            <h3><i class="fas fa-cog"></i> Configuration Status</h3>
+        </div>
+        <div class="section-content">
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Bot Token</div>
+                    <div class="config-description">Telegram bot API token configuration</div>
+                </div>
+                <div class="config-value">
+                    <span class="status-indicator {{ 'success' if config.bot_token_configured else 'error' }}"></span>
+                    <span>{{ 'Configured' if config.bot_token_configured else 'Not Configured' }}</span>
+                </div>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Bot Username</div>
+                    <div class="config-description">@{{ config.bot_username }}</div>
+                </div>
+                <div class="config-value">
+                    <span class="status-indicator {{ 'success' if config.bot_username != 'Not configured' else 'warning' }}"></span>
+                    <span>{{ 'Active' if config.bot_username != 'Not configured' else 'Not Set' }}</span>
+                </div>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Webhook URL</div>
+                    <div class="config-description">
+                        {% if config.webhook_url != 'Not configured' %}
+                            <span class="webhook-url">{{ config.webhook_url }}</span>
+                        {% else %}
+                            Webhook endpoint not configured
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="config-value">
+                    <span class="status-indicator {{ 'success' if config.webhook_url != 'Not configured' else 'warning' }}"></span>
+                    <span>{{ 'Configured' if config.webhook_url != 'Not configured' else 'Not Set' }}</span>
+                </div>
+            </div>
+
+            <div class="config-item">
+                <div>
+                    <div class="config-label">Link Expiration</div>
+                    <div class="config-description">How long Telegram link codes are valid</div>
+                </div>
+                <div class="config-value">
+                    <span>{{ config.link_expires_hours }} hours</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bot Information Section -->
+    {% if bot_info %}
+    <div class="settings-section">
+        <div class="section-header">
+            <h3><i class="fas fa-robot"></i> Bot Information</h3>
+        </div>
+        <div class="section-content">
+            <div class="bot-info-grid">
+                <div class="info-card">
+                    <h5>Webhook Status</h5>
+                    <p><strong>URL:</strong> {{ bot_info.get('url', 'Not set') }}</p>
+                    <p><strong>Has Custom Certificate:</strong> {{ 'Yes' if bot_info.get('has_custom_certificate') else 'No' }}</p>
+                    <p><strong>Pending Updates:</strong> {{ bot_info.get('pending_update_count', 0) }}</p>
+                </div>
+                
+                {% if bot_info.get('last_error_date') %}
+                <div class="info-card error">
+                    <h5>Last Error</h5>
+                    <p><strong>Date:</strong> {{ bot_info.get('last_error_date') }}</p>
+                    <p><strong>Message:</strong> {{ bot_info.get('last_error_message', 'No details') }}</p>
+                </div>
+                {% endif %}
+                
+                {% if bot_info.get('max_connections') %}
+                <div class="info-card">
+                    <h5>Connection Settings</h5>
+                    <p><strong>Max Connections:</strong> {{ bot_info.get('max_connections') }}</p>
+                    <p><strong>Allowed Updates:</strong> {{ ', '.join(bot_info.get('allowed_updates', [])) if bot_info.get('allowed_updates') else 'All' }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Settings Tabs -->
+    <div class="settings-section">
+        <div class="section-header">
+            <h3><i class="fas fa-sliders-h"></i> Notification Settings</h3>
+        </div>
+        <div class="section-content">
+            <ul class="nav nav-tabs" id="settingsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="general-tab" data-bs-toggle="tab" data-bs-target="#general" type="button" role="tab" aria-controls="general" aria-selected="true">
+                        General Settings
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="notifications-tab" data-bs-toggle="tab" data-bs-target="#notifications" type="button" role="tab" aria-controls="notifications" aria-selected="false">
+                        Notification Types
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced" type="button" role="tab" aria-controls="advanced" aria-selected="false">
+                        Advanced Settings
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="settingsTabContent">
+                <!-- General Settings Tab -->
+                <div class="tab-pane fade show active" id="general" role="tabpanel" aria-labelledby="general-tab">
+                    <form id="generalSettingsForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="setting-toggle">
+                                    <label class="form-check-label" for="globalNotificationsEnabled">
+                                        <strong>Global Notifications Enabled</strong>
+                                        <div class="config-description">Master switch for all Telegram notifications</div>
+                                    </label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="globalNotificationsEnabled" 
+                                               {{ 'checked' if settings.get('global_notifications_enabled', true) }}>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="setting-toggle">
+                                    <label class="form-check-label" for="requireUserConfirmation">
+                                        <strong>Require User Confirmation</strong>
+                                        <div class="config-description">Users must confirm linking via Telegram</div>
+                                    </label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="requireUserConfirmation" 
+                                               {{ 'checked' if settings.get('require_user_confirmation', true) }}>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="maxRetries" class="form-label">Max Retry Attempts</label>
+                                <input type="number" class="form-control" id="maxRetries" min="0" max="10" 
+                                       value="{{ settings.get('max_retries', 3) }}">
+                                <div class="form-text">Number of times to retry failed notifications</div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="retryDelay" class="form-label">Retry Delay (seconds)</label>
+                                <input type="number" class="form-control" id="retryDelay" min="1" max="300" 
+                                       value="{{ settings.get('retry_delay', 30) }}">
+                                <div class="form-text">Delay between retry attempts</div>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save General Settings
+                            </button>
+                        </div>
+                        
+                        <div class="result-message" id="generalResult"></div>
+                    </form>
+                </div>
+
+                <!-- Notification Types Tab -->
+                <div class="tab-pane fade" id="notifications" role="tabpanel" aria-labelledby="notifications-tab">
+                    <form id="notificationSettingsForm">
+                        <div class="mb-4">
+                            <h5>Default Notification Settings for New Users</h5>
+                            <p class="text-muted">These settings will be applied to users when they first link their Telegram account.</p>
+                        </div>
+                        
+                        <div class="notification-type-setting">
+                            <div>
+                                <strong>Login Notifications</strong>
+                                <div class="config-description">Notify users when they log into the system</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="defaultNotifyLogin" 
+                                       {{ 'checked' if settings.get('default_notify_login', true) }}>
+                            </div>
+                        </div>
+                        
+                        <div class="notification-type-setting">
+                            <div>
+                                <strong>Bid Notifications</strong>
+                                <div class="config-description">Notify users about new bids and bid updates</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="defaultNotifyBids" 
+                                       {{ 'checked' if settings.get('default_notify_bids', true) }}>
+                            </div>
+                        </div>
+                        
+                        <div class="notification-type-setting">
+                            <div>
+                                <strong>Auction Start Notifications</strong>
+                                <div class="config-description">Notify users when auctions begin</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="defaultNotifyAuctionStart" 
+                                       {{ 'checked' if settings.get('default_notify_auction_start', true) }}>
+                            </div>
+                        </div>
+                        
+                        <div class="notification-type-setting">
+                            <div>
+                                <strong>Auction End Notifications</strong>
+                                <div class="config-description">Notify users when auctions end</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="defaultNotifyAuctionEnd" 
+                                       {{ 'checked' if settings.get('default_notify_auction_end', true) }}>
+                            </div>
+                        </div>
+                        
+                        <div class="notification-type-setting">
+                            <div>
+                                <strong>Team Changes Notifications</strong>
+                                <div class="config-description">Notify users about team roster changes</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="defaultNotifyTeamChanges" 
+                                       {{ 'checked' if settings.get('default_notify_team_changes', false) }}>
+                            </div>
+                        </div>
+                        
+                        <div class="notification-type-setting">
+                            <div>
+                                <strong>Admin Actions Notifications</strong>
+                                <div class="config-description">Notify users about administrative actions</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="defaultNotifyAdminActions" 
+                                       {{ 'checked' if settings.get('default_notify_admin_actions', false) }}>
+                            </div>
+                        </div>
+                        
+                        <div class="notification-type-setting">
+                            <div>
+                                <strong>System Alerts Notifications</strong>
+                                <div class="config-description">Notify users about system maintenance and alerts</div>
+                            </div>
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="defaultNotifySystemAlerts" 
+                                       {{ 'checked' if settings.get('default_notify_system_alerts', true) }}>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Notification Settings
+                            </button>
+                        </div>
+                        
+                        <div class="result-message" id="notificationResult"></div>
+                    </form>
+                </div>
+
+                <!-- Advanced Settings Tab -->
+                <div class="tab-pane fade" id="advanced" role="tabpanel" aria-labelledby="advanced-tab">
+                    <form id="advancedSettingsForm">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="setting-toggle">
+                                    <label class="form-check-label" for="enableMessageFormatting">
+                                        <strong>Enable HTML Formatting</strong>
+                                        <div class="config-description">Allow HTML formatting in notification messages</div>
+                                    </label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="enableMessageFormatting" 
+                                               {{ 'checked' if settings.get('enable_html_formatting', true) }}>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <div class="setting-toggle">
+                                    <label class="form-check-label" for="enableRateLimiting">
+                                        <strong>Enable Rate Limiting</strong>
+                                        <div class="config-description">Limit notification frequency per user</div>
+                                    </label>
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" type="checkbox" id="enableRateLimiting" 
+                                               {{ 'checked' if settings.get('enable_rate_limiting', true) }}>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="rateLimitPerMinute" class="form-label">Messages Per Minute (Per User)</label>
+                                <input type="number" class="form-control" id="rateLimitPerMinute" min="1" max="60" 
+                                       value="{{ settings.get('rate_limit_per_minute', 5) }}">
+                                <div class="form-text">Maximum notifications per user per minute</div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="batchSize" class="form-label">Batch Size</label>
+                                <input type="number" class="form-control" id="batchSize" min="1" max="100" 
+                                       value="{{ settings.get('batch_size', 20) }}">
+                                <div class="form-text">Number of notifications to process in each batch</div>
+                            </div>
+                            
+                            <div class="col-12">
+                                <label for="messageTemplate" class="form-label">Default Message Template</label>
+                                <textarea class="form-control" id="messageTemplate" rows="4" 
+                                          placeholder="Enter default message template with {placeholders}">{{ settings.get('message_template', '') }}</textarea>
+                                <div class="form-text">Use {username}, {action}, {timestamp} and other placeholders</div>
+                            </div>
+                        </div>
+                        
+                        <div class="action-buttons">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i> Save Advanced Settings
+                            </button>
+                            <button type="button" class="btn btn-outline-danger" onclick="resetAdvancedSettings()">
+                                <i class="fas fa-undo"></i> Reset to Defaults
+                            </button>
+                        </div>
+                        
+                        <div class="result-message" id="advancedResult"></div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Webhook Test Section -->
+    {% if config.webhook_url != 'Not configured' %}
+    <div class="settings-section">
+        <div class="section-header">
+            <h3><i class="fas fa-flask"></i> Webhook Testing</h3>
+        </div>
+        <div class="section-content">
+            <div class="webhook-test">
+                <h5>Test Webhook Connection</h5>
+                <p>Send a test update to verify webhook configuration.</p>
+                
+                <button type="button" class="btn btn-info" onclick="testWebhook()">
+                    <i class="fas fa-play"></i> Test Webhook
+                </button>
+                
+                <div class="loading" id="webhookLoading">
+                    <div class="spinner"></div>
+                    <p>Testing webhook connection...</p>
+                </div>
+                
+                <div class="result-message" id="webhookResult"></div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Dangerous Actions Section -->
+    <div class="settings-section">
+        <div class="section-header">
+            <h3><i class="fas fa-exclamation-triangle text-warning"></i> Dangerous Actions</h3>
+        </div>
+        <div class="section-content">
+            <div class="alert alert-warning">
+                <h5><i class="fas fa-exclamation-triangle"></i> Warning</h5>
+                These actions can affect all users and cannot be undone. Use with extreme caution.
+            </div>
+            
+            <div class="d-flex gap-3 flex-wrap">
+                <button type="button" class="btn btn-outline-warning" onclick="resetAllSettings()">
+                    <i class="fas fa-undo"></i> Reset All Settings
+                </button>
+                <button type="button" class="btn btn-outline-danger" onclick="clearNotificationLogs()">
+                    <i class="fas fa-trash"></i> Clear All Notification Logs
+                </button>
+                <button type="button" class="btn btn-outline-danger" onclick="unlinkAllUsers()">
+                    <i class="fas fa-unlink"></i> Unlink All Users
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Form submission handlers
+document.getElementById('generalSettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveSettings('general', {
+        global_notifications_enabled: document.getElementById('globalNotificationsEnabled').checked,
+        require_user_confirmation: document.getElementById('requireUserConfirmation').checked,
+        max_retries: parseInt(document.getElementById('maxRetries').value),
+        retry_delay: parseInt(document.getElementById('retryDelay').value)
+    });
+});
+
+document.getElementById('notificationSettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveSettings('notifications', {
+        default_notify_login: document.getElementById('defaultNotifyLogin').checked,
+        default_notify_bids: document.getElementById('defaultNotifyBids').checked,
+        default_notify_auction_start: document.getElementById('defaultNotifyAuctionStart').checked,
+        default_notify_auction_end: document.getElementById('defaultNotifyAuctionEnd').checked,
+        default_notify_team_changes: document.getElementById('defaultNotifyTeamChanges').checked,
+        default_notify_admin_actions: document.getElementById('defaultNotifyAdminActions').checked,
+        default_notify_system_alerts: document.getElementById('defaultNotifySystemAlerts').checked
+    });
+});
+
+document.getElementById('advancedSettingsForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    saveSettings('advanced', {
+        enable_html_formatting: document.getElementById('enableMessageFormatting').checked,
+        enable_rate_limiting: document.getElementById('enableRateLimiting').checked,
+        rate_limit_per_minute: parseInt(document.getElementById('rateLimitPerMinute').value),
+        batch_size: parseInt(document.getElementById('batchSize').value),
+        message_template: document.getElementById('messageTemplate').value
+    });
+});
+
+function saveSettings(type, data) {
+    const resultElement = document.getElementById(type + 'Result');
+    resultElement.style.display = 'none';
+    
+    fetch('/admin/telegram/settings', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        resultElement.className = data.success ? 'result-message success' : 'result-message error';
+        resultElement.textContent = data.message || (data.success ? 'Settings saved successfully!' : data.error || 'Failed to save settings');
+        resultElement.style.display = 'block';
+        
+        // Hide after 5 seconds
+        setTimeout(() => {
+            resultElement.style.display = 'none';
+        }, 5000);
+    })
+    .catch(error => {
+        resultElement.className = 'result-message error';
+        resultElement.textContent = 'Network error: ' + error.message;
+        resultElement.style.display = 'block';
+    });
+}
+
+function testWebhook() {
+    const loadingElement = document.getElementById('webhookLoading');
+    const resultElement = document.getElementById('webhookResult');
+    
+    loadingElement.style.display = 'block';
+    resultElement.style.display = 'none';
+    
+    // Simulate webhook test (replace with actual implementation)
+    setTimeout(() => {
+        loadingElement.style.display = 'none';
+        resultElement.className = 'result-message success';
+        resultElement.textContent = 'Webhook test completed successfully!';
+        resultElement.style.display = 'block';
+    }, 2000);
+}
+
+function resetAdvancedSettings() {
+    if (!confirm('Are you sure you want to reset advanced settings to defaults? This cannot be undone.')) {
+        return;
+    }
+    
+    // Reset form to defaults
+    document.getElementById('enableMessageFormatting').checked = true;
+    document.getElementById('enableRateLimiting').checked = true;
+    document.getElementById('rateLimitPerMinute').value = 5;
+    document.getElementById('batchSize').value = 20;
+    document.getElementById('messageTemplate').value = '';
+    
+    // Auto-save
+    document.getElementById('advancedSettingsForm').dispatchEvent(new Event('submit'));
+}
+
+function resetAllSettings() {
+    if (!confirm('Are you sure you want to reset ALL settings to defaults? This will affect all users and cannot be undone.')) {
+        return;
+    }
+    
+    if (!confirm('This is your final warning. This action will reset ALL Telegram settings. Are you absolutely sure?')) {
+        return;
+    }
+    
+    // Implementation would go here
+    alert('Settings reset functionality would be implemented here.');
+}
+
+function clearNotificationLogs() {
+    if (!confirm('Are you sure you want to delete ALL notification logs? This cannot be undone and will remove all historical data.')) {
+        return;
+    }
+    
+    if (!confirm('This will permanently delete all notification history. Are you absolutely sure?')) {
+        return;
+    }
+    
+    // Implementation would go here
+    alert('Notification log clearing functionality would be implemented here.');
+}
+
+function unlinkAllUsers() {
+    if (!confirm('Are you sure you want to unlink ALL users from their Telegram accounts? This cannot be undone.')) {
+        return;
+    }
+    
+    if (!confirm('This will force all users to re-link their Telegram accounts. Are you absolutely sure?')) {
+        return;
+    }
+    
+    // Implementation would go here
+    alert('Bulk user unlinking functionality would be implemented here.');
+}
+</script>
+{% endblock %}

@@ -1,0 +1,427 @@
+/* Reset and Base Styles */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    line-height: 1.6;
+    color: #333;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+}
+
+/* Loading Screen */
+.loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-content {
+    text-align: center;
+    color: white;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 5px solid rgba(255, 255, 255, 0.3);
+    border-top: 5px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Main App Content */
+.app-content {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+}
+
+.app-header {
+    text-align: center;
+    color: white;
+    margin-bottom: 30px;
+    padding: 20px 0;
+}
+
+.app-header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.subtitle {
+    font-size: 1.2rem;
+    opacity: 0.9;
+}
+
+.main-content {
+    display: grid;
+    gap: 20px;
+}
+
+.feature-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.feature-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 35px rgba(0,0,0,0.2);
+}
+
+.feature-card h2 {
+    color: #667eea;
+    margin-bottom: 15px;
+    font-size: 1.8rem;
+}
+
+.feature-card h3 {
+    color: #764ba2;
+    margin-bottom: 15px;
+    font-size: 1.4rem;
+}
+
+.feature-card ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.feature-card li {
+    margin: 8px 0;
+    padding: 5px 0;
+}
+
+#device-info p {
+    margin: 10px 0;
+    font-size: 1.1rem;
+}
+
+#device-info span {
+    font-weight: bold;
+    color: #667eea;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    margin-top: 20px;
+}
+
+.install-btn, .refresh-btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 25px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.install-btn:hover, .refresh-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+/* Install Page Styles */
+.install-page {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+}
+
+.install-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.install-header {
+    text-align: center;
+    color: white;
+    padding: 30px 0;
+}
+
+.app-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+    display: block;
+}
+
+.install-header h1 {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+}
+
+.install-subtitle {
+    font-size: 1.1rem;
+    opacity: 0.9;
+}
+
+.install-content {
+    flex: 1;
+    display: grid;
+    gap: 20px;
+}
+
+.install-card {
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    text-align: center;
+}
+
+.install-card h2 {
+    color: #ee5a24;
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+}
+
+.benefits {
+    text-align: left;
+    margin: 25px 0;
+}
+
+.benefits h3 {
+    color: #ff6b6b;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.benefits ul {
+    list-style: none;
+    padding-left: 0;
+}
+
+.benefits li {
+    margin: 10px 0;
+    padding: 8px 0;
+    font-size: 1.1rem;
+}
+
+.install-button {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    color: white;
+    border: none;
+    padding: 15px 40px;
+    border-radius: 30px;
+    font-size: 1.3rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.4);
+    margin-top: 20px;
+}
+
+.install-button:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(255, 107, 107, 0.6);
+}
+
+.manual-instructions {
+    margin-top: 20px;
+}
+
+.instruction-card {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+}
+
+.instruction-card h3 {
+    color: #ee5a24;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.browser-instructions {
+    margin: 20px 0;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #ff6b6b;
+}
+
+.browser-instructions h4 {
+    color: #ff6b6b;
+    margin-bottom: 10px;
+}
+
+.browser-instructions ol {
+    padding-left: 20px;
+}
+
+.browser-instructions li {
+    margin: 8px 0;
+    line-height: 1.5;
+}
+
+.help-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 25px;
+    text-align: center;
+    backdrop-filter: blur(10px);
+}
+
+.help-section h3 {
+    color: #ee5a24;
+    margin-bottom: 15px;
+}
+
+.help-section ul {
+    list-style: none;
+    padding: 0;
+    text-align: left;
+    max-width: 400px;
+    margin: 0 auto 20px;
+}
+
+.help-section li {
+    margin: 8px 0;
+    padding: 5px 0;
+}
+
+.help-button {
+    background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+    color: #2d3436;
+    border: none;
+    padding: 12px 25px;
+    border-radius: 25px;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(253, 203, 110, 0.4);
+}
+
+.help-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(253, 203, 110, 0.6);
+}
+
+.install-footer {
+    text-align: center;
+    color: rgba(255, 255, 255, 0.8);
+    padding: 20px 0;
+    margin-top: 20px;
+    font-size: 0.9rem;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .app-header h1 {
+        font-size: 2rem;
+    }
+    
+    .install-header h1 {
+        font-size: 1.8rem;
+    }
+    
+    .feature-card, .install-card, .instruction-card {
+        padding: 20px;
+        margin: 10px;
+    }
+    
+    .action-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+    
+    .install-button {
+        width: 100%;
+        max-width: 250px;
+    }
+}
+
+@media (max-width: 480px) {
+    .app-content, .install-container {
+        padding: 15px;
+    }
+    
+    .app-header h1 {
+        font-size: 1.8rem;
+    }
+    
+    .install-header h1 {
+        font-size: 1.6rem;
+    }
+    
+    .feature-card, .install-card {
+        padding: 15px;
+    }
+    
+    .app-icon {
+        font-size: 3rem;
+    }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+    .feature-card, .install-card, .instruction-card, .help-section {
+        background: #2d3748;
+        color: #e2e8f0;
+    }
+    
+    .browser-instructions {
+        background: #4a5568;
+        color: #e2e8f0;
+    }
+}
+
+/* Animation for cards */
+@keyframes fadeInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.feature-card, .install-card {
+    animation: fadeInUp 0.6s ease forwards;
+}
+
+.feature-card:nth-child(2) {
+    animation-delay: 0.1s;
+}
+
+.feature-card:nth-child(3) {
+    animation-delay: 0.2s;
+}
+
+.feature-card:nth-child(4) {
+    animation-delay: 0.3s;
+}

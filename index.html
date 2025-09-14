@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA App</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#000000">
+    <meta name="description" content="A Progressive Web App that only works as PWA">
+    
+    <!-- Apple Touch Icon -->
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="PWA App">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading" class="loading-screen">
+        <div class="loading-content">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+    </div>
+
+    <!-- Main App Content (Hidden by default, shown only in PWA) -->
+    <div id="app-content" class="app-content" style="display: none;">
+        <header class="app-header">
+            <h1>🚀 Welcome to PWA App</h1>
+            <p class="subtitle">You're using the PWA version!</p>
+        </header>
+
+        <main class="main-content">
+            <div class="feature-card">
+                <h2>🎉 Congratulations!</h2>
+                <p>You have successfully installed and are now using the PWA version of this app.</p>
+            </div>
+
+            <div class="feature-card">
+                <h3>🔧 App Features</h3>
+                <ul>
+                    <li>✅ Works offline</li>
+                    <li>✅ Native app-like experience</li>
+                    <li>✅ Home screen installation</li>
+                    <li>✅ Push notifications ready</li>
+                    <li>✅ Fast loading</li>
+                </ul>
+            </div>
+
+            <div class="feature-card">
+                <h3>📱 Detection Status</h3>
+                <div id="device-info">
+                    <p><strong>Device Type:</strong> <span id="device-type">Checking...</span></p>
+                    <p><strong>PWA Mode:</strong> <span id="pwa-status">Checking...</span></p>
+                    <p><strong>Installation:</strong> <span id="install-status">Checking...</span></p>
+                </div>
+            </div>
+
+            <div class="action-buttons">
+                <button id="installBtn" class="install-btn" style="display: none;">
+                    📲 Install App
+                </button>
+                <button class="refresh-btn" onclick="location.reload();">
+                    🔄 Refresh
+                </button>
+            </div>
+        </main>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="app.js"></script>
+    
+    <!-- Additional script for device info display -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // Update device info display
+            setTimeout(() => {
+                const deviceType = document.getElementById('device-type');
+                const pwaStatus = document.getElementById('pwa-status');
+                const installStatus = document.getElementById('install-status');
+                
+                if (deviceType) {
+                    deviceType.textContent = isMobile() ? 'Mobile Device' : 'Desktop Device';
+                }
+                
+                if (pwaStatus) {
+                    pwaStatus.textContent = isPWA() ? 'Yes (PWA Mode)' : 'No (Browser Mode)';
+                }
+                
+                if (installStatus) {
+                    installStatus.textContent = isPWA() ? 'Installed' : 'Not Installed';
+                }
+            }, 500);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,648 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Notification Settings - Auction System{% endblock %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8 max-w-5xl">
+    <header class="mb-8">
+        <h1 class="text-3xl md:text-4xl font-bold gradient-text mb-2">Notification Settings</h1>
+        <p class="text-gray-600 text-sm md:text-base">Manage global notification preferences and system settings</p>
+    </header>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ 'success' if category == 'success' else 'danger' }} mb-4 p-4 rounded-lg border border-{{ 'green' if category == 'success' else 'red' }}-200 bg-{{ 'green' if category == 'success' else 'red' }}-50">
+                    <div class="flex items-center">
+                        <svg class="w-5 h-5 mr-3 text-{{ 'green' if category == 'success' else 'red' }}-600" fill="currentColor" viewBox="0 0 20 20">
+                            {% if category == 'success' %}
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                            {% else %}
+                                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                            {% endif %}
+                        </svg>
+                        <span class="text-{{ 'green' if category == 'success' else 'red' }}-800 font-medium">{{ message }}</span>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <div class="space-y-8">
+        <!-- Admin Push Notification Subscription -->
+        <div class="glass rounded-3xl p-6 shadow-lg backdrop-blur-md border border-white/20" id="notification-container">
+            <div class="flex items-center justify-between">
+                <div>
+                    <div class="flex items-center mb-3">
+                        <div class="p-3 rounded-xl bg-gradient-to-br from-blue-500/20 to-blue-600/10 text-blue-600 mr-4">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5v-5zM4 19h9a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                        <h2 class="text-2xl font-bold text-gray-900">Admin Push Notifications</h2>
+                    </div>
+                    <p class="text-gray-600 mb-2">Enable browser push notifications to receive real-time admin alerts</p>
+                    <p class="text-sm" id="notification-status">Checking notification status...</p>
+                    <p class="text-xs text-gray-500 mt-1" id="notification-info">Get notified about system events, user actions, and critical updates</p>
+                </div>
+                <div class="flex flex-col gap-2">
+                    <button type="button" id="enable-notifications" 
+                            class="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors text-sm font-medium shadow-lg">
+                        📢 Enable Admin Push Notifications
+                    </button>
+                    <button type="button" id="disable-notifications" 
+                            class="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors text-sm font-medium shadow-lg hidden">
+                        🔇 Disable Push Notifications
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Global Notification Settings -->
+        <div class="glass rounded-3xl p-6 shadow-lg backdrop-blur-md border border-white/20">
+            <form method="POST" action="{{ url_for('update_admin_notification_settings') }}" class="space-y-8">
+                
+                <!-- Global Settings Header -->
+                <div class="border-b border-gray-200 pb-6">
+                    <div class="flex items-center mb-4">
+                        <div class="p-3 rounded-xl bg-gradient-to-br from-primary/20 to-primary/10 text-primary mr-4">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            </svg>
+                        </div>
+                        <div>
+                            <h2 class="text-2xl font-bold text-gray-900">Global Settings</h2>
+                            <p class="text-gray-600">System-wide notification controls</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Master Switch -->
+                <div class="flex items-center justify-between p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200">
+                    <div>
+                        <h3 class="text-xl font-semibold text-gray-900 mb-2">Master Notification Switch</h3>
+                        <p class="text-gray-600 text-sm">Enable or disable all notifications system-wide</p>
+                        <p class="text-xs text-blue-600 mt-1">⚠️ This overrides all user and team notification settings</p>
+                    </div>
+                    <label class="inline-flex items-center">
+                        <input type="checkbox" name="global_notifications_enabled" value="true" 
+                               class="sr-only" 
+                               {% if settings.global_notifications_enabled %}checked{% endif %}>
+                        <div class="relative">
+                            <div class="toggle-bg bg-gray-200 border border-gray-300 w-16 h-9 rounded-full"></div>
+                            <div class="toggle-dot absolute left-1 top-1 bg-white w-7 h-7 rounded-full transition transform"></div>
+                        </div>
+                    </label>
+                </div>
+
+                <!-- Notification Types -->
+                <div class="space-y-6" id="notification-types">
+                    <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Notification Types</h3>
+                    
+                    <!-- Email Notifications -->
+                    <div class="notification-setting glass p-5 rounded-2xl border border-white/10">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-3">
+                                    <div class="p-2 rounded-lg bg-red-100 text-red-600 mr-3">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 4.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                        </svg>
+                                    </div>
+                                    <h4 class="text-lg font-medium text-gray-900">Email Notifications</h4>
+                                </div>
+                                <p class="text-gray-600 text-sm mb-3">Allow the system to send email notifications to users and administrators</p>
+                            </div>
+                            <label class="inline-flex items-center ml-4">
+                                <input type="checkbox" name="email_notifications_enabled" value="true" 
+                                       class="sr-only notification-type-toggle" 
+                                       {% if settings.email_notifications_enabled %}checked{% endif %}>
+                                <div class="relative">
+                                    <div class="toggle-bg bg-gray-200 border border-gray-300 w-12 h-6 rounded-full"></div>
+                                    <div class="toggle-dot absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition transform"></div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Push Notifications -->
+                    <div class="notification-setting glass p-5 rounded-2xl border border-white/10">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-3">
+                                    <div class="p-2 rounded-lg bg-green-100 text-green-600 mr-3">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5v-5zM4 19h9a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                                        </svg>
+                                    </div>
+                                    <h4 class="text-lg font-medium text-gray-900">Push Notifications</h4>
+                                </div>
+                                <p class="text-gray-600 text-sm mb-3">Enable browser push notifications for real-time alerts</p>
+                            </div>
+                            <label class="inline-flex items-center ml-4">
+                                <input type="checkbox" name="push_notifications_enabled" value="true" 
+                                       class="sr-only notification-type-toggle" 
+                                       {% if settings.push_notifications_enabled %}checked{% endif %}>
+                                <div class="relative">
+                                    <div class="toggle-bg bg-gray-200 border border-gray-300 w-12 h-6 rounded-full"></div>
+                                    <div class="toggle-dot absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition transform"></div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Admin Email Notifications -->
+                    <div class="notification-setting glass p-5 rounded-2xl border border-white/10">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-3">
+                                    <div class="p-2 rounded-lg bg-purple-100 text-purple-600 mr-3">
+                                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.031 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+                                        </svg>
+                                    </div>
+                                    <h4 class="text-lg font-medium text-gray-900">Admin Email Notifications</h4>
+                                </div>
+                                <p class="text-gray-600 text-sm mb-3">Send system alerts and important events to admin email addresses</p>
+                            </div>
+                            <label class="inline-flex items-center ml-4">
+                                <input type="checkbox" name="admin_email_notifications" value="true" 
+                                       class="sr-only notification-type-toggle" 
+                                       {% if settings.admin_email_notifications %}checked{% endif %}>
+                                <div class="relative">
+                                    <div class="toggle-bg bg-gray-200 border border-gray-300 w-12 h-6 rounded-full"></div>
+                                    <div class="toggle-dot absolute left-0.5 top-0.5 bg-white w-5 h-5 rounded-full transition transform"></div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Rate Limiting Settings -->
+                <div class="space-y-6">
+                    <h3 class="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-2">Rate Limiting</h3>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <!-- Throttle Minutes -->
+                        <div class="glass p-5 rounded-2xl border border-white/10">
+                            <label for="notification_throttle_minutes" class="block text-sm font-medium text-gray-900 mb-2">
+                                Throttle Time (Minutes)
+                            </label>
+                            <div class="flex items-center space-x-3">
+                                <input type="number" 
+                                       name="notification_throttle_minutes" 
+                                       id="notification_throttle_minutes" 
+                                       value="{{ settings.notification_throttle_minutes or 5 }}" 
+                                       min="1" max="60" 
+                                       class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+                                <span class="text-sm text-gray-600">min</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">Minimum time between similar notifications to the same user</p>
+                        </div>
+
+                        <!-- Max Notifications Per Hour -->
+                        <div class="glass p-5 rounded-2xl border border-white/10">
+                            <label for="max_notifications_per_hour" class="block text-sm font-medium text-gray-900 mb-2">
+                                Max Notifications Per Hour
+                            </label>
+                            <div class="flex items-center space-x-3">
+                                <input type="number" 
+                                       name="max_notifications_per_hour" 
+                                       id="max_notifications_per_hour" 
+                                       value="{{ settings.max_notifications_per_hour or 20 }}" 
+                                       min="5" max="100" 
+                                       class="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-primary focus:border-primary">
+                                <span class="text-sm text-gray-600">/hr</span>
+                            </div>
+                            <p class="text-xs text-gray-500 mt-2">Maximum notifications per user per hour to prevent spam</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="pt-6 border-t border-gray-200">
+                    <div class="flex justify-between items-center">
+                        <a href="{{ url_for('dashboard') }}"
+                           class="inline-flex items-center px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/>
+                            </svg>
+                            Back to Dashboard
+                        </a>
+                        <button type="submit" 
+                                class="inline-flex items-center px-6 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-colors font-medium">
+                            <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                            </svg>
+                            Save Settings
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Notification Statistics -->
+        <div class="glass rounded-3xl p-6 shadow-lg backdrop-blur-md border border-white/20">
+            <div class="flex items-center mb-6">
+                <div class="p-3 rounded-xl bg-gradient-to-br from-green/20 to-green/10 text-green-600 mr-4">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-2xl font-bold text-gray-900">Notification Statistics</h2>
+                    <p class="text-gray-600">System notification overview</p>
+                </div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div class="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-xl border border-blue-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-blue-600">Active Subscriptions</p>
+                            <p class="text-2xl font-bold text-blue-900">{{ stats.active_subscriptions or 0 }}</p>
+                        </div>
+                        <div class="p-2 bg-blue-200 rounded-lg">
+                            <svg class="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-5 5v-5zM4 19h9a2 2 0 002-2V7a2 2 0 00-2-2H4a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-xl border border-green-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-green-600">Notifications Sent (24h)</p>
+                            <p class="text-2xl font-bold text-green-900">{{ stats.notifications_24h or 0 }}</p>
+                        </div>
+                        <div class="p-2 bg-green-200 rounded-lg">
+                            <svg class="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2m4 0H3a1 1 0 00-1 1v14a1 1 0 001 1h18a1 1 0 001-1V5a1 1 0 00-1-1z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-xl border border-purple-200">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-purple-600">Teams with Notifications</p>
+                            <p class="text-2xl font-bold text-purple-900">{{ stats.teams_with_notifications or 0 }}</p>
+                        </div>
+                        <div class="p-2 bg-purple-200 rounded-lg">
+                            <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+                            </svg>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+/* Toggle Switch Styles */
+.toggle-bg {
+    transition: background-color 0.2s;
+}
+
+.toggle-dot {
+    transition: transform 0.2s;
+}
+
+input[type="checkbox"]:checked + div .toggle-bg {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+input[type="checkbox"]:checked + div .toggle-dot {
+    transform: translateX(2rem);
+}
+
+/* Large toggle for master switch */
+input[name="global_notifications_enabled"]:checked + div .toggle-dot {
+    transform: translateX(1.75rem);
+}
+
+/* Notification setting styles */
+.notification-setting {
+    transition: all 0.3s ease;
+}
+
+.notification-setting:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Disabled state */
+.notifications-disabled .notification-setting {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.notifications-disabled #notification-types {
+    opacity: 0.5;
+    pointer-events: none;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const masterToggle = document.querySelector('input[name="global_notifications_enabled"]');
+    const notificationTypes = document.getElementById('notification-types');
+    const body = document.body;
+    
+    function updateGlobalState() {
+        if (masterToggle.checked) {
+            body.classList.remove('notifications-disabled');
+        } else {
+            body.classList.add('notifications-disabled');
+        }
+    }
+    
+    masterToggle.addEventListener('change', updateGlobalState);
+    updateGlobalState(); // Set initial state
+    
+    // Push Notification Functionality
+    const enableBtn = document.getElementById('enable-notifications');
+    const disableBtn = document.getElementById('disable-notifications');
+    const statusEl = document.getElementById('notification-status');
+    const infoEl = document.getElementById('notification-info');
+    
+    // iOS Detection
+    function isIOSDevice() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent);
+    }
+    
+    function isIOSSafari() {
+        return isIOSDevice() && /Safari/.test(navigator.userAgent) && !/CriOS|FxiOS|EdgiOS/.test(navigator.userAgent);
+    }
+    
+    // Check if push notifications are supported
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+        statusEl.textContent = '❌ Push notifications not supported in this browser';
+        statusEl.className = 'text-sm text-red-600 font-medium';
+        enableBtn.style.display = 'none';
+        infoEl.textContent = 'Please use a modern browser that supports push notifications';
+        return;
+    }
+    
+    // Special handling for iOS devices
+    if (isIOSDevice()) {
+        statusEl.textContent = '⚠️ iOS has limited push notification support';
+        statusEl.className = 'text-sm text-amber-600 font-medium';
+        enableBtn.textContent = '📱 Try Enable (Limited Support)';
+        infoEl.innerHTML = `
+            <strong>iOS Limitations:</strong><br>
+            • Push notifications may not work reliably<br>
+            • Works better when app is added to home screen<br>
+            • May require iOS 16.4+ for full support<br>
+            <small class="text-blue-600 mt-1 block">Consider using email notifications instead</small>
+        `;
+    }
+    
+    // VAPID public key - will be fetched from server
+    let vapidPublicKey = null;
+    
+    async function fetchVapidPublicKey() {
+        try {
+            const response = await fetch('/api/vapid-public-key');
+            if (response.ok) {
+                const data = await response.json();
+                return data.publicKey;
+            }
+        } catch (error) {
+            console.error('Error fetching VAPID public key:', error);
+        }
+        return null;
+    }
+    
+    function urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding)
+            .replace(/\-/g, '+')
+            .replace(/_/g, '/');
+    
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+    
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
+    }
+    
+    async function checkNotificationStatus() {
+        try {
+            // Fetch VAPID public key first
+            if (!vapidPublicKey) {
+                vapidPublicKey = await fetchVapidPublicKey();
+                if (!vapidPublicKey) {
+                    statusEl.textContent = '❌ VAPID public key not available';
+                    statusEl.className = 'text-sm text-red-600 font-medium';
+                    infoEl.textContent = 'Server configuration error - contact administrator';
+                    enableBtn.style.display = 'none';
+                    return;
+                }
+            }
+            
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (!registration) {
+                await registerServiceWorker();
+                return;
+            }
+            
+            const subscription = await registration.pushManager.getSubscription();
+            if (subscription) {
+                statusEl.textContent = '✅ Admin push notifications are enabled';
+                statusEl.className = 'text-sm text-green-600 font-medium';
+                enableBtn.style.display = 'none';
+                disableBtn.style.display = 'block';
+                infoEl.textContent = 'You will receive admin notifications for system events and alerts';
+            } else {
+                statusEl.textContent = '📱 Admin push notifications available';
+                statusEl.className = 'text-sm text-blue-600 font-medium';
+                enableBtn.style.display = 'block';
+                disableBtn.style.display = 'none';
+                infoEl.textContent = 'Click the button above to enable admin push notifications';
+            }
+        } catch (error) {
+            console.error('Error checking notification status:', error);
+            statusEl.textContent = '❌ Error checking notification status';
+            statusEl.className = 'text-sm text-red-600 font-medium';
+        }
+    }
+    
+    async function registerServiceWorker() {
+        try {
+            const registration = await navigator.serviceWorker.register('/static/sw.js');
+            console.log('Service Worker registered:', registration);
+            return registration;
+        } catch (error) {
+            console.error('Service Worker registration failed:', error);
+            statusEl.textContent = '❌ Failed to register service worker';
+            statusEl.className = 'text-sm text-red-600 font-medium';
+            throw error;
+        }
+    }
+    
+    async function subscribeUser() {
+        try {
+            enableBtn.disabled = true;
+            enableBtn.textContent = '⏳ Setting up...';
+            
+            // Ensure we have VAPID public key
+            if (!vapidPublicKey) {
+                vapidPublicKey = await fetchVapidPublicKey();
+                if (!vapidPublicKey) {
+                    throw new Error('VAPID public key not available');
+                }
+            }
+            
+            const registration = await navigator.serviceWorker.getRegistration() || await registerServiceWorker();
+            
+            // Request notification permission
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                throw new Error('Notification permission denied');
+            }
+            
+            // Subscribe to push notifications
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(vapidPublicKey)
+            });
+            
+            // Send subscription to server
+            const response = await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    subscription: subscription.toJSON(),
+                    user_type: 'admin'
+                })
+            });
+            
+            if (response.ok) {
+                statusEl.textContent = '✅ Admin push notifications enabled successfully!';
+                statusEl.className = 'text-sm text-green-600 font-medium';
+                enableBtn.style.display = 'none';
+                disableBtn.style.display = 'block';
+                infoEl.textContent = 'You will now receive admin notifications for system events';
+                
+                // Send a test notification
+                setTimeout(() => {
+                    navigator.serviceWorker.ready.then(registration => {
+                        registration.showNotification('Admin Notifications Enabled! 🎉', {
+                            body: 'You will now receive real-time admin alerts and system notifications.',
+                            icon: '/static/icon-192x192.png',
+                            badge: '/static/badge-72x72.png',
+                            tag: 'admin-welcome',
+                            data: { type: 'admin_welcome' }
+                        });
+                    });
+                }, 1000);
+            } else {
+                throw new Error('Failed to save subscription on server');
+            }
+        } catch (error) {
+            console.error('Error subscribing to push notifications:', error);
+            
+            // iOS-specific error handling
+            if (isIOSDevice()) {
+                statusEl.textContent = '❌ Push notifications not available on iOS';
+                statusEl.className = 'text-sm text-red-600 font-medium';
+                infoEl.innerHTML = `
+                    <strong>iOS Push Notifications:</strong><br>
+                    • Not supported in Safari/PWAs on iOS<br>
+                    • Apple restricts web push notifications<br>
+                    • Try using Chrome or Firefox instead<br>
+                    <div class="mt-2 p-2 bg-blue-50 rounded-lg">
+                        <small class="text-blue-800">
+                            <strong>Alternative:</strong> Enable email notifications in settings for important updates
+                        </small>
+                    </div>
+                `;
+                enableBtn.textContent = '🚫 Not Available on iOS';
+                enableBtn.disabled = true;
+            } else {
+                // General error handling for other browsers
+                let errorMessage = 'Failed to enable admin push notifications';
+                let infoMessage = 'Please try again or contact support if the issue persists';
+                
+                if (error.message.includes('permission')) {
+                    errorMessage = '❌ Notification permission denied';
+                    infoMessage = 'Please allow notifications in your browser settings and try again';
+                } else if (error.message.includes('VAPID')) {
+                    errorMessage = '❌ Server configuration error';
+                    infoMessage = 'VAPID keys not properly configured - contact administrator';
+                } else if (error.message.includes('subscribe')) {
+                    errorMessage = '❌ Browser subscription failed';
+                    infoMessage = 'Your browser may not support push notifications or is blocking them';
+                }
+                
+                statusEl.textContent = errorMessage;
+                statusEl.className = 'text-sm text-red-600 font-medium';
+                infoEl.textContent = infoMessage;
+                
+                enableBtn.disabled = false;
+                enableBtn.textContent = '📢 Try Again';
+            }
+        }
+    }
+    
+    async function unsubscribeUser() {
+        try {
+            disableBtn.disabled = true;
+            disableBtn.textContent = '⏳ Disabling...';
+            
+            const registration = await navigator.serviceWorker.getRegistration();
+            if (registration) {
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    // Unsubscribe from push notifications
+                    await subscription.unsubscribe();
+                    
+                    // Notify server about unsubscription
+                    await fetch('/api/unsubscribe', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            subscription: subscription.toJSON(),
+                            user_type: 'admin'
+                        })
+                    });
+                }
+            }
+            
+            statusEl.textContent = '🔇 Admin push notifications disabled';
+            statusEl.className = 'text-sm text-gray-600 font-medium';
+            enableBtn.style.display = 'block';
+            disableBtn.style.display = 'none';
+            infoEl.textContent = 'Click the button above to re-enable admin push notifications';
+        } catch (error) {
+            console.error('Error unsubscribing from push notifications:', error);
+            statusEl.textContent = '❌ Error disabling notifications';
+            statusEl.className = 'text-sm text-red-600 font-medium';
+        } finally {
+            disableBtn.disabled = false;
+            disableBtn.textContent = '🔇 Disable Push Notifications';
+        }
+    }
+    
+    // Event listeners
+    enableBtn.addEventListener('click', subscribeUser);
+    disableBtn.addEventListener('click', unsubscribeUser);
+    
+    // Check initial status
+    checkNotificationStatus();
+});
+</script>
+{% endblock %}
