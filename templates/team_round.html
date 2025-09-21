@@ -592,14 +592,27 @@
                 .then(data => {
                     if (!data.active) {
                         // Handle different scenarios when round is no longer active
+                        console.log('Round is no longer active:', data.message);
+                        
                         if (data.redirect_to) {
                             // If there's a specific redirect URL (like to a tiebreaker)
-                            console.log("Redirecting to:", data.redirect_to);
-                            window.location.href = data.redirect_to;
+                            console.log("Redirecting to tiebreaker:", data.redirect_to);
+                            // Add a small delay to ensure the server has processed everything
+                            setTimeout(() => {
+                                window.location.href = data.redirect_to;
+                            }, 500);
+                        } else if (data.tiebreaker_id) {
+                            // Fallback: construct tiebreaker URL if we have ID but no redirect_to
+                            console.log("Redirecting to tiebreaker via ID:", data.tiebreaker_id);
+                            setTimeout(() => {
+                                window.location.href = `/tiebreaker/${data.tiebreaker_id}`;
+                            }, 500);
                         } else {
-                            // Default behavior: reload the page to show updated state
-                            console.log("Round ended, reloading page:", data.message);
-                            window.location.reload();
+                            // No tiebreaker needed, go back to dashboard
+                            console.log("Round ended, returning to dashboard:", data.message);
+                            setTimeout(() => {
+                                window.location.href = '/dashboard';
+                            }, 800);
                         }
                         return;
                     }

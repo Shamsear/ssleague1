@@ -102,7 +102,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-300/30" id="userTableBody">
                     {% for user in users %}
-                    <tr class="text-dark hover:bg-white/40 transition-colors user-row">
+                    <tr class="text-dark hover:bg-white/40 transition-colors user-row" data-user-id="{{ user.id }}">
                         <td class="px-4 py-3">
                             <div class="flex items-center">
                                 <div class="flex-shrink-0 h-8 w-8 rounded-full bg-gradient-to-br {% if user.is_admin %}from-secondary to-secondary/70{% else %}from-primary to-primary/70{% endif %} flex items-center justify-center">
@@ -161,7 +161,7 @@
                         <td class="px-4 py-3 text-sm">
                             <div class="flex items-center space-x-2">
                                 {% if not user.is_approved and not user.is_admin %}
-                                <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post" class="inline">
+                                <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post" class="inline approve-form">
                                     <button type="submit" class="px-3 py-1.5 text-xs glass rounded-lg bg-white/70 hover:bg-green-100 border border-green-300 text-green-700 transition-all duration-300 vision-button inline-flex items-center">
                                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -192,7 +192,7 @@
         <!-- Mobile card view -->
         <div class="sm:hidden space-y-3" id="mobileUserCards">
             {% for user in users %}
-            <div class="glass rounded-xl p-3 border border-white/20 user-card">
+            <div class="glass rounded-xl p-3 border border-white/20 user-card" data-user-id="{{ user.id }}">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center">
                         <div class="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br {% if user.is_admin %}from-secondary to-secondary/70{% else %}from-primary to-primary/70{% endif %} flex items-center justify-center">
@@ -250,7 +250,7 @@
                 
                 <div class="flex items-center justify-end space-x-2">
                     {% if not user.is_approved and not user.is_admin %}
-                    <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post" class="inline">
+                    <form action="{{ url_for('approve_user', user_id=user.id) }}" method="post" class="inline approve-form">
                         <button type="submit" class="px-4 py-2 text-sm glass rounded-lg bg-white/70 hover:bg-green-100 border border-green-300 text-green-700 transition-all duration-300 vision-button inline-flex items-center">
                             <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -339,10 +339,13 @@
 <script>
 class RealTimeUserManager {
     constructor() {
-        this.updateInterval = 5000; // 5 seconds
+        this.updateInterval = 2000; // 2 seconds for faster updates
+        this.fastUpdateInterval = 500; // 0.5 seconds after user action
         this.isUpdating = false;
         this.intervalId = null;
         this.lastUpdateTime = new Date().getTime();
+        this.lastUserHash = null; // Track changes to avoid unnecessary updates
+        this.actionPendingUpdate = false; // Track if we need immediate update after action
         
         this.init();
     }
@@ -415,26 +418,27 @@ class RealTimeUserManager {
     }
 
     setupFormInterception() {
-        // Intercept approve forms
+        // Use event delegation for approve forms (works with dynamically added content)
         document.addEventListener('submit', (e) => {
             if (e.target.classList.contains('approve-form')) {
+                console.log('Intercepted approve form submission');
                 e.preventDefault();
                 this.handleApproveUser(e.target);
             }
         });
 
-        // Intercept delete form
-        const deleteForm = document.getElementById('deleteForm');
-        if (deleteForm) {
-            deleteForm.addEventListener('submit', (e) => {
+        // Intercept delete form in modal (static element)
+        document.addEventListener('submit', (e) => {
+            if (e.target.id === 'deleteForm') {
                 e.preventDefault();
                 this.handleDeleteUser(e.target);
-            });
-        }
+            }
+        });
     }
 
     async handleApproveUser(form) {
         try {
+            console.log('Approving user...', form.action);
             this.showUpdateIndicator();
             
             const response = await fetch(form.action, {
@@ -445,8 +449,15 @@ class RealTimeUserManager {
             });
 
             if (response.ok) {
+                console.log('User approved successfully');
                 this.showSuccessNotification('User approved successfully');
+                
+                // Use full update immediately after approval for reliability
+                console.log('Performing immediate full update after approval');
                 await this.updateUserList();
+                
+                // Clear action pending flag
+                this.actionPendingUpdate = false;
             } else {
                 throw new Error('Failed to approve user');
             }
@@ -472,7 +483,13 @@ class RealTimeUserManager {
 
             if (response.ok) {
                 this.showSuccessNotification('User deleted successfully');
+                
+                // Use full update immediately after deletion for reliability
+                console.log('Performing immediate full update after deletion');
                 await this.updateUserList();
+                
+                // Clear action pending flag
+                this.actionPendingUpdate = false;
             } else {
                 throw new Error('Failed to delete user');
             }
@@ -481,6 +498,70 @@ class RealTimeUserManager {
             this.showErrorNotification('Failed to delete user');
         } finally {
             this.hideUpdateIndicator();
+        }
+    }
+
+    async smartUpdateUserList() {
+        if (this.isUpdating) return;
+        
+        this.isUpdating = true;
+        
+        try {
+            const response = await fetch('/admin/users_light', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                // Fallback to full update if light endpoint doesn't exist
+                await this.updateUserList();
+                return;
+            }
+
+            const data = await response.json();
+            
+            // Create hash of current state to detect changes
+            const currentHash = JSON.stringify({
+                total: data.total_users,
+                admin: data.admin_count,
+                pending: data.pending_approvals,
+                users: data.user_states // Simplified user data
+            });
+            
+            // Only update if data has changed
+            if (this.lastUserHash === currentHash && !this.actionPendingUpdate) {
+                console.log('No changes detected, skipping update');
+                this.lastUpdateTime = new Date().getTime();
+                return;
+            }
+            
+            console.log('Changes detected, updating UI');
+            this.lastUserHash = currentHash;
+            
+            // Fast statistics update
+            this.updateStatistics(data.total_users, data.admin_count, data.pending_approvals);
+            
+            // Smart DOM updates - only update changed elements
+            console.log('Changed users data:', data.changed_users);
+            if (data.changed_users && data.changed_users.length > 0) {
+                console.log(`Updating ${data.changed_users.length} changed users`);
+                this.updateChangedUsers(data.changed_users);
+            } else {
+                console.log('No changed users to update');
+            }
+            
+            // Update pending approvals notification
+            this.updatePendingApprovalsNotification(data.pending_approvals);
+            
+            this.lastUpdateTime = new Date().getTime();
+            
+        } catch (error) {
+            console.error('Error in smart update, falling back to full update:', error);
+            await this.updateUserList();
+        } finally {
+            this.isUpdating = false;
         }
     }
 
@@ -502,6 +583,15 @@ class RealTimeUserManager {
             }
 
             const data = await response.json();
+            console.log('Received full update data');
+            
+            // Update hash for future smart updates
+            this.lastUserHash = JSON.stringify({
+                total: data.total_users,
+                admin: data.admin_count,
+                pending: data.pending_approvals,
+                timestamp: new Date().getTime()
+            });
             
             // Update statistics
             this.updateStatistics(data.total_users, data.admin_count, data.pending_approvals);
@@ -509,12 +599,10 @@ class RealTimeUserManager {
             // Update desktop table
             const tableBody = document.getElementById('userTableBody');
             if (tableBody && data.desktop_html) {
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = data.desktop_html;
-                const newTableContent = tempDiv.querySelector('tbody');
-                if (newTableContent) {
-                    tableBody.innerHTML = newTableContent.innerHTML;
-                }
+                console.log('Updating table body with new HTML');
+                tableBody.innerHTML = data.desktop_html;
+            } else {
+                console.warn('Table body element not found or no HTML data');
             }
             
             // Update mobile cards
@@ -541,28 +629,102 @@ class RealTimeUserManager {
         }
     }
 
+    updateChangedUsers(changedUsers) {
+        // Update only specific user rows instead of entire table
+        changedUsers.forEach(user => {
+            // Update desktop table row
+            const desktopRow = document.querySelector(`tr[data-user-id="${user.id}"]`);
+            if (desktopRow) {
+                this.updateUserRow(desktopRow, user);
+            }
+            
+            // Update mobile card
+            const mobileCard = document.querySelector(`div[data-user-id="${user.id}"]`);
+            if (mobileCard) {
+                this.updateUserCard(mobileCard, user);
+            }
+        });
+    }
+
+    updateUserRow(row, user) {
+        // Update status badge
+        const statusCell = row.querySelector('td:nth-child(2)');
+        if (statusCell) {
+            let statusHtml;
+            if (user.is_admin) {
+                statusHtml = '<span class="px-2 py-1 text-xs rounded-full bg-secondary/20 text-secondary font-medium border border-secondary/30">Admin</span>';
+            } else if (user.is_approved) {
+                statusHtml = '<span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 font-medium border border-green-200">Approved</span>';
+            } else {
+                statusHtml = '<span class="px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-700 font-medium border border-amber-200 animate-pulse">Pending</span>';
+            }
+            statusCell.innerHTML = statusHtml;
+        }
+        
+        // Update action buttons - Remove approve button if user is approved or admin
+        const actionsCell = row.querySelector('td:last-child .flex');
+        if (actionsCell) {
+            const approveForm = actionsCell.querySelector('.approve-form');
+            if (approveForm && (user.is_approved || user.is_admin)) {
+                console.log(`Removing approve button for user ${user.id} (approved: ${user.is_approved}, admin: ${user.is_admin})`);
+                approveForm.remove();
+            }
+        }
+    }
+
+    updateUserCard(card, user) {
+        // Update status badge in mobile card
+        const statusSpan = card.querySelector('span:last-child');
+        if (statusSpan) {
+            if (user.is_admin) {
+                statusSpan.className = 'px-2 py-1 text-xs rounded-full bg-secondary/20 text-secondary font-medium border border-secondary/30';
+                statusSpan.textContent = 'Admin';
+            } else if (user.is_approved) {
+                statusSpan.className = 'px-2 py-1 text-xs rounded-full bg-green-100 text-green-700 font-medium border border-green-200';
+                statusSpan.textContent = 'Approved';
+            } else {
+                statusSpan.className = 'px-2 py-1 text-xs rounded-full bg-amber-100 text-amber-700 font-medium border border-amber-200 animate-pulse';
+                statusSpan.textContent = 'Pending';
+            }
+        }
+        
+        // Update action buttons in mobile card - Remove approve button if user is approved or admin
+        const approveForm = card.querySelector('.approve-form');
+        if (approveForm && (user.is_approved || user.is_admin)) {
+            console.log(`Removing approve button from mobile card for user ${user.id}`);
+            approveForm.remove();
+        }
+    }
+
     updateStatistics(totalUsers, adminCount, pendingApprovals) {
-        // Update total users
-        const totalUsersElement = document.querySelector('.text-primary.font-bold');
+        // Update total users - use parent selector for more precise targeting
+        const totalUsersElement = document.querySelector('.grid .glass:first-child .text-primary.font-bold');
         if (totalUsersElement) {
             totalUsersElement.textContent = totalUsers;
         }
         
         // Update admin count
-        const adminCountElement = document.querySelector('.text-secondary.font-bold');
+        const adminCountElement = document.querySelector('.grid .glass:nth-child(2) .text-secondary.font-bold');
         if (adminCountElement) {
             adminCountElement.textContent = adminCount;
         }
         
         // Update pending approvals
-        const pendingElement = document.querySelector('.text-accent.font-bold, .text-green-700.font-bold');
+        const pendingElement = document.querySelector('.grid .glass:nth-child(3) .font-bold');
         if (pendingElement) {
             pendingElement.textContent = pendingApprovals;
             // Update color based on whether there are pending approvals
+            const parentDiv = pendingElement.parentElement.previousElementSibling;
             if (pendingApprovals > 0) {
-                pendingElement.className = pendingElement.className.replace('text-green-700', 'text-accent');
+                pendingElement.className = 'text-2xl sm:text-3xl font-bold text-accent';
+                if (parentDiv) {
+                    parentDiv.className = 'p-2 sm:p-3 rounded-xl bg-accent/15 text-accent border border-accent/30 mr-3';
+                }
             } else {
-                pendingElement.className = pendingElement.className.replace('text-accent', 'text-green-700');
+                pendingElement.className = 'text-2xl sm:text-3xl font-bold text-green-700';
+                if (parentDiv) {
+                    parentDiv.className = 'p-2 sm:p-3 rounded-xl bg-green-500/15 text-green-700 border border-green-500/30 mr-3';
+                }
             }
         }
     }
@@ -586,7 +748,7 @@ class RealTimeUserManager {
         // Update on window focus
         window.addEventListener('focus', () => {
             if (new Date().getTime() - this.lastUpdateTime > 3000) {
-                this.updateUserList();
+                this.smartUpdateUserList();
             }
         });
     }
@@ -595,7 +757,7 @@ class RealTimeUserManager {
         if (!this.intervalId) {
             this.intervalId = setInterval(() => {
                 if (!document.hidden) {
-                    this.updateUserList();
+                    this.smartUpdateUserList();
                 }
             }, this.updateInterval);
         }

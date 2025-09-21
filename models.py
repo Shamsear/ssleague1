@@ -337,7 +337,7 @@ class StarredPlayer(db.Model):
         return f"<StarredPlayer team_id={self.team_id} player_id={self.player_id}>"
 
 class Round(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     position = db.Column(db.String(10), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
     players = db.relationship('Player', backref='round', lazy=True)
@@ -475,7 +475,7 @@ class BulkBidRound(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     start_time = db.Column(db.DateTime, default=datetime.utcnow)
     end_time = db.Column(db.DateTime, nullable=True)  # New field for absolute end time
-    duration = db.Column(db.Integer, default=300)  # Keep for backward compatibility, now calculated dynamically
+    duration = db.Column(db.Integer, default=10800)  # Default 3 hours (10,800 seconds)
     base_price = db.Column(db.Integer, default=10)  # Base price for all bids in this round
     status = db.Column(db.String(20), default="active")  # active, processing, completed
     

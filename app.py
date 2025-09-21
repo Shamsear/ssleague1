@@ -920,118 +920,124 @@ def start_round():
     if not current_user.is_admin:
         return jsonify({'error': 'Unauthorized'}), 403
     
-    position = request.json.get('position')
-    duration = request.json.get('duration', 300)  # Default to 5 minutes (300 seconds)
-    max_bids_per_team = request.json.get('max_bids_per_team', 5)  # Default to 5 bids per team
-    
-    # Check if position is valid - could be a base position or a position group
-    if not position:
-        return jsonify({'error': 'Invalid position'}), 400
-    
-    # Check if it's a position group (e.g. CF-1)
-    is_position_group = '-' in position
-    if is_position_group:
-        position_parts = position.split('-')
-        if len(position_parts) != 2 or position_parts[0] not in Config.POSITIONS:
-            return jsonify({'error': 'Invalid position group format'}), 400
-        base_position = position_parts[0] 
-    else:
-        # Regular position (not a group)
-        if position not in Config.POSITIONS:
-            return jsonify({'error': 'Invalid position'}), 400
-    
     try:
-        duration = int(duration)
-        if duration < 30:  # Minimum duration of 30 seconds
-            return jsonify({'error': 'Duration must be at least 30 seconds'}), 400
-        # No maximum limit, allowing admin to set any reasonable duration
-    except ValueError:
-        return jsonify({'error': 'Invalid duration value'}), 400
+        position = request.json.get('position')
+        duration = request.json.get('duration', 300)  # Default to 5 minutes (300 seconds)
+        max_bids_per_team = request.json.get('max_bids_per_team', 5)  # Default to 5 bids per team
         
-    try:
-        max_bids_per_team = int(max_bids_per_team)
-        if max_bids_per_team < 1:  # Minimum of 1 bid per team
-            return jsonify({'error': 'Maximum bids per team must be at least 1'}), 400
-    except ValueError:
-        return jsonify({'error': 'Invalid maximum bids per team value'}), 400
-    
-    # Check if there's already an active round
-    active_round = Round.query.filter_by(is_active=True).first()
-    if active_round:
+        # Check if position is valid - could be a base position or a position group
+        if not position:
+            return jsonify({'error': 'Invalid position'}), 400
+        
+        # Check if it's a position group (e.g. CF-1)
+        is_position_group = '-' in position
+        if is_position_group:
+            position_parts = position.split('-')
+            if len(position_parts) != 2 or position_parts[0] not in Config.POSITIONS:
+                return jsonify({'error': 'Invalid position group format'}), 400
+            base_position = position_parts[0] 
+        else:
+            # Regular position (not a group)
+            if position not in Config.POSITIONS:
+                return jsonify({'error': 'Invalid position'}), 400
+        
+        try:
+            duration = int(duration)
+            if duration < 30:  # Minimum duration of 30 seconds
+                return jsonify({'error': 'Duration must be at least 30 seconds'}), 400
+            # No maximum limit, allowing admin to set any reasonable duration
+        except ValueError:
+            return jsonify({'error': 'Invalid duration value'}), 400
+            
+        try:
+            max_bids_per_team = int(max_bids_per_team)
+            if max_bids_per_team < 1:  # Minimum of 1 bid per team
+                return jsonify({'error': 'Maximum bids per team must be at least 1'}), 400
+        except ValueError:
+            return jsonify({'error': 'Invalid maximum bids per team value'}), 400
+        
+        # Check if there's already an active round
+        active_round = Round.query.filter_by(is_active=True).first()
+        if active_round:
+            return jsonify({
+                'error': f'There is already an active round for position {active_round.position}. Please finalize it before starting a new round.'
+            }), 400
+        
+        # Get auction settings
+        settings = AuctionSettings.get_settings()
+        
+        # Check if we've reached the maximum number of rounds
+        completed_rounds_count = Round.query.filter_by(is_active=False).count()
+        if completed_rounds_count >= settings.max_rounds:
+            return jsonify({
+                'error': f'Maximum number of rounds ({settings.max_rounds}) has been reached. No more rounds can be started.'
+            }), 400
+        
+        # Calculate remaining rounds (including this one)
+        remaining_rounds = settings.max_rounds - completed_rounds_count
+        
+        # Check if teams have sufficient balance for remaining rounds
+        min_required_balance = settings.min_balance_per_round * remaining_rounds
+        
+        # Get all approved teams
+        teams = Team.query.filter(Team.user.has(is_approved=True)).all()
+        
+        # Track teams with insufficient balance
+        insufficient_balance_teams = []
+        for team in teams:
+            if team.balance < min_required_balance:
+                insufficient_balance_teams.append({
+                    'name': team.name,
+                    'balance': team.balance, 
+                    'required': min_required_balance
+                })
+        
+        if insufficient_balance_teams:
+            return jsonify({
+                'error': 'Some teams have insufficient balance for the remaining rounds',
+                'teams': insufficient_balance_teams,
+                'min_required_balance': min_required_balance,
+                'remaining_rounds': remaining_rounds
+            }), 400
+        
+        # Create new round with timer
+        start_time = datetime.utcnow()
+        end_time = start_time + timedelta(seconds=duration)
+        
+        round = Round(
+            position=position, 
+            start_time=start_time,
+            end_time=end_time,
+            duration=duration,
+            max_bids_per_team=max_bids_per_team
+        )
+        db.session.add(round)
+        db.session.flush()  # Get the round ID
+        
+        # Add players to the round based on position or position group
+        if is_position_group:
+            # Position group (e.g., CF-1) - filter by position_group
+            players = Player.query.filter_by(position_group=position, team_id=None, is_auction_eligible=True).all()
+        else:
+            # Regular position (e.g., CF) - filter by position
+            players = Player.query.filter_by(position=position, team_id=None, is_auction_eligible=True).all()
+        
+        for player in players:
+            player.round_id = round.id
+        
+        db.session.commit()
+        
         return jsonify({
-            'error': f'There is already an active round for position {active_round.position}. Please finalize it before starting a new round.'
-        }), 400
-    
-    # Get auction settings
-    settings = AuctionSettings.get_settings()
-    
-    # Check if we've reached the maximum number of rounds
-    completed_rounds_count = Round.query.filter_by(is_active=False).count()
-    if completed_rounds_count >= settings.max_rounds:
-        return jsonify({
-            'error': f'Maximum number of rounds ({settings.max_rounds}) has been reached. No more rounds can be started.'
-        }), 400
-    
-    # Calculate remaining rounds (including this one)
-    remaining_rounds = settings.max_rounds - completed_rounds_count
-    
-    # Check if teams have sufficient balance for remaining rounds
-    min_required_balance = settings.min_balance_per_round * remaining_rounds
-    
-    # Get all approved teams
-    teams = Team.query.filter(Team.user.has(is_approved=True)).all()
-    
-    # Track teams with insufficient balance
-    insufficient_balance_teams = []
-    for team in teams:
-        if team.balance < min_required_balance:
-            insufficient_balance_teams.append({
-                'name': team.name,
-                'balance': team.balance, 
-                'required': min_required_balance
-            })
-    
-    if insufficient_balance_teams:
-        return jsonify({
-            'error': 'Some teams have insufficient balance for the remaining rounds',
-            'teams': insufficient_balance_teams,
-            'min_required_balance': min_required_balance,
-            'remaining_rounds': remaining_rounds
-        }), 400
-    
-    # Create new round with timer
-    start_time = datetime.utcnow()
-    end_time = start_time + timedelta(seconds=duration)
-    
-    round = Round(
-        position=position, 
-        start_time=start_time,
-        end_time=end_time,
-        duration=duration,
-        max_bids_per_team=max_bids_per_team
-    )
-    db.session.add(round)
-    db.session.flush()  # Get the round ID
-    
-    # Add players to the round based on position or position group
-    if is_position_group:
-        # Position group (e.g., CF-1) - filter by position_group
-        players = Player.query.filter_by(position_group=position, team_id=None, is_auction_eligible=True).all()
-    else:
-        # Regular position (e.g., CF) - filter by position
-        players = Player.query.filter_by(position=position, team_id=None, is_auction_eligible=True).all()
-    
-    for player in players:
-        player.round_id = round.id
-    
-    db.session.commit()
-    
-    return jsonify({
-        'success': True,
-        'round_id': round.id,
-        'message': f'Round for {position} started successfully',
-        'remaining_rounds': remaining_rounds - 1  # Subtract 1 to account for current round
-    })
+            'success': True,
+            'round_id': round.id,
+            'message': f'Round for {position} started successfully',
+            'remaining_rounds': remaining_rounds - 1  # Subtract 1 to account for current round
+        })
+    except Exception as e:
+        # Log the error and return a JSON error response
+        print(f"Error in start_round: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/update_round_timer/<int:round_id>', methods=['POST'])
 @login_required
@@ -1492,6 +1498,10 @@ def submit_tiebreaker_bid():
     if current_user.team.balance < new_amount:
         return jsonify({'error': 'Insufficient balance'}), 400
     
+    # Check if team has already submitted a bid (normal tiebreakers allow only one bid)
+    if team_tiebreaker.new_amount is not None:
+        return jsonify({'error': 'You have already submitted a bid for this tiebreaker. Only one bid per team is allowed in normal tiebreakers.'}), 400
+    
     # Update the team's tiebreaker bid
     team_tiebreaker.new_amount = new_amount
     db.session.commit()
@@ -1549,7 +1559,8 @@ def check_tiebreaker_status(tiebreaker_id):
         else:
             return jsonify({
                 'status': 'completed',
-                'message': 'Round finalized'
+                'message': 'Round finalized',
+                'redirect_to': '/dashboard'
             })
     
     # Count how many teams have submitted bids
@@ -2494,6 +2505,35 @@ def admin_users():
                           users=users,
                           pending_approvals=pending_approvals,
                           admin_count=admin_count)
+
+@app.route('/admin/users_light')
+@login_required
+def admin_users_light():
+    """Lightweight endpoint for fast user status checks"""
+    if not current_user.is_admin or not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'error': 'Unauthorized'}), 403
+    
+    # Get only essential user data for comparison
+    users = User.query.with_entities(User.id, User.is_approved, User.is_admin).all()
+    
+    # Calculate statistics
+    pending_approvals = sum(1 for user in users if not user.is_approved and not user.is_admin)
+    admin_count = sum(1 for user in users if user.is_admin)
+    
+    # Create lightweight user states for comparison
+    user_states = [{
+        'id': user.id,
+        'is_approved': user.is_approved,
+        'is_admin': user.is_admin
+    } for user in users]
+    
+    return jsonify({
+        'total_users': len(users),
+        'pending_approvals': pending_approvals,
+        'admin_count': admin_count,
+        'user_states': user_states,
+        'changed_users': user_states  # For simplicity, return all users as potentially changed
+    })
 
 @app.route('/admin/users_update')
 @login_required
@@ -4213,7 +4253,7 @@ def admin_start_bulk_round():
         return redirect(url_for('dashboard'))
     
     data = request.form
-    duration = data.get('duration', 300)
+    duration = data.get('duration', 10800)  # Default to 3 hours (10,800 seconds)
     base_price = data.get('base_price', 10)
     
     try:
@@ -5744,34 +5784,39 @@ def admin_rounds_update():
     if not current_user.is_admin or not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({'error': 'Unauthorized'}), 403
     
-    # Get all relevant data for round management
-    teams = Team.query.all()
-    active_rounds = Round.query.filter_by(is_active=True).all()
-    rounds = Round.query.all()
-    active_tiebreakers = Tiebreaker.query.filter_by(resolved=False).all()
-    
-    # Render the active rounds HTML partial
-    active_rounds_html = render_template('partials/active_rounds.html', 
-                                        active_rounds=active_rounds)
-    
-    # Render tiebreakers HTML if there are any active tiebreakers
-    tiebreakers_html = None
-    if active_tiebreakers:
-        tiebreakers_html = render_template('partials/active_tiebreakers.html', 
-                                          active_tiebreakers=active_tiebreakers)
-    
-    completed_rounds_html = render_template('partials/completed_rounds.html', 
-                                           rounds=rounds)
-    
-    # Return JSON with the HTML snippets for dynamic updates
-    return jsonify({
-        'active_count': len(active_rounds),
-        'total_count': len(rounds),
-        'tiebreakers_count': len(active_tiebreakers),
-        'activeRoundsHtml': active_rounds_html,
-        'tiebreakersHtml': tiebreakers_html,
-        'completedRoundsHtml': completed_rounds_html
-    })
+    try:
+        # Get all relevant data for round management
+        teams = Team.query.all()
+        active_rounds = Round.query.filter_by(is_active=True).all()
+        rounds = Round.query.all()
+        active_tiebreakers = Tiebreaker.query.filter_by(resolved=False).all()
+        
+        # Render the active rounds HTML partial
+        active_rounds_html = render_template('partials/active_rounds.html', 
+                                            active_rounds=active_rounds)
+        
+        # Render tiebreakers HTML if there are any active tiebreakers
+        tiebreakers_html = None
+        if active_tiebreakers:
+            tiebreakers_html = render_template('partials/active_tiebreakers.html', 
+                                              active_tiebreakers=active_tiebreakers)
+        
+        completed_rounds_html = render_template('partials/completed_rounds.html', 
+                                               rounds=rounds)
+        
+        # Return JSON with the HTML snippets for dynamic updates
+        return jsonify({
+            'active_count': len(active_rounds),
+            'total_count': len(rounds),
+            'tiebreakers_count': len(active_tiebreakers),
+            'activeRoundsHtml': active_rounds_html,
+            'tiebreakersHtml': tiebreakers_html,
+            'completedRoundsHtml': completed_rounds_html
+        })
+    except Exception as e:
+        # Log the error and return a JSON error response
+        print(f"Error in admin_rounds_update: {str(e)}")
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/team_dashboard_update')
 @login_required

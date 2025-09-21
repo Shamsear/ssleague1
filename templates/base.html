@@ -10,6 +10,7 @@
     <!-- PWA Support -->
     <link rel="manifest" href="{{ url_for('static', filename='manifest.json') }}">
     <meta name="theme-color" content="#0066FF">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="SS League">
@@ -123,7 +124,7 @@
             background: rgba(0, 0, 0, 0.25);
         }
 
-        /* Enhanced Modern Mobile Navigation Styles */
+        /* Enhanced Mobile Navigation Styles */
         .modern-mobile-nav {
             background: linear-gradient(135deg, 
                 rgba(255, 255, 255, 0.95) 0%,
@@ -141,8 +142,9 @@
             border-radius: 24px 24px 0 0;
             min-height: 72px;
             /* Completely stable - no movement allowed */
-            transform: none !important;
+            transform: translate3d(0, 0, 0) !important;
             transition: none !important;
+            will-change: auto !important;
         }
         
         .nav-item {
@@ -298,22 +300,40 @@
             left: auto;
         }
         
-        /* Admin dropdown centered above Admin button */
+        /* Admin dropdown positioned above Admin button */
         .mobile-nav #admin-dropdown {
             left: 50%;
             right: auto;
-            transform: translateX(-50%) translateY(0);
+            transform: translateX(-50%);
             transform-origin: bottom center;
+            min-width: 120px;
+            margin-left: 0;
+        }
+        
+        /* Fix animation for admin dropdown */
+        .mobile-nav #admin-dropdown:not(.hidden) {
+            animation: adminDropdownSlideUp 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
+        }
+        
+        @keyframes adminDropdownSlideUp {
+            from { 
+                opacity: 0; 
+                transform: translateX(-50%) translateY(10px) scale(0.95);
+            }
+            to { 
+                opacity: 1; 
+                transform: translateX(-50%) translateY(0) scale(1);
+            }
         }
         
         @keyframes dropdownSlideUp {
             from { 
                 opacity: 0; 
-                transform: scale(0.95);
+                transform: translateY(10px) scale(0.95);
             }
             to { 
                 opacity: 1; 
-                transform: scale(1);
+                transform: translateY(0) scale(1);
             }
         }
         
@@ -564,17 +584,20 @@
             /* Mobile adaptations */
             @media (max-width: 640px) {
                 .mobile-nav {
-                    position: fixed;
-                    bottom: 0;
-                    left: 0;
-                    right: 0;
-                    z-index: 50;
+                    position: fixed !important;
+                    bottom: 0 !important;
+                    left: 0 !important;
+                    right: 0 !important;
+                    z-index: 50 !important;
                     padding: 0;
                     background: transparent;
                     /* Rock-solid stability - prevent any movement */
-                    transform: none !important;
+                    transform: translate3d(0, 0, 0) !important;
                     transition: none !important;
                     will-change: auto !important;
+                    /* Prevent any layout shifts */
+                    contain: layout !important;
+                    backface-visibility: hidden !important;
                 }
                 
                 .mobile-spacer {
@@ -984,9 +1007,8 @@
         <!-- Simple centered header with back button (sticky) -->
         <div class="sticky top-0 z-40 bg-white/95 backdrop-blur-sm">
             <div class="flex items-center justify-between px-4 py-4">
-                <!-- Back button with smart navigation -->
+                <!-- Back button with proper browser history navigation -->
                 <button id="mobile-back-button"
-                        onclick="{% if current_user.is_authenticated %}{% if current_user.is_admin and request.endpoint.startswith('admin') %}window.location.href='{{ url_for('dashboard') }}'{% elif request.endpoint in ['team_players', 'team_bids', 'team_round', 'team_bulk_round', 'team_transfers', 'budget_planner'] %}window.location.href='{{ url_for('dashboard') }}'{% elif request.endpoint == 'player_detail' %}window.history.back(){% elif request.endpoint.startswith('team_management.') %}window.location.href='{{ url_for('team_management.team_management_dashboard') }}'{% else %}window.location.href='{{ url_for('dashboard') }}'{% endif %}{% else %}window.location.href='{{ url_for('index') }}'{% endif %}" 
                         class="glass p-2 rounded-full hover:bg-white/90 transition-all duration-300 shadow-sm">
                     <svg class="w-6 h-6 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
@@ -1321,7 +1343,7 @@
                             onclick="window.location.href='{{ url_for('login') }}'">
                         <div class="icon-container">
                             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                                <path d="M10 17l5-5-5-5v3H3v4h7v3zm9-13h2c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2h-2v2h-2v-2h-2v-2h2V6h-2V4h2V2h2v2zm0 2v12h2V6h-2z"/>
+                                <path d="M11 7L9.6 8.4l2.6 2.6H2v2h10.2l-2.6 2.6L11 17l5-5-5-5zm9 12h-8v2h8c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-8v2h8v14z"/>
                             </svg>
                         </div>
                         <span class="tab-label">Login</span>
@@ -1352,10 +1374,38 @@
     </button>
 
     <script>
+        // Mobile back button navigation function (global scope)
+        function handleMobileBackNavigation() {
+            // Check if there's browser history to go back to
+            if (window.history.length > 1 && document.referrer) {
+                // Go back to previous page in browser history
+                window.history.back();
+            } else {
+                // Fallback: if no history or referrer, go to appropriate default page
+                {% if current_user.is_authenticated %}
+                    {% if current_user.is_admin %}
+                        window.location.href = '{{ url_for('dashboard') }}';
+                    {% else %}
+                        window.location.href = '{{ url_for('dashboard') }}';
+                    {% endif %}
+                {% else %}
+                    window.location.href = '{{ url_for('index') }}';
+                {% endif %}
+            }
+        }
+        
         document.addEventListener('DOMContentLoaded', function() {
-            // Back to top button and mobile back button visibility control
-            const backToTopButton = document.getElementById('backToTopBtn');
+            // Setup mobile back button event listener (backup for onclick)
             const mobileBackButton = document.getElementById('mobile-back-button');
+            if (mobileBackButton) {
+                mobileBackButton.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    handleMobileBackNavigation();
+                });
+            }
+            
+            // Back to top button visibility control
+            const backToTopButton = document.getElementById('backToTopBtn');
             
             // Throttle scroll events for better performance
             let scrollTimeout;
@@ -1533,6 +1583,60 @@
             // Mobile Navigation - Completely Stable (No Dynamic Positioning)
             // The navigation bar remains fixed at bottom: 0 with no JavaScript movement
             // This ensures zero jumping or shifting regardless of keyboard, orientation, or viewport changes
+            
+            // Additional JavaScript stability fixes
+            const mobileNav = document.querySelector('.mobile-nav');
+            if (mobileNav && window.innerWidth <= 640) {
+                // Force position stability
+                mobileNav.style.position = 'fixed';
+                mobileNav.style.bottom = '0';
+                mobileNav.style.left = '0';
+                mobileNav.style.right = '0';
+                mobileNav.style.transform = 'translate3d(0, 0, 0)';
+                mobileNav.style.transition = 'none';
+                mobileNav.style.willChange = 'auto';
+                
+                // Prevent any scroll-induced repositioning
+                const preventMovement = () => {
+                    mobileNav.style.transform = 'translate3d(0, 0, 0)';
+                    mobileNav.style.bottom = '0';
+                };
+                
+                // Apply stability on various events that might cause movement
+                window.addEventListener('scroll', preventMovement, { passive: true });
+                window.addEventListener('resize', preventMovement, { passive: true });
+                window.addEventListener('orientationchange', preventMovement, { passive: true });
+                
+                // Handle virtual keyboard on mobile
+                window.addEventListener('focusin', preventMovement, { passive: true });
+                window.addEventListener('focusout', preventMovement, { passive: true });
+            }
+            
+            /* Additional stability rules for all mobile scenarios */
+            .mobile-nav, .modern-mobile-nav {
+                /* Prevent iOS Safari bottom bar interactions */
+                bottom: env(safe-area-inset-bottom, 0) !important;
+                /* Prevent keyboard-induced movements */
+                position: fixed !important;
+                /* Force GPU acceleration for stability */
+                transform: translate3d(0, 0, 0) !important;
+                /* Prevent any transitions that could cause jumping */
+                transition: none !important;
+                animation: none !important;
+                /* Prevent layout recalculations */
+                contain: layout style !important;
+                /* Isolate from scroll effects */
+                isolation: isolate !important;
+            }
+            
+            /* Prevent body scroll from affecting nav */
+            @supports (-webkit-touch-callout: none) {
+                .mobile-nav {
+                    /* iOS specific fix */
+                    bottom: constant(safe-area-inset-bottom) !important;
+                    bottom: env(safe-area-inset-bottom) !important;
+                }
+            }
         });
     </script>
 

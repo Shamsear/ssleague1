@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Users Update Endpoint</title>
+</head>
+<body>
+    <h1>Testing Admin Users Update</h1>
+    <button id="testButton">Test /admin/users_update</button>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('testButton').addEventListener('click', async () => {
+            try {
+                console.log('Testing /admin/users_update endpoint...');
+                const response = await fetch('/admin/users_update', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                console.log('Response status:', response.status);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('Response data:', data);
+                    document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+                } else {
+                    console.error('Request failed:', response.status);
+                    document.getElementById('result').innerHTML = '<p style="color: red;">Request failed: ' + response.status + '</p>';
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<p style="color: red;">Error: ' + error.message + '</p>';
+            }
+        });
+    </script>
+</body>
+</html>
