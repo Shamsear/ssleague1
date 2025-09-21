@@ -3,7 +3,7 @@
 <head>
     <meta name="google-site-verification" content="ktNzk2mrk2N4Kf1CffJsHe91QWMht_HieHNqU8YNqf8" />
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>{% block title %}SS League Auction{% endblock %}</title>
     <link rel="icon" href="{{ url_for('static', filename='images/logo.png') }}" type="image/png">
     
@@ -591,13 +591,39 @@
                     z-index: 50 !important;
                     padding: 0;
                     background: transparent;
-                    /* Rock-solid stability - prevent any movement */
+                    /* BULLETPROOF: Absolutely prevent ANY movement */
                     transform: translate3d(0, 0, 0) !important;
                     transition: none !important;
+                    animation: none !important;
                     will-change: auto !important;
                     /* Prevent any layout shifts */
-                    contain: layout !important;
+                    contain: layout style paint !important;
                     backface-visibility: hidden !important;
+                    /* Force position stability */
+                    top: auto !important;
+                    height: auto !important;
+                    width: 100% !important;
+                }
+                
+                /* OVERRIDE: Disable all morphing pill movement */
+                .mobile-nav .morphing-pill {
+                    display: none !important;
+                }
+                
+                /* OVERRIDE: Disable all nav item transforms that could affect parent */
+                .mobile-nav .nav-item,
+                .mobile-nav .nav-item.active,
+                .mobile-nav .nav-item:hover {
+                    transform: none !important;
+                    transition: color 0.2s ease-only !important;
+                }
+                
+                /* FORCE: Container stability */
+                .mobile-nav .modern-mobile-nav {
+                    transform: none !important;
+                    transition: none !important;
+                    animation: none !important;
+                    position: static !important;
                 }
                 
                 .mobile-spacer {
@@ -1434,42 +1460,20 @@
                 });
             }, { passive: true });
             
-            // Enhanced Morphing Pill Tab Switching
-            const morphingPill = document.getElementById('morphing-pill');
+            // DISABLED: All morphing pill JavaScript to prevent nav movement
+            // const morphingPill = document.getElementById('morphing-pill');
             const navItems = document.querySelectorAll('.nav-item');
             
-            // Initialize pill position
+            // DISABLED: Initialize pill position - causes movement
             function initializePill() {
-                const activeItem = document.querySelector('.nav-item.active');
-                if (activeItem && morphingPill) {
-                    updatePillPosition(activeItem, true);
-                }
+                // DISABLED to prevent navigation movement
+                return;
             }
             
-            // Update pill position and size
+            // DISABLED: Update pill position - main cause of jumping
             function updatePillPosition(targetItem, immediate = false) {
-                if (!morphingPill) return;
-                
-                const container = targetItem.closest('.modern-mobile-nav');
-                if (!container) return;
-                
-                const containerRect = container.getBoundingClientRect();
-                const targetRect = targetItem.getBoundingClientRect();
-                
-                const left = targetRect.left - containerRect.left;
-                const top = targetRect.top - containerRect.top;
-                
-                morphingPill.style.left = left + 'px';
-                morphingPill.style.top = top + 'px';
-                morphingPill.style.width = targetRect.width + 'px';
-                morphingPill.style.height = targetRect.height + 'px';
-                
-                if (immediate) {
-                    morphingPill.style.transition = 'none';
-                    setTimeout(() => {
-                        morphingPill.style.transition = 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)';
-                    }, 10);
-                }
+                // DISABLED to prevent navigation movement
+                return;
             }
             
             // Handle nav item clicks (for visual feedback only, navigation handled by onclick)
@@ -1537,22 +1541,23 @@
                 }
             });
             
-            // Initialize pill on load
+            // DISABLED: Initialize pill on load - prevents jumping
             if (window.innerWidth <= 640) {
-                setTimeout(() => {
-                    initializePill();
-                }, 100);
+                // DISABLED to prevent navigation movement
+                // setTimeout(() => {
+                //     initializePill();
+                // }, 100);
             }
             
-            // Handle resize
-            window.addEventListener('resize', () => {
-                if (window.innerWidth <= 640) {
-                    const activeItem = document.querySelector('.nav-item.active');
-                    if (activeItem) {
-                        updatePillPosition(activeItem, true);
-                    }
-                }
-            });
+            // DISABLED: Handle resize - prevents jumping
+            // window.addEventListener('resize', () => {
+            //     if (window.innerWidth <= 640) {
+            //         const activeItem = document.querySelector('.nav-item.active');
+            //         if (activeItem) {
+            //             updatePillPosition(activeItem, true);
+            //         }
+            //     }
+            // });
             
             // Add event listeners to logout links
             document.querySelectorAll('a[href*="logout"]').forEach(link => {
@@ -1584,32 +1589,68 @@
             // The navigation bar remains fixed at bottom: 0 with no JavaScript movement
             // This ensures zero jumping or shifting regardless of keyboard, orientation, or viewport changes
             
-            // Additional JavaScript stability fixes
+            // BULLETPROOF: JavaScript stability enforcement for mobile nav
             const mobileNav = document.querySelector('.mobile-nav');
+            const morphingPill = document.getElementById('morphing-pill');
+            
             if (mobileNav && window.innerWidth <= 640) {
-                // Force position stability
-                mobileNav.style.position = 'fixed';
-                mobileNav.style.bottom = '0';
-                mobileNav.style.left = '0';
-                mobileNav.style.right = '0';
-                mobileNav.style.transform = 'translate3d(0, 0, 0)';
-                mobileNav.style.transition = 'none';
-                mobileNav.style.willChange = 'auto';
-                
-                // Prevent any scroll-induced repositioning
-                const preventMovement = () => {
-                    mobileNav.style.transform = 'translate3d(0, 0, 0)';
+                // FORCE: Absolute position stability
+                const forceStablePosition = () => {
+                    mobileNav.style.position = 'fixed';
                     mobileNav.style.bottom = '0';
+                    mobileNav.style.left = '0';
+                    mobileNav.style.right = '0';
+                    mobileNav.style.top = 'auto';
+                    mobileNav.style.transform = 'none';
+                    mobileNav.style.transition = 'none';
+                    mobileNav.style.animation = 'none';
+                    mobileNav.style.willChange = 'auto';
+                    mobileNav.style.zIndex = '50';
+                    
+                    // DISABLE: Morphing pill completely
+                    if (morphingPill) {
+                        morphingPill.style.display = 'none';
+                    }
+                    
+                    // FORCE: Container stability
+                    const container = mobileNav.querySelector('.modern-mobile-nav');
+                    if (container) {
+                        container.style.transform = 'none';
+                        container.style.transition = 'none';
+                        container.style.animation = 'none';
+                    }
                 };
                 
-                // Apply stability on various events that might cause movement
-                window.addEventListener('scroll', preventMovement, { passive: true });
-                window.addEventListener('resize', preventMovement, { passive: true });
-                window.addEventListener('orientationchange', preventMovement, { passive: true });
+                // Apply immediately
+                forceStablePosition();
                 
-                // Handle virtual keyboard on mobile
-                window.addEventListener('focusin', preventMovement, { passive: true });
-                window.addEventListener('focusout', preventMovement, { passive: true });
+                // FORCE: Prevent any movement on ALL possible events
+                const preventAnyMovement = () => {
+                    forceStablePosition();
+                    // Block any attempts to modify position
+                    setTimeout(forceStablePosition, 10);
+                };
+                
+                // Listen to ALL events that could cause movement
+                window.addEventListener('scroll', preventAnyMovement, { passive: true });
+                window.addEventListener('resize', preventAnyMovement, { passive: true });
+                window.addEventListener('orientationchange', preventAnyMovement, { passive: true });
+                window.addEventListener('focusin', preventAnyMovement, { passive: true });
+                window.addEventListener('focusout', preventAnyMovement, { passive: true });
+                window.addEventListener('load', preventAnyMovement, { passive: true });
+                window.addEventListener('DOMContentLoaded', preventAnyMovement, { passive: true });
+                
+                // OVERRIDE: Block any direct style modifications
+                const originalSetProperty = mobileNav.style.setProperty;
+                mobileNav.style.setProperty = function(property, value, priority) {
+                    if (['bottom', 'top', 'left', 'right', 'position', 'transform'].includes(property)) {
+                        return; // Block position-related changes
+                    }
+                    return originalSetProperty.call(this, property, value, priority);
+                };
+                
+                // Periodic enforcement (backup)
+                setInterval(forceStablePosition, 1000);
             }
             
             /* Additional stability rules for all mobile scenarios */
