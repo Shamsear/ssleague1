@@ -351,33 +351,102 @@
             transform: translateY(0);
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
+
+        /* Mobile Navigation Bar - Fixed Bottom */
+        .mobile-nav {
+            position: fixed !important;
+            bottom: 0 !important;
+            left: 0 !important;
+            right: 0 !important;
+            width: 100% !important;
+            z-index: 60 !important;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            padding: 12px 16px;
+            padding-bottom: calc(12px + env(safe-area-inset-bottom));
+            transform: none !important;
+            transition: none !important;
+            animation: none !important;
+        }
         
-        /* PWA Safe Area Support for Mobile Header */
+        .mobile-nav-container {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 100%;
+            margin: 0 auto;
+        }
+        
+        .mobile-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 16px;
+            border-radius: 12px;
+            text-decoration: none;
+            color: #6B7280;
+            font-size: 12px;
+            font-weight: 500;
+            min-width: 60px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        
+        .mobile-nav-item.active {
+            background: rgba(59, 130, 246, 0.1);
+            color: #3B82F6;
+        }
+        
+        .mobile-nav-item:hover {
+            color: #374151;
+        }
+        
+        .mobile-nav-item.active:hover {
+            color: #3B82F6;
+        }
+        
+        .mobile-nav-icon {
+            width: 24px;
+            height: 24px;
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .mobile-nav-label {
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 1;
+        }
+        
+        /* Mobile spacer to prevent content overlap */
+        .mobile-spacer {
+            height: 80px;
+        }
+        
+        /* Show only on mobile */
+        @media (min-width: 640px) {
+            .mobile-nav {
+                display: none !important;
+            }
+            .mobile-spacer {
+                display: none !important;
+            }
+        }
+        
+        /* Ensure mobile nav stays fixed on all devices */
         @media (max-width: 640px) {
-            /* Ensure mobile header respects device safe areas */
-            .mobile-header-safe {
-                padding-top: max(1.5rem, env(safe-area-inset-top));
-                padding-left: max(1.25rem, env(safe-area-inset-left));
-                padding-right: max(1.25rem, env(safe-area-inset-right));
-            }
-            
-            /* PWA standalone mode adjustments */
-            @media (display-mode: standalone) {
-                .mobile-header-safe {
-                    padding-top: max(2rem, env(safe-area-inset-top));
-                }
-            }
-            
-            /* iOS specific fixes */
-            @supports (-webkit-touch-callout: none) {
-                .mobile-header-safe {
-                    padding-top: max(1.5rem, constant(safe-area-inset-top));
-                    padding-top: max(1.5rem, env(safe-area-inset-top));
-                    padding-left: max(1.25rem, constant(safe-area-inset-left));
-                    padding-left: max(1.25rem, env(safe-area-inset-left));
-                    padding-right: max(1.25rem, constant(safe-area-inset-right));
-                    padding-right: max(1.25rem, env(safe-area-inset-right));
-                }
+            .mobile-nav {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                z-index: 60 !important;
+                transform: translate3d(0, 0, 0) !important;
             }
         }
 
@@ -413,7 +482,7 @@
         {% block mobile_header %}
         {% if request.endpoint in ['dashboard', 'login', 'register', 'index'] %}
         <!-- Full dashboard-style header for main pages -->
-        <div class="flex items-center justify-between mobile-header-safe pb-2">
+        <div class="flex items-center justify-between px-5 pt-6 pb-2">
             <div class="flex-1">
                 <!-- Dynamic title based on current page -->
                 <h1 class="text-2xl font-bold text-slate-900">
@@ -746,7 +815,7 @@
         {% else %}
         <!-- Simple centered header with back button (sticky) -->
         <div class="sticky top-0 z-40 bg-white/95 backdrop-blur-sm">
-            <div class="flex items-center justify-between mobile-header-safe py-4">
+            <div class="flex items-center justify-between px-4 py-4">
                 <!-- Back button with proper browser history navigation -->
                 <button id="mobile-back-button"
                         class="glass p-2 rounded-full hover:bg-white/90 transition-all duration-300 shadow-sm">
@@ -851,6 +920,9 @@
         
         <!-- Screen reader announcer element -->
         <div id="screen-reader-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+        
+        <!-- Mobile navigation spacer -->
+        <div class="mobile-spacer sm:hidden"></div>
 
     </main>
 
@@ -1005,5 +1077,58 @@
         });
     </script>
     {% endif %}
+    
+    <!-- Mobile Navigation Bar -->
+    <nav class="mobile-nav sm:hidden" role="navigation" aria-label="Mobile navigation">
+        <div class="mobile-nav-container">
+            {% if current_user.is_authenticated %}
+                <a href="{{ url_for('dashboard') }}" class="mobile-nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+                    <div class="mobile-nav-icon">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                        </svg>
+                    </div>
+                    <span class="mobile-nav-label">Home</span>
+                </a>
+                
+                <a href="{{ url_for('logout') }}" class="mobile-nav-item">
+                    <div class="mobile-nav-icon">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 102 0V4a1 1 0 00-1-1zm10.293 9.293a1 1 0 001.414 1.414l3-3a1 1 0 000-1.414l-3-3a1 1 0 10-1.414 1.414L14.586 9H7a1 1 0 100 2h7.586l-1.293 1.293z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <span class="mobile-nav-label">Logout</span>
+                </a>
+            {% else %}
+                <a href="{{ url_for('index') }}" class="mobile-nav-item {% if request.endpoint == 'index' %}active{% endif %}">
+                    <div class="mobile-nav-icon">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z"/>
+                        </svg>
+                    </div>
+                    <span class="mobile-nav-label">Home</span>
+                </a>
+                
+                <a href="{{ url_for('login') }}" class="mobile-nav-item {% if request.endpoint == 'login' %}active{% endif %}">
+                    <div class="mobile-nav-icon">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-2 0V4H5v12h10v-2a1 1 0 112 0v3a1 1 0 01-1 1H4a1 1 0 01-1-1V3z" clip-rule="evenodd"/>
+                            <path fill-rule="evenodd" d="M6 10a1 1 0 011-1h7.586l-2.293-2.293a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L14.586 11H7a1 1 0 01-1-1z" clip-rule="evenodd"/>
+                        </svg>
+                    </div>
+                    <span class="mobile-nav-label">Login</span>
+                </a>
+                
+                <a href="{{ url_for('register') }}" class="mobile-nav-item {% if request.endpoint == 'register' %}active{% endif %}">
+                    <div class="mobile-nav-icon">
+                        <svg fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M8 9a3 3 0 100-6 3 3 0 000 6zM8 11a6 6 0 016 6H2a6 6 0 016-6zM16 7a1 1 0 10-2 0v1h-1a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V7z"/>
+                        </svg>
+                    </div>
+                    <span class="mobile-nav-label">Register</span>
+                </a>
+            {% endif %}
+        </div>
+    </nav>
 </body>
 </html> 
