@@ -842,6 +842,29 @@
 }
 
 /* ========================================
+   PWA SAFE AREA ENHANCEMENTS
+========================================= */
+
+/* Ensure mobile content respects safe areas */
+@media (max-width: 640px) {
+    .mobile-container-safe {
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+        padding-bottom: max(1rem, env(safe-area-inset-bottom));
+    }
+    
+    /* Bottom navigation safe area spacing */
+    .mobile-nav-bottom-safe {
+        padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+    }
+    
+    /* Content safe area for pages with bottom navigation */
+    .mobile-content-with-nav {
+        margin-bottom: calc(80px + env(safe-area-inset-bottom));
+    }
+}
+
+/* ========================================
    MOBILE PLAYER SELECTION CARDS
 ========================================= */
 

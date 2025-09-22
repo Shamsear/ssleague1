@@ -1,0 +1,366 @@
+/* ========================================
+   PWA SAFE AREA INSETS - NOTCH/DYNAMIC ISLAND FIX
+   ========================================
+   
+   This CSS file handles safe area insets for PWA headers,
+   preventing content from being hidden behind phone notches,
+   dynamic islands, and status bars.
+*/
+
+/* ========================================
+   VIEWPORT AND SAFE AREA SETUP
+======================================== */
+
+/* Ensure proper viewport behavior for PWA */
+:root {
+    /* Define safe area inset variables with fallbacks */
+    --safe-area-inset-top: env(safe-area-inset-top, 0px);
+    --safe-area-inset-right: env(safe-area-inset-right, 0px);
+    --safe-area-inset-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-area-inset-left: env(safe-area-inset-left, 0px);
+    
+    /* Additional padding for devices with notches */
+    --header-safe-top: max(20px, env(safe-area-inset-top, 0px));
+    --header-safe-sides: max(16px, env(safe-area-inset-left, 0px), env(safe-area-inset-right, 0px));
+}
+
+/* iOS Safari viewport fix for 100vh issues */
+@supports (-webkit-touch-callout: none) {
+    :root {
+        --viewport-height: 100vh;
+    }
+    
+    /* Fix for iOS Safari where 100vh includes browser UI */
+    .ios-viewport-fix {
+        min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    }
+}
+
+/* ========================================
+   MOBILE HEADER SAFE AREA STYLES
+======================================== */
+
+/* Main mobile header safe area class */
+.mobile-header-safe {
+    padding-top: var(--safe-area-inset-top);
+    padding-left: max(1rem, var(--safe-area-inset-left));
+    padding-right: max(1rem, var(--safe-area-inset-right));
+    
+    /* Ensure header content doesn't get cut off */
+    min-height: calc(3.5rem + var(--safe-area-inset-top));
+    
+    /* Position and layering */
+    position: relative;
+    z-index: 50;
+    
+    /* Background with proper backdrop support */
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    
+    /* Border for visual separation */
+    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+/* Enhanced sticky header behavior */
+.sticky-header-safe {
+    position: sticky;
+    top: 0;
+    padding-top: var(--safe-area-inset-top);
+    z-index: 50;
+    
+    /* Smooth transitions */
+    transition: all 0.3s ease;
+    
+    /* Background that works well with safe areas */
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(15px);
+    -webkit-backdrop-filter: blur(15px);
+}
+
+/* Back button safe positioning */
+.mobile-header-safe .glass {
+    /* Ensure back button has adequate touch target */
+    min-width: 44px;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    
+    /* Enhanced touch feedback */
+    transition: all 0.2s ease;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-header-safe .glass:active {
+    transform: scale(0.95);
+    background: rgba(255, 255, 255, 0.8);
+}
+
+/* Logo positioning in header */
+.mobile-header-safe img {
+    /* Ensure logo doesn't get distorted */
+    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+    
+    /* Add subtle shadow for better visibility */
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
+}
+
+/* ========================================
+   DEVICE-SPECIFIC ADJUSTMENTS
+======================================== */
+
+/* iPhone X and newer (devices with notches) */
+@supports (padding: max(0px)) {
+    .mobile-header-safe {
+        /* Use max() to ensure minimum padding even without safe areas */
+        padding-top: max(1rem, env(safe-area-inset-top));
+        padding-left: max(1rem, env(safe-area-inset-left));
+        padding-right: max(1rem, env(safe-area-inset-right));
+    }
+}
+
+/* Landscape orientation adjustments */
+@media screen and (orientation: landscape) and (max-width: 896px) {
+    .mobile-header-safe {
+        padding-top: max(0.5rem, env(safe-area-inset-top));
+        min-height: calc(3rem + env(safe-area-inset-top));
+    }
+    
+    /* Adjust logo size in landscape */
+    .mobile-header-safe img {
+        width: 2rem;
+        height: 2rem;
+    }
+}
+
+/* ========================================
+   CONTENT SAFE AREA ADJUSTMENTS
+======================================== */
+
+/* Main content area safe margins */
+.content-safe-area {
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+    padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Container with safe area awareness */
+.container-safe {
+    margin-left: max(auto, env(safe-area-inset-left));
+    margin-right: max(auto, env(safe-area-inset-right));
+    padding-left: max(1rem, env(safe-area-inset-left));
+    padding-right: max(1rem, env(safe-area-inset-right));
+}
+
+/* ========================================
+   PWA-SPECIFIC STYLES
+======================================== */
+
+/* Body adjustments for PWA */
+body.pwa-mode {
+    /* Ensure body accounts for safe areas */
+    padding-top: 0; /* Let header handle top safe area */
+    padding-bottom: env(safe-area-inset-bottom);
+    
+    /* Fix viewport issues on mobile */
+    min-height: 100vh;
+    min-height: calc(100vh - env(safe-area-inset-bottom));
+}
+
+/* PWA header enhancement */
+.pwa-header {
+    /* Extended background that covers safe area */
+    margin-top: calc(-1 * env(safe-area-inset-top));
+    padding-top: calc(1rem + env(safe-area-inset-top));
+    
+    /* Ensure background extends into safe area */
+    background: linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0.98) 0%,
+        rgba(255, 255, 255, 0.95) 100%
+    );
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+}
+
+/* ========================================
+   UTILITY CLASSES FOR SAFE AREAS
+======================================== */
+
+/* Padding utilities */
+.pt-safe {
+    padding-top: var(--safe-area-inset-top);
+}
+
+.pl-safe {
+    padding-left: var(--safe-area-inset-left);
+}
+
+.pr-safe {
+    padding-right: var(--safe-area-inset-right);
+}
+
+.pb-safe {
+    padding-bottom: var(--safe-area-inset-bottom);
+}
+
+.p-safe {
+    padding-top: var(--safe-area-inset-top);
+    padding-left: var(--safe-area-inset-left);
+    padding-right: var(--safe-area-inset-right);
+    padding-bottom: var(--safe-area-inset-bottom);
+}
+
+/* Margin utilities */
+.mt-safe {
+    margin-top: var(--safe-area-inset-top);
+}
+
+.ml-safe {
+    margin-left: var(--safe-area-inset-left);
+}
+
+.mr-safe {
+    margin-right: var(--safe-area-inset-right);
+}
+
+.mb-safe {
+    margin-bottom: var(--safe-area-inset-bottom);
+}
+
+/* ========================================
+   DARK MODE SAFE AREAS
+======================================== */
+
+@media (prefers-color-scheme: dark) {
+    .mobile-header-safe {
+        background: rgba(17, 24, 39, 0.95);
+        border-bottom-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    .pwa-header {
+        background: linear-gradient(
+            to bottom,
+            rgba(17, 24, 39, 0.98) 0%,
+            rgba(17, 24, 39, 0.95) 100%
+        );
+    }
+    
+    .mobile-header-safe .glass {
+        background: rgba(55, 65, 81, 0.3);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.9);
+    }
+    
+    .mobile-header-safe .glass:hover {
+        background: rgba(75, 85, 99, 0.4);
+    }
+    
+    .mobile-header-safe .glass:active {
+        background: rgba(55, 65, 81, 0.6);
+    }
+}
+
+/* ========================================
+   ACCESSIBILITY IMPROVEMENTS
+======================================== */
+
+/* Ensure adequate touch targets on all devices */
+@media (max-width: 768px) {
+    .mobile-header-safe button,
+    .mobile-header-safe a {
+        min-width: 44px;
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    /* Improve text readability in safe areas */
+    .mobile-header-safe h1 {
+        font-size: 1.125rem;
+        line-height: 1.2;
+        font-weight: 600;
+        text-align: center;
+        
+        /* Ensure text doesn't get too close to edges */
+        padding: 0 0.5rem;
+        
+        /* Text shadow for better readability */
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .mobile-header-safe {
+        background: white;
+        border-bottom: 2px solid black;
+    }
+    
+    .mobile-header-safe .glass {
+        border: 2px solid black;
+        background: white;
+    }
+    
+    @media (prefers-color-scheme: dark) {
+        .mobile-header-safe {
+            background: black;
+            border-bottom: 2px solid white;
+        }
+        
+        .mobile-header-safe .glass {
+            border: 2px solid white;
+            background: black;
+            color: white;
+        }
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .mobile-header-safe,
+    .mobile-header-safe *,
+    .sticky-header-safe {
+        transition: none !important;
+        animation: none !important;
+    }
+}
+
+/* ========================================
+   DEBUGGING STYLES (Remove in production)
+======================================== */
+
+/* 
+Uncomment these styles to visually debug safe areas during development:
+
+.mobile-header-safe::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: var(--safe-area-inset-top);
+    background: rgba(255, 0, 0, 0.3);
+    z-index: 1000;
+    pointer-events: none;
+}
+
+.mobile-header-safe::after {
+    content: 'Safe area: ' var(--safe-area-inset-top);
+    position: absolute;
+    top: var(--safe-area-inset-top);
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 10px;
+    z-index: 1001;
+    pointer-events: none;
+}
+*/
