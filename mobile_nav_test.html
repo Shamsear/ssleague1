@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Nav Test</title>
+    <style>
+        /* Simple Mobile Navigation Styles */
+        .modern-mobile-nav {
+            background: rgba(255, 255, 255, 0.95);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            min-height: 70px;
+            padding: 8px 0;
+        }
+        
+        .nav-item {
+            padding: 8px 6px;
+            min-width: 60px;
+            min-height: 50px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            cursor: pointer;
+            background: transparent;
+            border: none;
+            color: #6B7280;
+        }
+        
+        .nav-item.active {
+            color: #0066FF;
+        }
+        
+        .nav-item:hover {
+            color: #374151;
+        }
+        
+        .icon-container {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .tab-label {
+            font-size: 11px;
+            font-weight: 500;
+            line-height: 1;
+        }
+        
+        .nav-item.active .tab-label {
+            font-weight: 600;
+            color: #0066FF;
+        }
+        
+        .nav-item .tab-label {
+            color: inherit;
+        }
+
+        /* Simple Mobile Navigation */
+        @media (max-width: 640px) {
+            .mobile-nav {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                z-index: 50 !important;
+                width: 100% !important;
+                background: transparent;
+            }
+            
+            .mobile-spacer {
+                height: 70px;
+            }
+        }
+
+        /* Bulletproof fixed bottom mobile nav */
+        @media (max-width: 640px) {
+            .mobile-nav {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                z-index: 50 !important;
+                width: 100% !important;
+                height: auto !important;
+                transform: none !important;
+                transition: none !important;
+                animation: none !important;
+            }
+            
+            .modern-mobile-nav {
+                transform: none !important;
+                transition: none !important;
+                animation: none !important;
+            }
+            
+            .nav-item {
+                transform: none !important;
+                transition: color 0.2s ease !important;
+            }
+        }
+
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #f8f9fa;
+            min-height: 100vh;
+        }
+        
+        .content {
+            padding: 20px;
+            padding-bottom: 80px; /* Space for mobile nav */
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        <div class="test-section">
+            <h1>Mobile Navigation Test</h1>
+            <p>This is a test page for the simplified mobile navigation. Scroll down to see more content and test that the navigation bar stays fixed at the bottom.</p>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Section 1</h2>
+            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Section 2</h2>
+            <p>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Section 3</h2>
+            <p>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.</p>
+        </div>
+
+        <div class="test-section">
+            <h2>Test Section 4</h2>
+            <p>Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.</p>
+        </div>
+
+        <!-- Spacer for mobile bottom nav -->
+        <div class="mobile-spacer"></div>
+    </div>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-nav" role="navigation" aria-label="Main navigation">
+        <div class="modern-mobile-nav">
+            <!-- Navigation container -->
+            <div style="display: flex; justify-content: space-around; align-items: center; padding: 4px 12px; position: relative; z-index: 10;">
+                <button class="nav-item active" data-tab="home" aria-label="Home" role="tab" aria-selected="true">
+                    <div class="icon-container">
+                        <svg style="width: 20px; height: 20px;" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+                        </svg>
+                    </div>
+                    <span class="tab-label">Home</span>
+                </button>
+                
+                <button class="nav-item" data-tab="players" aria-label="Players" role="tab" aria-selected="false">
+                    <div class="icon-container">
+                        <svg style="width: 20px; height: 20px;" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                        </svg>
+                    </div>
+                    <span class="tab-label">Players</span>
+                </button>
+                
+                <button class="nav-item" data-tab="teams" aria-label="Teams" role="tab" aria-selected="false">
+                    <div class="icon-container">
+                        <svg style="width: 20px; height: 20px;" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z"/>
+                        </svg>
+                    </div>
+                    <span class="tab-label">Teams</span>
+                </button>
+                
+                <button class="nav-item" data-tab="settings" aria-label="Settings" role="tab" aria-selected="false">
+                    <div class="icon-container">
+                        <svg style="width: 20px; height: 20px;" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+                        </svg>
+                    </div>
+                    <span class="tab-label">Settings</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <script>
+        // Simple mobile nav handling
+        const navItems = document.querySelectorAll('.nav-item');
+        
+        // Handle nav item clicks for visual feedback
+        navItems.forEach(item => {
+            item.addEventListener('click', function() {
+                // Simple visual feedback without transforms
+                this.style.opacity = '0.7';
+                setTimeout(() => {
+                    this.style.opacity = '';
+                }, 150);
+                
+                // Remove active from other items
+                navItems.forEach(navItem => {
+                    if (navItem !== this) {
+                        navItem.classList.remove('active');
+                        navItem.setAttribute('aria-selected', 'false');
+                    }
+                });
+                
+                // Add active to clicked item
+                this.classList.add('active');
+                this.setAttribute('aria-selected', 'true');
+            });
+        });
+    </script>
+</body>
+</html>

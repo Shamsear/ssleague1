@@ -124,44 +124,24 @@
             background: rgba(0, 0, 0, 0.25);
         }
 
-        /* Enhanced Mobile Navigation Styles */
+        /* Simple Mobile Navigation Styles */
         .modern-mobile-nav {
-            background: linear-gradient(135deg, 
-                rgba(255, 255, 255, 0.95) 0%,
-                rgba(248, 248, 250, 0.98) 50%,
-                rgba(255, 255, 255, 0.95) 100%);
-            backdrop-filter: blur(40px) saturate(1.5);
-            -webkit-backdrop-filter: blur(40px) saturate(1.5);
-            border-top: 0.5px solid rgba(0, 102, 255, 0.1);
-            box-shadow: 
-                0 -10px 40px rgba(0, 102, 255, 0.08),
-                0 -2px 10px rgba(0, 0, 0, 0.05),
-                inset 0 1px 0 rgba(255, 255, 255, 0.9);
-            position: relative;
-            overflow: visible;
-            border-radius: 24px 24px 0 0;
-            min-height: 72px;
-            /* Completely stable - no movement allowed */
-            transform: translate3d(0, 0, 0) !important;
-            transition: none !important;
-            will-change: auto !important;
+            background: rgba(255, 255, 255, 0.95);
+            border-top: 1px solid rgba(0, 0, 0, 0.1);
+            min-height: 70px;
+            padding: 8px 0;
         }
         
         .nav-item {
-            position: relative;
-            padding: 10px 8px;
-            border-radius: 14px;
-            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-            min-width: 64px;
-            min-height: 56px;
+            padding: 8px 6px;
+            min-width: 60px;
+            min-height: 50px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
             gap: 4px;
             cursor: pointer;
-            -webkit-tap-highlight-color: transparent;
-            user-select: none;
             background: transparent;
             border: none;
             color: #6B7280;
@@ -169,12 +149,10 @@
         
         .nav-item.active {
             color: #0066FF;
-            transform: translateY(-1px);
         }
         
-        .nav-item:not(.active):hover {
+        .nav-item:hover {
             color: #374151;
-            transform: scale(1.05) translateY(-2px);
         }
         
         .icon-container {
@@ -183,76 +161,21 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
         }
         
         .tab-label {
-            display: block;
             font-size: 11px;
             font-weight: 500;
-            letter-spacing: 0.2px;
-            transition: all 0.3s cubic-bezier(0.4, 0.0, 0.2, 1);
-            opacity: 0.9;
             line-height: 1;
         }
         
         .nav-item.active .tab-label {
             font-weight: 600;
             color: #0066FF;
-            opacity: 1;
         }
         
-        .nav-item:not(.active) .tab-label {
-            font-weight: 400;
-            color: #6B7280;
-            opacity: 0.8;
-        }
-        
-        /* Morphing Pill with Light Theme */
-        .morphing-pill {
-            position: absolute;
-            background: linear-gradient(135deg, 
-                rgba(0, 102, 255, 0.15) 0%,
-                rgba(149, 128, 255, 0.15) 50%,
-                rgba(0, 102, 255, 0.15) 100%);
-            backdrop-filter: blur(10px);
-            -webkit-backdrop-filter: blur(10px);
-            border-radius: 14px;
-            transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            z-index: 1;
-            border: 0.5px solid rgba(0, 102, 255, 0.2);
-            box-shadow: 
-                0 4px 20px rgba(0, 102, 255, 0.15),
-                0 2px 8px rgba(149, 128, 255, 0.1),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3);
-        }
-        
-        .morphing-pill::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 100%;
-            height: 100%;
-            transform: translate(-50%, -50%);
-            background: radial-gradient(circle, 
-                rgba(0, 102, 255, 0.2) 0%,
-                transparent 70%);
-            filter: blur(20px);
-            animation: pulseGlow 3s ease-in-out infinite;
-            z-index: -1;
-            pointer-events: none;
-        }
-        
-        @keyframes pulseGlow {
-            0%, 100% {
-                opacity: 0.6;
-                transform: translate(-50%, -50%) scale(1);
-            }
-            50% {
-                opacity: 1;
-                transform: translate(-50%, -50%) scale(1.2);
-            }
+        .nav-item .tab-label {
+            color: inherit;
         }
         
         /* Enhanced Dropdown for Mobile Nav */
@@ -581,7 +504,7 @@
             box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
         }
 
-            /* Mobile adaptations */
+            /* Simple Mobile Navigation */
             @media (max-width: 640px) {
                 .mobile-nav {
                     position: fixed !important;
@@ -589,82 +512,12 @@
                     left: 0 !important;
                     right: 0 !important;
                     z-index: 50 !important;
-                    padding: 0;
-                    background: transparent;
-                    /* BULLETPROOF: Absolutely prevent ANY movement */
-                    transform: translate3d(0, 0, 0) !important;
-                    transition: none !important;
-                    animation: none !important;
-                    will-change: auto !important;
-                    /* Prevent any layout shifts */
-                    contain: layout style paint !important;
-                    backface-visibility: hidden !important;
-                    /* Force position stability */
-                    top: auto !important;
-                    height: auto !important;
                     width: 100% !important;
-                }
-                
-                /* OVERRIDE: Disable all morphing pill movement */
-                .mobile-nav .morphing-pill {
-                    display: none !important;
-                }
-                
-                /* OVERRIDE: Disable all nav item transforms that could affect parent */
-                .mobile-nav .nav-item,
-                .mobile-nav .nav-item.active,
-                .mobile-nav .nav-item:hover {
-                    transform: none !important;
-                    transition: color 0.2s ease-only !important;
-                }
-                
-                /* FORCE: Container stability */
-                .mobile-nav .modern-mobile-nav {
-                    transform: none !important;
-                    transition: none !important;
-                    animation: none !important;
-                    position: static !important;
+                    background: transparent;
                 }
                 
                 .mobile-spacer {
-                    height: 88px;
-                }
-                
-                /* Mobile page container styling */
-                body {
-                    background: #f8f9fa;
-                }
-                
-                main.container {
-                    background: white;
-                    margin: 0;
-                    padding: 0;
-                    min-height: 100vh;
-                }
-                
-                main.container > * {
-                    padding-left: 1.25rem;
-                    padding-right: 1.25rem;
-                }
-                
-                /* Disable transitions for users who prefer reduced motion */
-                @media (prefers-reduced-motion: reduce) {
-                    .mobile-nav,
-                    .morphing-pill {
-                        transition: none !important;
-                    }
-                    
-                    @keyframes pulseGlow {
-                        0%, 100% { opacity: 0.6; }
-                    }
-                }
-                
-                /* PWA standalone mode adjustments */
-                @media (display-mode: standalone) {
-                    .modern-mobile-nav {
-                        /* Additional padding for PWA mode */
-                        padding-bottom: max(16px, env(safe-area-inset-bottom));
-                    }
+                    height: 70px;
                 }
             }
     </style>
@@ -1158,10 +1011,7 @@
 
     <!-- Enhanced Mobile Bottom Navigation -->
     <nav class="mobile-nav sm:hidden" role="navigation" aria-label="Main navigation">
-        <div class="modern-mobile-nav relative overflow-visible">
-            <!-- Morphing Pill Indicator -->
-            <div id="morphing-pill" class="morphing-pill"></div>
-            
+        <div class="modern-mobile-nav">
             <!-- Navigation container -->
             <div class="flex justify-around items-center px-3 py-2 relative z-10">
                 {% if current_user.is_authenticated %}
@@ -1460,37 +1310,18 @@
                 });
             }, { passive: true });
             
-            // DISABLED: All morphing pill JavaScript to prevent nav movement
-            // const morphingPill = document.getElementById('morphing-pill');
+            // Simple mobile nav handling
             const navItems = document.querySelectorAll('.nav-item');
             
-            // DISABLED: Initialize pill position - causes movement
-            function initializePill() {
-                // DISABLED to prevent navigation movement
-                return;
-            }
-            
-            // DISABLED: Update pill position - main cause of jumping
-            function updatePillPosition(targetItem, immediate = false) {
-                // DISABLED to prevent navigation movement
-                return;
-            }
-            
-            // Handle nav item clicks (for visual feedback only, navigation handled by onclick)
+            // Handle nav item clicks for visual feedback
             navItems.forEach(item => {
-                // Don't override dropdown buttons
                 if (!item.id || (!item.id.includes('menu-btn'))) {
-                    item.addEventListener('click', function(e) {
-                        // Haptic feedback simulation
-                        this.style.transform = 'scale(0.95)';
+                    item.addEventListener('click', function() {
+                        // Simple visual feedback without transforms
+                        this.style.opacity = '0.7';
                         setTimeout(() => {
-                            this.style.transform = '';
-                        }, 100);
-                        
-                        // Update active state for non-navigation items
-                        if (!this.hasAttribute('onclick')) {
-                            e.preventDefault();
-                        }
+                            this.style.opacity = '';
+                        }, 150);
                     });
                 }
             });
@@ -1508,10 +1339,10 @@
                     e.preventDefault();
                     e.stopPropagation();
                     
-                    // Haptic feedback
-                    this.style.transform = 'scale(0.95)';
+                    // Simple visual feedback
+                    this.style.opacity = '0.7';
                     setTimeout(() => {
-                        this.style.transform = '';
+                        this.style.opacity = '';
                     }, 100);
                     
                     const isMenuOpen = !menu.classList.contains('hidden');
@@ -1541,23 +1372,6 @@
                 }
             });
             
-            // DISABLED: Initialize pill on load - prevents jumping
-            if (window.innerWidth <= 640) {
-                // DISABLED to prevent navigation movement
-                // setTimeout(() => {
-                //     initializePill();
-                // }, 100);
-            }
-            
-            // DISABLED: Handle resize - prevents jumping
-            // window.addEventListener('resize', () => {
-            //     if (window.innerWidth <= 640) {
-            //         const activeItem = document.querySelector('.nav-item.active');
-            //         if (activeItem) {
-            //             updatePillPosition(activeItem, true);
-            //         }
-            //     }
-            // });
             
             // Add event listeners to logout links
             document.querySelectorAll('a[href*="logout"]').forEach(link => {
@@ -1585,101 +1399,38 @@
                 });
             });
             
-            // Mobile Navigation - Completely Stable (No Dynamic Positioning)
-            // The navigation bar remains fixed at bottom: 0 with no JavaScript movement
-            // This ensures zero jumping or shifting regardless of keyboard, orientation, or viewport changes
-            
-            // BULLETPROOF: JavaScript stability enforcement for mobile nav
-            const mobileNav = document.querySelector('.mobile-nav');
-            const morphingPill = document.getElementById('morphing-pill');
-            
-            if (mobileNav && window.innerWidth <= 640) {
-                // FORCE: Absolute position stability
-                const forceStablePosition = () => {
-                    mobileNav.style.position = 'fixed';
-                    mobileNav.style.bottom = '0';
-                    mobileNav.style.left = '0';
-                    mobileNav.style.right = '0';
-                    mobileNav.style.top = 'auto';
-                    mobileNav.style.transform = 'none';
-                    mobileNav.style.transition = 'none';
-                    mobileNav.style.animation = 'none';
-                    mobileNav.style.willChange = 'auto';
-                    mobileNav.style.zIndex = '50';
-                    
-                    // DISABLE: Morphing pill completely
-                    if (morphingPill) {
-                        morphingPill.style.display = 'none';
-                    }
-                    
-                    // FORCE: Container stability
-                    const container = mobileNav.querySelector('.modern-mobile-nav');
-                    if (container) {
-                        container.style.transform = 'none';
-                        container.style.transition = 'none';
-                        container.style.animation = 'none';
-                    }
-                };
-                
-                // Apply immediately
-                forceStablePosition();
-                
-                // FORCE: Prevent any movement on ALL possible events
-                const preventAnyMovement = () => {
-                    forceStablePosition();
-                    // Block any attempts to modify position
-                    setTimeout(forceStablePosition, 10);
-                };
-                
-                // Listen to ALL events that could cause movement
-                window.addEventListener('scroll', preventAnyMovement, { passive: true });
-                window.addEventListener('resize', preventAnyMovement, { passive: true });
-                window.addEventListener('orientationchange', preventAnyMovement, { passive: true });
-                window.addEventListener('focusin', preventAnyMovement, { passive: true });
-                window.addEventListener('focusout', preventAnyMovement, { passive: true });
-                window.addEventListener('load', preventAnyMovement, { passive: true });
-                window.addEventListener('DOMContentLoaded', preventAnyMovement, { passive: true });
-                
-                // OVERRIDE: Block any direct style modifications
-                const originalSetProperty = mobileNav.style.setProperty;
-                mobileNav.style.setProperty = function(property, value, priority) {
-                    if (['bottom', 'top', 'left', 'right', 'position', 'transform'].includes(property)) {
-                        return; // Block position-related changes
-                    }
-                    return originalSetProperty.call(this, property, value, priority);
-                };
-                
-                // Periodic enforcement (backup)
-                setInterval(forceStablePosition, 1000);
-            }
-            
-            /* Additional stability rules for all mobile scenarios */
-            .mobile-nav, .modern-mobile-nav {
-                /* Prevent iOS Safari bottom bar interactions */
-                bottom: env(safe-area-inset-bottom, 0) !important;
-                /* Prevent keyboard-induced movements */
-                position: fixed !important;
-                /* Force GPU acceleration for stability */
-                transform: translate3d(0, 0, 0) !important;
-                /* Prevent any transitions that could cause jumping */
-                transition: none !important;
-                animation: none !important;
-                /* Prevent layout recalculations */
-                contain: layout style !important;
-                /* Isolate from scroll effects */
-                isolation: isolate !important;
-            }
-            
-            /* Prevent body scroll from affecting nav */
-            @supports (-webkit-touch-callout: none) {
-                .mobile-nav {
-                    /* iOS specific fix */
-                    bottom: constant(safe-area-inset-bottom) !important;
-                    bottom: env(safe-area-inset-bottom) !important;
-                }
-            }
         });
     </script>
+    
+    <!-- Simple Mobile Navigation Positioning -->
+    <style>
+        /* Bulletproof fixed bottom mobile nav */
+        @media (max-width: 640px) {
+            .mobile-nav {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                z-index: 50 !important;
+                width: 100% !important;
+                height: auto !important;
+                transform: none !important;
+                transition: none !important;
+                animation: none !important;
+            }
+            
+            .modern-mobile-nav {
+                transform: none !important;
+                transition: none !important;
+                animation: none !important;
+            }
+            
+            .nav-item {
+                transform: none !important;
+                transition: color 0.2s ease !important;
+            }
+        }
+    </style>
 
     <!-- Only include back button prevention for authenticated users -->
     {% if current_user.is_authenticated %}
