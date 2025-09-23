@@ -281,14 +281,7 @@
    MOBILE RESPONSIVE IMPROVEMENTS
 ========================================= */
 
-/* Mobile Navigation Grid */
 @media (max-width: 640px) {
-    .mobile-nav-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
     
     .nav-card {
         padding: 1rem;

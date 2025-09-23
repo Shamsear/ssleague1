@@ -1,0 +1,205 @@
+<!-- Mobile Navigation Component -->
+<!-- Shows on index, dashboard, and team management dashboard pages -->
+<!-- Only visible on mobile devices (max-width: 768px) -->
+{% if show_mobile_nav is defined and show_mobile_nav %}
+<div class="mobile-nav-container" id="mobileNav">
+    <!-- Main Navigation Bar (transforms on menu open) -->
+    <nav class="mobile-nav-bar" id="mobileNavBar">
+        <div class="nav-content">
+            <!-- Left Section: Logo -->
+            <div class="nav-left">
+                <div class="nav-logo">
+                    <div class="logo-icon">
+                        <span>SS</span>
+                    </div>
+                    <span class="logo-text">League</span>
+                </div>
+            </div>
+            
+            <!-- Center Section: Menu Buttons -->
+            <div class="nav-center">
+                <!-- Menu Toggle Button (shown by default, hidden when menu opens) -->
+                <button class="menu-toggle-btn" id="menuToggleBtn" aria-label="Open menu">
+                    <span class="menu-text">Menu</span>
+                    <div class="menu-icon-wrapper">
+                        <span class="menu-line menu-line-top"></span>
+                        <span class="menu-line menu-line-middle"></span>
+                        <span class="menu-line menu-line-bottom"></span>
+                    </div>
+                </button>
+                
+                <!-- Close Button (hidden by default, shown when menu opens) -->
+                <button class="close-btn" id="closeMenuBtn" aria-label="Close menu" style="display: none;">
+                    <span>Close</span>
+                </button>
+            </div>
+            
+            <!-- Right Section: User Avatar / Team Logo -->
+            <div class="nav-right">
+                <div class="nav-user">
+                    {% if current_user.is_authenticated %}
+                        {% if current_user.is_admin %}
+                            <!-- Admin Crown Icon -->
+                            <div class="user-avatar admin-avatar" aria-label="Admin - {{ current_user.username }}" role="button" tabindex="0">
+                                <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 6L9.5 10.5l-4.21.32 3.07 3.01-.73 4.17L12 15.5l4.37 2.5-.73-4.17 3.07-3.01-4.21-.32L12 6z"/>
+                                </svg>
+                            </div>
+                        {% elif current_user.team %}
+                            <!-- Enhanced Team Logo -->
+                            <div class="user-avatar team-avatar" 
+                                 aria-label="{{ current_user.team.name }} - Your Team" 
+                                 role="button" 
+                                 tabindex="0"
+                                 title="{{ current_user.team.name }}">
+                                {% if current_user.team.get_logo_url() %}
+                                    <img src="{{ current_user.team.get_logo_url() }}" 
+                                         alt="{{ current_user.team.name }} logo" 
+                                         class="team-logo-img"
+                                         loading="lazy"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <!-- Fallback initials (hidden by default, shown if image fails) -->
+                                    <span class="team-initials" style="display: none;">
+                                        {{ current_user.team.name[:2].upper() if current_user.team.name else 'TM' }}
+                                    </span>
+                                {% else %}
+                                    <!-- Fallback to team initials if no logo -->
+                                    <span class="team-initials">
+                                        {{ current_user.team.name[:2].upper() if current_user.team.name else 'TM' }}
+                                    </span>
+                                {% endif %}
+                            </div>
+                        {% else %}
+                            <!-- User Profile Icon -->
+                            <div class="user-avatar user-profile" aria-label="{{ current_user.username }} Profile" role="button" tabindex="0">
+                                <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                                </svg>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <!-- Guest User Icon -->
+                        <div class="user-avatar guest-avatar" aria-label="Guest User" role="button" tabindex="0">
+                            <svg width="22" height="22" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1L9 7V9C9 10.1 9.9 11 11 11V14.5C11 15.6 11.4 16.6 12 17.4C12.6 16.6 13 15.6 13 14.5V11C14.1 11 15 10.1 15 9Z"/>
+                            </svg>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Mobile Menu Content (opens below transformed header) -->
+    <div class="mobile-menu-overlay" id="mobileMenuOverlay">
+        <div class="menu-container">
+            
+            <!-- Menu Content -->
+            <div class="menu-content">
+                <div class="welcome-section">
+                    <h2 class="welcome-title">SS League</h2>
+                    <p class="welcome-subtitle">Fantasy Football Auction Platform</p>
+                </div>
+                
+                <!-- Navigation Menu Items -->
+                <nav class="menu-nav">
+                    {% if current_user.is_authenticated %}
+                    <div class="menu-item">
+                        <a href="{{ url_for('dashboard') }}" class="menu-link">
+                            <span class="menu-link-text">Dashboard</span>
+                            <span class="menu-link-description">Your team overview</span>
+                        </a>
+                    </div>
+                    {% else %}
+                    <div class="menu-item">
+                        <a href="{{ url_for('index') }}" class="menu-link">
+                            <span class="menu-link-text">Home</span>
+                            <span class="menu-link-description">Welcome page</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a href="{{ url_for('login') }}" class="menu-link">
+                            <span class="menu-link-text">Sign In</span>
+                            <span class="menu-link-description">Access your account</span>
+                        </a>
+                    </div>
+                    <div class="menu-item">
+                        <a href="{{ url_for('register') }}" class="menu-link">
+                            <span class="menu-link-text">Join Now</span>
+                            <span class="menu-link-description">Create new account</span>
+                        </a>
+                    </div>
+                    {% endif %}
+                    
+                    {% if current_user.is_authenticated %}
+                    <div class="menu-item expandable">
+                        <button class="menu-link menu-expandable" data-menu="services">
+                            <div class="menu-link-content">
+                                <span class="menu-link-text">{% if current_user.is_admin %}Admin Tools{% else %}Team Management{% endif %}</span>
+                                <span class="menu-link-description">{% if current_user.is_admin %}Manage platform{% else %}Your team tools{% endif %}</span>
+                            </div>
+                            <svg class="chevron-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div class="submenu" id="services-submenu">
+                            {% if not current_user.is_admin %}
+                            <a href="{{ url_for('team_players') }}" class="submenu-link">Team Players</a>
+                            <a href="{{ url_for('team_matches') }}" class="submenu-link">Matches</a>
+                            <a href="{{ url_for('team_management.team_leaderboard') }}" class="submenu-link">Leaderboard</a>
+                            {% else %}
+                            <a href="{{ url_for('admin_players') }}" class="submenu-link">Manage Players</a>
+                            <a href="{{ url_for('admin_teams') }}" class="submenu-link">Manage Teams</a>
+                            <a href="{{ url_for('admin_rounds') }}" class="submenu-link">Auction Rounds</a>
+                            <a href="{{ url_for('admin_users') }}" class="submenu-link">User Management</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="menu-item expandable">
+                        <button class="menu-link menu-expandable" data-menu="sites">
+                            <div class="menu-link-content">
+                                <span class="menu-link-text">Resources</span>
+                                <span class="menu-link-description">Stats & data</span>
+                            </div>
+                            <svg class="chevron-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div class="submenu" id="sites-submenu">
+                            {% if not current_user.is_admin %}
+                            <a href="{{ url_for('team_players_data') }}" class="submenu-link">Player Database</a>
+                            <a href="{{ url_for('all_teams') }}" class="submenu-link">All Teams</a>
+                            <a href="{{ url_for('team_management.team_leaderboard') }}" class="submenu-link">Leaderboard</a>
+                            {% else %}
+                            <a href="{{ url_for('admin_auction_settings') }}" class="submenu-link">Auction Settings</a>
+                            <a href="{{ url_for('admin_database') }}" class="submenu-link">Database Control</a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="menu-item expandable">
+                        <button class="menu-link menu-expandable" data-menu="about">
+                            <div class="menu-link-content">
+                                <span class="menu-link-text">My Account</span>
+                                <span class="menu-link-description">Settings & help</span>
+                            </div>
+                            <svg class="chevron-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </button>
+                        <div class="submenu" id="about-submenu">
+                            {% if not current_user.is_admin %}
+                            <a href="{{ url_for('edit_profile') }}" class="submenu-link">Edit Profile</a>
+                            {% endif %}
+                            <a href="#" class="submenu-link">Help & Support</a>
+                            <a href="{{ url_for('logout') }}" class="submenu-link">Logout</a>
+                        </div>
+                    </div>
+                    {% endif %}
+                </nav>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}

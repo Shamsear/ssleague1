@@ -1,0 +1,398 @@
+/* Mobile Navigation - Centered Menu Button Layout */
+
+/* ===================== NAVIGATION STRUCTURE OVERRIDE ===================== */
+
+/* Override existing nav-content to use three-column layout */
+@media (max-width: 768px) {
+    .nav-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 14px 20px;
+        max-width: 100%;
+        min-height: 64px;
+        position: relative;
+    }
+}
+
+/* ===================== THREE-COLUMN LAYOUT ===================== */
+
+.nav-left,
+.nav-center, 
+.nav-right {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    position: relative;
+    z-index: 10;
+}
+
+/* Left Section - Logo aligned to left */
+.nav-left {
+    justify-content: flex-start;
+}
+
+/* Center Section - Menu button perfectly centered */
+.nav-center {
+    justify-content: center;
+    position: relative;
+}
+
+/* Right Section - User avatar aligned to right */
+.nav-right {
+    justify-content: flex-end;
+}
+
+/* ===================== LOGO SECTION ADJUSTMENTS ===================== */
+
+/* Ensure logo stays in left position */
+.nav-left .nav-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+/* ===================== CENTER MENU BUTTON STYLING ===================== */
+
+/* Center container for menu buttons */
+.nav-center {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    z-index: 100;
+}
+
+/* Enhanced menu toggle button for center position */
+@media (max-width: 768px) {
+    .nav-center .menu-toggle-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 20px;
+        background: linear-gradient(135deg, 
+            rgba(0, 102, 255, 0.1) 0%, 
+            rgba(149, 128, 255, 0.1) 100%);
+        color: #0066FF;
+        border: 2px solid rgba(0, 102, 255, 0.2);
+        border-radius: 30px;
+        font-size: 15px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+        box-shadow: 0 2px 12px rgba(0, 102, 255, 0.15);
+        backdrop-filter: blur(10px);
+        -webkit-backdrop-filter: blur(10px);
+        position: relative;
+        overflow: hidden;
+        min-width: 120px;
+        justify-content: center;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Prominent hover effect for center button */
+    .nav-center .menu-toggle-btn:hover {
+        background: linear-gradient(135deg, #0066FF 0%, #9580FF 100%);
+        color: white;
+        border-color: transparent;
+        transform: translateY(-2px) scale(1.05);
+        box-shadow: 0 8px 20px rgba(0, 102, 255, 0.3);
+    }
+    
+    .nav-center .menu-toggle-btn:active {
+        transform: translateY(-1px) scale(1.02);
+        transition-duration: 0.1s;
+    }
+    
+    /* Menu active state */
+    .nav-center .menu-toggle-btn.active {
+        background: linear-gradient(135deg, #0066FF 0%, #9580FF 100%);
+        color: white;
+        border-color: transparent;
+        box-shadow: 0 8px 20px rgba(0, 102, 255, 0.4);
+    }
+}
+
+/* Center close button styling */
+.nav-center .close-btn {
+    padding: 10px 20px;
+    background: linear-gradient(135deg, #0066FF 0%, #9580FF 100%);
+    color: white;
+    border: 2px solid transparent;
+    border-radius: 30px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    display: none;
+    align-items: center;
+    gap: 8px;
+    min-width: 120px;
+    justify-content: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 8px 20px rgba(0, 102, 255, 0.4);
+}
+
+.menu-active .nav-center .close-btn {
+    display: flex;
+}
+
+.menu-active .nav-center .menu-toggle-btn {
+    display: none;
+}
+
+.nav-center .close-btn:hover {
+    background: linear-gradient(135deg, #FF4444 0%, #CC3333 100%);
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 8px 20px rgba(255, 68, 68, 0.4);
+}
+
+.nav-center .close-btn:active {
+    transform: translateY(-1px) scale(1.02);
+    transition-duration: 0.1s;
+}
+
+/* ===================== HAMBURGER ICON ADJUSTMENTS ===================== */
+
+/* Adjust hamburger icon for center position */
+.nav-center .menu-icon-wrapper {
+    width: 20px;
+    height: 16px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.nav-center .menu-line {
+    display: block;
+    width: 100%;
+    height: 2.5px;
+    background: currentColor;
+    border-radius: 2px;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    position: absolute;
+    left: 0;
+}
+
+.nav-center .menu-line-top {
+    top: 0;
+}
+
+.nav-center .menu-line-middle {
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.nav-center .menu-line-bottom {
+    bottom: 0;
+}
+
+/* Enhanced transform animation for center position */
+.nav-center .menu-toggle-btn.active .menu-line-top {
+    transform: rotate(45deg) translateY(7px);
+    top: 50%;
+}
+
+.nav-center .menu-toggle-btn.active .menu-line-middle {
+    opacity: 0;
+    transform: translateY(-50%) translateX(10px);
+}
+
+.nav-center .menu-toggle-btn.active .menu-line-bottom {
+    transform: rotate(-45deg) translateY(-7px);
+    bottom: 50%;
+}
+
+.nav-center .menu-toggle-btn.active .menu-text {
+    opacity: 0;
+    transform: scale(0.8);
+}
+
+/* ===================== USER AVATAR SECTION ADJUSTMENTS ===================== */
+
+/* Ensure user avatar stays in right position */
+.nav-right .nav-user {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-shrink: 0;
+}
+
+/* ===================== RESPONSIVE ADJUSTMENTS ===================== */
+
+/* Smaller screens - adjust spacing */
+@media (max-width: 375px) {
+    .nav-content {
+        padding: 12px 16px;
+    }
+    
+    .nav-center .menu-toggle-btn,
+    .nav-center .close-btn {
+        padding: 8px 16px;
+        font-size: 14px;
+        min-width: 100px;
+    }
+    
+    .nav-left .logo-text {
+        font-size: 18px;
+    }
+    
+    .nav-left .logo-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 14px;
+    }
+}
+
+/* Very small screens - ultra compact */
+@media (max-width: 320px) {
+    .nav-center .menu-toggle-btn,
+    .nav-center .close-btn {
+        padding: 6px 12px;
+        font-size: 13px;
+        min-width: 80px;
+    }
+    
+    .nav-center .menu-toggle-btn .menu-text {
+        display: none;
+    }
+    
+    .nav-center .close-btn span {
+        display: none;
+    }
+    
+    /* Show only icons on very small screens */
+    .nav-center .menu-toggle-btn {
+        min-width: 44px;
+        padding: 10px;
+    }
+    
+    .nav-center .close-btn {
+        min-width: 44px;
+        padding: 10px;
+    }
+    
+    .nav-center .close-btn::after {
+        content: '✕';
+        font-size: 16px;
+        font-weight: bold;
+    }
+}
+
+/* ===================== ENHANCED VISUAL EFFECTS ===================== */
+
+/* Glow effect for center button */
+.nav-center .menu-toggle-btn::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    background: linear-gradient(45deg, 
+        rgba(0, 102, 255, 0.3), 
+        rgba(149, 128, 255, 0.3), 
+        rgba(0, 102, 255, 0.3));
+    border-radius: 32px;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    animation: buttonGlow 3s ease-in-out infinite;
+}
+
+.nav-center .menu-toggle-btn:hover::before {
+    opacity: 1;
+}
+
+@keyframes buttonGlow {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 0.3;
+    }
+    50% { 
+        transform: scale(1.02);
+        opacity: 0.6;
+    }
+}
+
+/* Pulse animation when menu is active */
+.menu-active .nav-center .close-btn {
+    animation: centerButtonPulse 2s ease-in-out infinite;
+}
+
+@keyframes centerButtonPulse {
+    0%, 100% {
+        box-shadow: 0 8px 20px rgba(0, 102, 255, 0.4);
+    }
+    50% {
+        box-shadow: 0 12px 30px rgba(0, 102, 255, 0.6);
+    }
+}
+
+/* ===================== ACCESSIBILITY ENHANCEMENTS ===================== */
+
+/* Focus indicators for center buttons */
+.nav-center .menu-toggle-btn:focus-visible,
+.nav-center .close-btn:focus-visible {
+    outline: 3px solid rgba(0, 102, 255, 0.6);
+    outline-offset: 4px;
+    border-radius: 30px;
+}
+
+/* High contrast mode adjustments */
+@media (prefers-contrast: high) {
+    .nav-center .menu-toggle-btn,
+    .nav-center .close-btn {
+        border-width: 3px;
+        border-color: currentColor;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .nav-center .menu-toggle-btn,
+    .nav-center .close-btn,
+    .nav-center .menu-line,
+    .nav-center .menu-toggle-btn::before {
+        animation: none;
+        transition-duration: 0.1s;
+    }
+    
+    .nav-center .menu-toggle-btn:hover {
+        transform: scale(1.02);
+    }
+}
+
+/* ===================== PERFORMANCE OPTIMIZATIONS ===================== */
+
+/* GPU acceleration for center elements */
+.nav-center,
+.nav-center .menu-toggle-btn,
+.nav-center .close-btn,
+.nav-center .menu-line {
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* Touch optimizations */
+@media (max-width: 768px) {
+    .nav-center .menu-toggle-btn,
+    .nav-center .close-btn {
+        touch-action: manipulation;
+        -webkit-touch-callout: none;
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+    }
+}

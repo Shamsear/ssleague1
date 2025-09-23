@@ -1,0 +1,452 @@
+/* Mobile Isolation & Integration Styles */
+/* This file ensures mobile components are part of the page flow, not floating overlays */
+
+/* =============================================== */
+/* DESKTOP PROTECTION - Hide everything on desktop */
+/* =============================================== */
+@media (min-width: 769px) {
+    .mobile-nav-container,
+    .mobile-nav-bar,
+    .mobile-menu-overlay,
+    .mobile-page-header,
+    #mobileNav,
+    #mobileNavBar,
+    #mobileMenuOverlay {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+        position: absolute !important;
+        width: 0 !important;
+        height: 0 !important;
+        overflow: hidden !important;
+    }
+    
+    /* Reset any mobile-specific body styles on desktop */
+    body.has-mobile-nav {
+        padding-top: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* Ensure main content has no mobile spacing on desktop */
+    main {
+        margin-top: 0 !important;
+        padding-top: 0 !important;
+    }
+}
+
+/* =============================================== */
+/* MOBILE PAGE HEADER - Integrated Design */
+/* =============================================== */
+
+/* Force all text in mobile header to be visible */
+@media (max-width: 768px) {
+    .mobile-page-header,
+    .mobile-page-header *,
+    .mobile-header-content,
+    .mobile-header-content *,
+    .mobile-page-title,
+    .mobile-page-subtitle {
+        color: #1a1a1a !important;
+        background: none !important;
+        background-color: transparent !important;
+        -webkit-text-fill-color: #1a1a1a !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+    }
+    
+    /* Subtitle specific color */
+    .mobile-page-subtitle {
+        color: #4a5568 !important;
+        -webkit-text-fill-color: #4a5568 !important;
+    }
+    
+    /* Admin title - visible dark brown */
+    .mobile-page-title.admin {
+        color: #8B4513 !important;
+        -webkit-text-fill-color: #8B4513 !important;
+        background: none !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+    }
+    
+    /* Admin subtitle - visible brown */
+    .mobile-page-header.admin-page .mobile-page-subtitle {
+        color: #8B7355 !important;
+        -webkit-text-fill-color: #8B7355 !important;
+    }
+}
+@media (max-width: 768px) {
+    /* Remove all backgrounds and make header part of content flow */
+    .mobile-page-header {
+        position: relative;
+        background: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
+        padding: 32px 0 24px !important; /* Remove horizontal padding */
+        margin: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        overflow: visible;
+        z-index: 1;
+        color: #1a1a1a !important; /* Force all text to be black */
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* Remove all decorative overlays */
+    .mobile-page-header::before,
+    .mobile-page-header::after {
+        display: none !important;
+    }
+    
+    .mobile-header-content {
+        text-align: left; /* Align to left for natural reading */
+        max-width: 100%;
+        position: relative;
+        z-index: 1;
+        color: #1a1a1a !important; /* Force all child text to be black */
+        padding: 0 20px !important; /* Add minimal inner padding for readability */
+        margin: 0 !important;
+        width: 100% !important;
+    }
+    
+    /* Remove decorative dots */
+    .mobile-header-content::before,
+    .mobile-header-content::after {
+        display: none !important;
+    }
+    
+    /* Page title - clean and simple */
+    .mobile-page-title {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 36px;
+        font-weight: 700;
+        color: #1a1a1a !important; /* Force solid black text */
+        margin-bottom: 8px;
+        letter-spacing: -1px;
+        line-height: 1.1;
+        text-transform: none; /* Keep natural casing */
+        position: relative;
+        display: block;
+        animation: none; /* Remove animations */
+        background: none !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+        text-shadow: none !important;
+    }
+    
+    /* Remove gradient overlay effect */
+    .mobile-page-title::after {
+        display: none !important;
+    }
+    
+    /* Keep emoji icons but make them subtle */
+    .mobile-page-title[data-icon]::before {
+        content: attr(data-icon);
+        margin-right: 12px;
+        font-size: 1em;
+        vertical-align: middle;
+        animation: none; /* Remove bouncing */
+        display: inline-block;
+        opacity: 0.9;
+    }
+    
+    /* Page subtitle - minimal style */
+    .mobile-page-subtitle {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+        font-size: 16px;
+        font-weight: 400;
+        color: #64748b !important; /* Force gray text */
+        opacity: 1 !important;
+        letter-spacing: 0;
+        line-height: 1.5;
+        animation: none; /* Remove animations */
+        position: relative;
+        background: none !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+    }
+    
+    /* Remove decorative line */
+    .mobile-page-subtitle::after {
+        display: none !important;
+    }
+    
+    /* Remove special page backgrounds */
+    .mobile-page-header.dashboard-page,
+    .mobile-page-header.admin-page,
+    .mobile-page-header.auction-page {
+        background: none !important;
+    }
+    
+    /* Admin title - keep gold but no animations */
+    .mobile-page-title.admin {
+        background: linear-gradient(90deg, #D4AF37 0%, #FCD34D 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: none; /* Remove shimmer */
+        text-shadow: none;
+        font-weight: 700;
+    }
+    
+    /* Admin subtitle */
+    .mobile-page-header.admin-page .mobile-page-subtitle {
+        color: #8B7355 !important;
+        background: none !important;
+        opacity: 1 !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+    }
+    
+    /* Remove all hover/active effects */
+    .mobile-page-header:active {
+        transform: none !important;
+    }
+}
+
+/* =============================================== */
+/* RESPONSIVE ADJUSTMENTS */
+/* =============================================== */
+@media (max-width: 640px) {
+    .mobile-page-header {
+        padding: 28px 0 20px !important;
+    }
+    
+    .mobile-header-content {
+        padding: 0 16px !important; /* Minimal padding for readability */
+    }
+    
+    .mobile-page-title {
+        font-size: 32px;
+        letter-spacing: -0.8px;
+    }
+    
+    .mobile-page-subtitle {
+        font-size: 15px;
+    }
+}
+
+@media (max-width: 375px) {
+    .mobile-page-header {
+        padding: 24px 0 16px !important;
+    }
+    
+    .mobile-header-content {
+        padding: 0 12px !important; /* Even less padding on very small screens */
+    }
+    
+    .mobile-page-title {
+        font-size: 28px;
+        letter-spacing: -0.6px;
+    }
+    
+    .mobile-page-subtitle {
+        font-size: 14px;
+    }
+}
+
+/* =============================================== */
+/* MOBILE NAV BAR ISOLATION */
+/* =============================================== */
+@media (max-width: 768px) {
+    /* Ensure mobile nav bar stays at top */
+    .mobile-nav-bar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        z-index: 2000;
+    }
+    
+    /* Add padding to body when mobile nav is present */
+    body.has-mobile-nav {
+        padding-top: 64px; /* Height of mobile nav bar */
+    }
+    
+    /* Mobile page header comes after the nav bar space */
+    body.has-mobile-nav .mobile-page-header {
+        margin-top: 0;
+    }
+}
+
+/* =============================================== */
+/* MAIN CONTENT INTEGRATION */
+/* =============================================== */
+@media (max-width: 768px) {
+    /* Remove all horizontal padding from body and containers */
+    body {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+    }
+    
+    /* Ensure main content flows naturally after header */
+    main {
+        margin: 0 !important;
+        padding: 0 !important;
+        position: relative;
+        z-index: 1;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+    
+    /* Remove padding from all containers on mobile */
+    .container,
+    main > .container,
+    main .container,
+    div[class*="container"],
+    .mx-auto {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+        max-width: 100% !important;
+        width: 100% !important;
+    }
+    
+    /* Remove any borders between header and content */
+    main > .container:first-child,
+    main > div:first-child {
+        border-top: none !important;
+        margin-top: 0 !important;
+        padding-top: 16px !important;
+    }
+    
+    /* Smooth transition from header to content */
+    .mobile-page-header + main {
+        margin-top: -8px !important; /* Slightly overlap to feel connected */
+    }
+    
+    /* Remove padding from common layout elements */
+    .px-4, .px-5, .px-6,
+    [class*="px-"] {
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+    }
+    
+    /* Ensure content sections span full width */
+    section, article, .content, .main-content {
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding-left: 5px !important;
+        padding-right: 5px !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+/* =============================================== */
+/* UTILITY CLASSES FOR MOBILE ONLY */
+/* =============================================== */
+@media (max-width: 768px) {
+    .mobile-only {
+        display: block !important;
+    }
+    
+    .desktop-only {
+        display: none !important;
+    }
+}
+
+@media (min-width: 769px) {
+    .mobile-only {
+        display: none !important;
+    }
+    
+    .desktop-only {
+        display: block !important;
+    }
+}
+
+/* =============================================== */
+/* FINAL TEXT VISIBILITY OVERRIDE - HIGHEST PRIORITY */
+/* =============================================== */
+@media (max-width: 768px) {
+    /* Nuclear option - force all mobile header text to be visible */
+    .mobile-page-header h1,
+    .mobile-page-header h2,
+    .mobile-page-header h3,
+    .mobile-page-header p,
+    .mobile-page-header span,
+    .mobile-page-header div,
+    .mobile-page-title,
+    .mobile-page-subtitle,
+    h1.mobile-page-title,
+    p.mobile-page-subtitle {
+        color: #1a1a1a !important;
+        -webkit-text-fill-color: #1a1a1a !important;
+        background: transparent !important;
+        background-color: transparent !important;
+        background-image: none !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+        text-shadow: none !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+    }
+    
+    /* Subtitle darker gray */
+    .mobile-page-subtitle,
+    p.mobile-page-subtitle {
+        color: #374151 !important;
+        -webkit-text-fill-color: #374151 !important;
+    }
+    
+    /* Admin title solid dark brown - no gradient */
+    .mobile-page-title.admin,
+    h1.mobile-page-title.admin {
+        color: #8B4513 !important;
+        -webkit-text-fill-color: #8B4513 !important;
+        background: none !important;
+        background-image: none !important;
+    }
+    
+    /* NUCLEAR OPTION - Override base template styles completely */
+    header.mobile-page-header .mobile-page-title,
+    .mobile-page-header h1.mobile-page-title,
+    h1[class*="mobile-page-title"],
+    .mobile-header-content h1 {
+        color: #1a1a1a !important;
+        -webkit-text-fill-color: #1a1a1a !important;
+        background: transparent !important;
+        background-image: none !important;
+        background-color: transparent !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+        text-shadow: none !important;
+        font-weight: 700 !important;
+        text-transform: none !important;
+    }
+    
+    header.mobile-page-header .mobile-page-subtitle,
+    .mobile-page-header p.mobile-page-subtitle,
+    p[class*="mobile-page-subtitle"],
+    .mobile-header-content p {
+        color: #374151 !important;
+        -webkit-text-fill-color: #374151 !important;
+        background: transparent !important;
+        background-image: none !important;
+        background-color: transparent !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+        opacity: 1 !important;
+    }
+    
+    /* Force admin titles to be solid dark brown */
+    header.mobile-page-header .mobile-page-title.admin,
+    .mobile-page-header h1.mobile-page-title.admin,
+    h1[class*="mobile-page-title"][class*="admin"] {
+        color: #8B4513 !important;
+        -webkit-text-fill-color: #8B4513 !important;
+        background: transparent !important;
+        background-image: none !important;
+        background-color: transparent !important;
+        -webkit-background-clip: unset !important;
+        background-clip: unset !important;
+        animation: none !important;
+    }
+}

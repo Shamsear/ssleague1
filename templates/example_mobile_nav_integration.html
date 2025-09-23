@@ -1,0 +1,102 @@
+<!-- EXAMPLE: How to integrate mobile navigation in your Flask templates -->
+
+<!-- Option 1: Update your base.html template -->
+<!-- In base.html, add this to the <head> section: -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}">
+
+<!-- In base.html, add this right after <body> tag: -->
+<!-- Include mobile nav only on specific pages -->
+{% include 'components/mobile_nav.html' %}
+
+<!-- In base.html, add this before closing </body> tag: -->
+<script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
+
+
+<!-- Option 2: Use in specific templates where you want the mobile nav -->
+<!-- For example, in team_dashboard.html or any page without back button/logo: -->
+
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Set flag to show mobile navigation -->
+{% set show_mobile_nav = true %}
+
+<!-- Your page content here -->
+<div class="container">
+    <!-- Page content -->
+</div>
+{% endblock %}
+
+
+<!-- Option 3: Control from Flask routes -->
+<!-- In your app.py route, pass the show_mobile_nav flag: -->
+
+@app.route('/some_page')
+@login_required
+def some_page():
+    # Determine if this page should show mobile nav
+    # (pages without back button and logo)
+    show_mobile_nav = True
+    
+    return render_template('some_page.html', 
+                          show_mobile_nav=show_mobile_nav)
+
+
+<!-- Option 4: Auto-detect pages that need mobile nav -->
+<!-- Add this logic to your base.html: -->
+
+{% set pages_with_mobile_nav = ['dashboard', 'team_players', 'team_matches'] %}
+{% set show_mobile_nav = request.endpoint in pages_with_mobile_nav %}
+
+{% if show_mobile_nav %}
+    {% include 'components/mobile_nav.html' %}
+{% endif %}
+
+
+<!-- FULL EXAMPLE: Complete page with mobile nav -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SS League{% endblock %}</title>
+    
+    <!-- Your existing styles -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Mobile nav styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-nav.css') }}">
+    
+    <!-- Your tailwind config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0066FF',
+                        'primary-dark': '#0055CC',
+                        // ... rest of your colors
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body>
+    <!-- Determine if current page needs mobile nav -->
+    {% set show_mobile_nav = not (has_back_button or has_logo_header) %}
+    
+    <!-- Include mobile navigation component -->
+    {% if show_mobile_nav %}
+        {% include 'components/mobile_nav.html' %}
+    {% endif %}
+    
+    <!-- Main content -->
+    <main>
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Mobile nav JavaScript -->
+    <script src="{{ url_for('static', filename='js/mobile-nav.js') }}"></script>
+</body>
+</html>

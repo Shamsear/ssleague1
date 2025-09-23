@@ -37,80 +37,6 @@
     }
 }
 
-/* ========================================
-   MOBILE NAVIGATION GRID
-========================================= */
-
-.mobile-nav-grid {
-    display: grid;
-    gap: 1rem;
-    margin-bottom: 1.5rem;
-}
-
-/* 2-column grid for small screens */
-@media (max-width: 480px) {
-    .mobile-nav-grid {
-        grid-template-columns: 1fr;
-        gap: 0.75rem;
-    }
-    
-    .mobile-nav-card {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 0.875rem;
-        background: rgba(255, 255, 255, 0.8);
-        backdrop-filter: blur(15px);
-        border-radius: 1rem;
-        border: 1px solid rgba(255, 255, 255, 0.4);
-        text-decoration: none;
-        transition: all 0.2s ease;
-    }
-    
-    .mobile-nav-card:hover {
-        transform: translateX(4px);
-        background: rgba(255, 255, 255, 0.9);
-        border-color: rgba(59, 130, 246, 0.3);
-    }
-    
-    .mobile-nav-card-icon {
-        width: 2.5rem;
-        height: 2.5rem;
-        border-radius: 0.75rem;
-        background: linear-gradient(135deg, #3b82f6, #1d4ed8);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        flex-shrink: 0;
-    }
-    
-    .mobile-nav-card-content h3 {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #1e293b;
-        margin: 0 0 0.25rem 0;
-    }
-    
-    .mobile-nav-card-content p {
-        font-size: 0.75rem;
-        color: #64748b;
-        margin: 0;
-        line-height: 1.3;
-    }
-}
-
-@media (min-width: 481px) and (max-width: 640px) {
-    .mobile-nav-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-}
-
-@media (min-width: 641px) and (max-width: 768px) {
-    .mobile-nav-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
-}
 
 /* ========================================
    MOBILE STATS CARDS
@@ -584,14 +510,12 @@
 
 /* High contrast mode for mobile */
 @media (max-width: 640px) and (prefers-contrast: high) {
-    .mobile-nav-card,
     .mobile-stat-card,
     .mobile-team-card {
         border-width: 2px;
         border-color: #000;
     }
     
-    .mobile-nav-card-icon,
     .mobile-stat-icon {
         background: #000;
         color: #fff;
@@ -600,14 +524,12 @@
 
 /* Reduced motion for mobile */
 @media (max-width: 640px) and (prefers-reduced-motion: reduce) {
-    .mobile-nav-card,
     .mobile-stat-card,
     .mobile-team-card,
     .mobile-bulk-submit {
         transition: none;
     }
     
-    .mobile-nav-card:hover,
     .mobile-stat-card:hover,
     .mobile-team-card:hover {
         transform: none;
@@ -817,20 +739,17 @@
 ========================================= */
 
 @media (max-width: 640px) and (prefers-color-scheme: dark) {
-    .mobile-nav-card,
     .mobile-stat-card,
     .mobile-team-card {
         background: rgba(30, 41, 59, 0.8);
         border-color: rgba(255, 255, 255, 0.1);
     }
     
-    .mobile-nav-card-content h3,
     .mobile-team-name,
     .mobile-stat-value {
         color: #f8fafc;
     }
     
-    .mobile-nav-card-content p,
     .mobile-stat-title {
         color: #cbd5e1;
     }
@@ -853,15 +772,6 @@
         padding-bottom: max(1rem, env(safe-area-inset-bottom));
     }
     
-    /* Bottom navigation safe area spacing */
-    .mobile-nav-bottom-safe {
-        padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
-    }
-    
-    /* Content safe area for pages with bottom navigation */
-    .mobile-content-with-nav {
-        margin-bottom: calc(80px + env(safe-area-inset-bottom));
-    }
 }
 
 /* ========================================

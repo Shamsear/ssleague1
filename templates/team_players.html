@@ -1,14 +1,51 @@
 {% extends "base.html" %}
 
-{% block title %}My Players - Football Auction{% endblock %}
+{% block title %}Players - Football Auction{% endblock %}
 
 {% block content %}
 <div class="container mx-auto px-2 sm:px-4 py-4 sm:py-8">
-    <!-- Header Section -->
-    <div class="glass rounded-3xl p-4 sm:p-6 shadow-lg mb-6">
-        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hidden sm:flex">
+    <!-- Mobile Header Section -->
+    <div class="block sm:hidden glass rounded-3xl p-4 shadow-lg mb-4">
+        <div class="text-center mb-4">
+            <h2 class="text-xl font-bold text-dark mb-1">Players</h2>
+            <p class="text-sm text-gray-500">{{ current_user.team.players|length }} players acquired</p>
+        </div>
+        
+        <!-- Mobile Search Bar -->
+        <div class="relative mb-3">
+            <input type="text" id="searchPlayersMobile" placeholder="Search players..." class="w-full pl-10 py-3 pr-4 bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm text-base">
+            <svg class="w-5 h-5 text-gray-500 absolute left-3 top-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+        </div>
+        
+        <!-- Mobile Filters -->
+        <div class="flex gap-2">
+            <div class="relative flex-1">
+                <select id="positionFilterMobile" class="w-full pl-8 py-2.5 pr-4 bg-white/70 backdrop-blur-sm border border-white/30 rounded-xl focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition-all duration-200 shadow-sm text-sm">
+                    <option value="all">All Positions</option>
+                    {% for position in config.POSITIONS %}
+                    <option value="{{ position }}">{{ position }}</option>
+                    {% endfor %}
+                </select>
+                <svg class="w-4 h-4 text-gray-500 absolute left-2.5 top-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </div>
+            
+            <a href="{{ url_for('dashboard') }}" class="px-4 py-2.5 rounded-xl bg-white/60 text-primary hover:bg-white/80 transition-all duration-300 text-sm font-medium flex items-center shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Desktop Header Section -->
+    <div class="hidden sm:block glass rounded-3xl p-4 sm:p-6 shadow-lg mb-6">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div class="mb-2 sm:mb-0">
-                <h2 class="text-2xl font-bold text-dark mb-1">My Players</h2>
+                <h2 class="text-2xl font-bold text-dark mb-1">Players</h2>
                 <p class="text-sm text-gray-500">Manage your acquired players</p>
             </div>
             
@@ -274,10 +311,14 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Get filter elements
+    // Get filter elements (desktop)
     const positionFilter = document.getElementById('positionFilter');
     const positionGroupFilter = document.getElementById('positionGroupFilter');
     const searchInput = document.getElementById('searchPlayers');
+    
+    // Get mobile filter elements
+    const positionFilterMobile = document.getElementById('positionFilterMobile');
+    const searchInputMobile = document.getElementById('searchPlayersMobile');
     
     // Get player cards and table rows
     const mobileCards = document.querySelectorAll('.player-card-mobile');
@@ -285,9 +326,16 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Function to apply all filters
     function applyFilters() {
-        const selectedPosition = positionFilter ? positionFilter.value.toLowerCase() : 'all';
+        // Get values from both desktop and mobile inputs
+        const desktopPosition = positionFilter ? positionFilter.value.toLowerCase() : 'all';
+        const mobilePosition = positionFilterMobile ? positionFilterMobile.value.toLowerCase() : 'all';
+        const selectedPosition = desktopPosition !== 'all' ? desktopPosition : mobilePosition;
+        
         const selectedGroup = positionGroupFilter ? positionGroupFilter.value : 'all';
-        const searchTerm = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        
+        const desktopSearch = searchInput ? searchInput.value.toLowerCase().trim() : '';
+        const mobileSearch = searchInputMobile ? searchInputMobile.value.toLowerCase().trim() : '';
+        const searchTerm = desktopSearch || mobileSearch;
         
         // Function to determine if an element matches the filter criteria
         function matchesFilters(element) {
@@ -410,28 +458,60 @@ document.addEventListener('DOMContentLoaded', function() {
         positionGroupFilter.addEventListener('change', applyFilters);
     }
     
-    // Add event listener to search input
+    // Add event listeners for mobile filters
+    if (positionFilterMobile) {
+        positionFilterMobile.addEventListener('change', function() {
+            // Sync with desktop filter if it exists
+            if (positionFilter) {
+                positionFilter.value = this.value;
+            }
+            applyFilters();
+        });
+    }
+    
+    // Function to add clear button to search input
+    function addClearButton(input, inputId) {
+        const clearButtonId = 'clearSearch' + (inputId.includes('Mobile') ? 'Mobile' : '');
+        const clearButton = document.getElementById(clearButtonId);
+        
+        if (input.value && !clearButton) {
+            const newClearButton = document.createElement('button');
+            newClearButton.id = clearButtonId;
+            newClearButton.className = 'absolute right-3 top-4 text-gray-400 hover:text-gray-600 focus:outline-none';
+            newClearButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
+            newClearButton.addEventListener('click', function() {
+                input.value = '';
+                input.focus();
+                input.dispatchEvent(new Event('input'));
+                this.remove();
+            });
+            input.parentNode.appendChild(newClearButton);
+        } else if (!input.value && clearButton) {
+            clearButton.remove();
+        }
+    }
+    
+    // Add event listener to desktop search input
     if (searchInput) {
         searchInput.addEventListener('input', function() {
-            applyFilters();
-            
-            // Add or remove clear button
-            const clearButton = document.getElementById('clearSearch');
-            if (this.value && !clearButton) {
-                const newClearButton = document.createElement('button');
-                newClearButton.id = 'clearSearch';
-                newClearButton.className = 'absolute right-3 top-3 text-gray-400 hover:text-gray-600 focus:outline-none';
-                newClearButton.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>';
-                newClearButton.addEventListener('click', function() {
-                    searchInput.value = '';
-                    searchInput.focus();
-                    searchInput.dispatchEvent(new Event('input'));
-                    this.remove();
-                });
-                searchInput.parentNode.appendChild(newClearButton);
-            } else if (!this.value && clearButton) {
-                clearButton.remove();
+            // Sync with mobile search if it exists
+            if (searchInputMobile) {
+                searchInputMobile.value = this.value;
             }
+            applyFilters();
+            addClearButton(this, 'searchPlayers');
+        });
+    }
+    
+    // Add event listener to mobile search input
+    if (searchInputMobile) {
+        searchInputMobile.addEventListener('input', function() {
+            // Sync with desktop search if it exists
+            if (searchInput) {
+                searchInput.value = this.value;
+            }
+            applyFilters();
+            addClearButton(this, 'searchPlayersMobile');
         });
     }
     

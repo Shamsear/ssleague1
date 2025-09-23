@@ -1,0 +1,322 @@
+/* Enhanced Team Logo Styles for Mobile Navigation */
+
+/* ===================== TEAM LOGO CONTAINER ENHANCEMENTS ===================== */
+.nav-user {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    z-index: 10;
+    position: relative;
+}
+
+/* ===================== ENHANCED TEAM AVATAR STYLING ===================== */
+.user-avatar {
+    width: 52px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+    transition: all 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    border: 3px solid transparent;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+/* ===================== TEAM AVATAR SPECIFIC IMPROVEMENTS ===================== */
+.team-avatar {
+    background: linear-gradient(135deg, #0066FF 0%, #9580FF 100%) !important;
+    color: white !important;
+    font-weight: 800;
+    font-size: 16px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    box-shadow: 
+        0 6px 20px rgba(0, 102, 255, 0.3),
+        0 2px 8px rgba(0, 102, 255, 0.2),
+        inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    position: relative;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+/* Glowing border effect */
+.team-avatar::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    right: -3px;
+    bottom: -3px;
+    background: linear-gradient(45deg, 
+        #0066FF, #9580FF, #0066FF, #9580FF);
+    border-radius: 16px;
+    z-index: -1;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    animation: borderRotate 3s linear infinite;
+}
+
+.team-avatar:hover::before {
+    opacity: 0.8;
+}
+
+@keyframes borderRotate {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Enhanced team logo image */
+.team-logo-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 12px;
+    transition: all 0.35s ease;
+    position: relative;
+    z-index: 2;
+}
+
+.team-avatar:hover .team-logo-img {
+    transform: scale(1.05);
+    filter: brightness(1.1) contrast(1.1);
+}
+
+/* Enhanced team initials styling */
+.team-initials {
+    font-size: 18px;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: -0.5px;
+    color: white !important;
+    text-shadow: 
+        0 2px 4px rgba(0, 0, 0, 0.3),
+        0 0 8px rgba(255, 255, 255, 0.2);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    position: relative;
+    z-index: 2;
+}
+
+/* ===================== HOVER AND ACTIVE STATES ===================== */
+.team-avatar:hover {
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 
+        0 8px 25px rgba(0, 102, 255, 0.4),
+        0 4px 12px rgba(0, 102, 255, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    border-color: rgba(255, 255, 255, 0.5);
+}
+
+.team-avatar:active {
+    transform: translateY(-1px) scale(1.05);
+    transition-duration: 0.1s;
+}
+
+/* ===================== MENU ACTIVE STATE ENHANCEMENTS ===================== */
+.menu-active .team-avatar {
+    background: linear-gradient(135deg, #4d94ff 0%, #b3a3ff 100%) !important;
+    transform: scale(1.15) rotate(5deg);
+    box-shadow: 
+        0 10px 30px rgba(0, 102, 255, 0.5),
+        0 6px 16px rgba(0, 102, 255, 0.3),
+        inset 0 2px 0 rgba(255, 255, 255, 0.4);
+    border-color: rgba(255, 255, 255, 0.6);
+    animation: teamLogoPulse 2s ease-in-out infinite;
+}
+
+@keyframes teamLogoPulse {
+    0%, 100% { 
+        box-shadow: 
+            0 10px 30px rgba(0, 102, 255, 0.5),
+            0 6px 16px rgba(0, 102, 255, 0.3),
+            inset 0 2px 0 rgba(255, 255, 255, 0.4);
+    }
+    50% { 
+        box-shadow: 
+            0 12px 35px rgba(0, 102, 255, 0.6),
+            0 8px 20px rgba(0, 102, 255, 0.4),
+            inset 0 2px 0 rgba(255, 255, 255, 0.5);
+    }
+}
+
+/* ===================== NOTIFICATION BADGE FOR TEAM AVATAR ===================== */
+.team-avatar::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+    border-radius: 50%;
+    border: 2px solid white;
+    opacity: 0;
+    transform: scale(0);
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    z-index: 3;
+}
+
+/* Show badge on hover to indicate interactivity */
+.team-avatar:hover::after {
+    opacity: 1;
+    transform: scale(1);
+}
+
+/* ===================== OTHER AVATAR TYPES IMPROVEMENTS ===================== */
+.admin-avatar {
+    background: linear-gradient(135deg, #F59E0B 0%, #D97706 100%);
+    color: white;
+    box-shadow: 0 6px 20px rgba(245, 158, 11, 0.3);
+    border: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.admin-avatar:hover {
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 8px 25px rgba(245, 158, 11, 0.4);
+}
+
+.user-profile {
+    background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+    color: white;
+    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
+    border: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.user-profile:hover {
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 8px 25px rgba(16, 185, 129, 0.4);
+}
+
+.guest-avatar {
+    background: linear-gradient(135deg, #6B7280 0%, #4B5563 100%);
+    color: white;
+    box-shadow: 0 6px 20px rgba(107, 114, 128, 0.3);
+    border: 3px solid rgba(255, 255, 255, 0.3);
+}
+
+.guest-avatar:hover {
+    transform: translateY(-2px) scale(1.08);
+    box-shadow: 0 8px 25px rgba(107, 114, 128, 0.4);
+}
+
+/* ===================== RESPONSIVE ENHANCEMENTS ===================== */
+@media (max-width: 375px) {
+    .user-avatar {
+        width: 46px;
+        height: 46px;
+    }
+    
+    .team-initials {
+        font-size: 16px;
+    }
+    
+    .team-avatar::after {
+        width: 14px;
+        height: 14px;
+    }
+}
+
+@media (max-width: 320px) {
+    .user-avatar {
+        width: 42px;
+        height: 42px;
+    }
+    
+    .team-initials {
+        font-size: 14px;
+    }
+}
+
+/* ===================== ACCESSIBILITY IMPROVEMENTS ===================== */
+.team-avatar:focus-visible {
+    outline: 3px solid rgba(0, 102, 255, 0.6);
+    outline-offset: 4px;
+    border-radius: 16px;
+}
+
+/* ===================== PERFORMANCE OPTIMIZATIONS ===================== */
+.team-avatar,
+.team-logo-img,
+.team-initials {
+    will-change: transform;
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+}
+
+/* ===================== DARK MODE SUPPORT (if implemented) ===================== */
+@media (prefers-color-scheme: dark) {
+    .team-avatar {
+        border-color: rgba(255, 255, 255, 0.4);
+        box-shadow: 
+            0 6px 20px rgba(0, 102, 255, 0.4),
+            0 2px 8px rgba(0, 102, 255, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.3);
+    }
+    
+    .team-avatar::after {
+        border-color: #1a1a1a;
+    }
+}
+
+/* ===================== HIGH CONTRAST MODE SUPPORT ===================== */
+@media (prefers-contrast: high) {
+    .team-avatar {
+        border-width: 4px;
+        border-color: currentColor;
+    }
+    
+    .team-initials {
+        text-shadow: 0 0 0 transparent;
+        font-weight: 900;
+    }
+}
+
+/* ===================== REDUCED MOTION SUPPORT ===================== */
+@media (prefers-reduced-motion: reduce) {
+    .team-avatar,
+    .team-logo-img,
+    .team-initials,
+    .team-avatar::before,
+    .team-avatar::after {
+        animation: none;
+        transition-duration: 0.1s;
+    }
+    
+    .team-avatar:hover {
+        transform: scale(1.05);
+    }
+}
+
+/* ===================== TEAM AVATAR TOOLTIP (Optional Enhancement) ===================== */
+.team-avatar[aria-label]:hover::before {
+    content: attr(aria-label);
+    position: absolute;
+    bottom: -40px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 1000;
+    opacity: 0;
+    animation: tooltipFadeIn 0.3s ease forwards;
+}
+
+@keyframes tooltipFadeIn {
+    to {
+        opacity: 1;
+    }
+}
