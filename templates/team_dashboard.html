@@ -533,8 +533,24 @@
     .animate-float { animation: float 6s ease-in-out infinite; }
     .animate-float-delay-1 { animation: float-delay-1 8s ease-in-out infinite; }
     .animate-float-delay-2 { animation: float-delay-2 7s ease-in-out infinite; }
-    </style>
+</script>
     {% endif %}
+
+    <!-- Real-time Rounds Manager -->
+    <script src="{{ url_for('static', filename='js/real_time_rounds.js') }}" defer></script>
+    <script>
+        // Initialize page-specific settings for real-time manager
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add dashboard page class for JavaScript detection
+            document.body.classList.add('dashboard-page');
+            
+            // Set up any dashboard-specific real-time settings
+            if (window.realTimeRoundsManager) {
+                // Dashboard is initialized, ready for real-time updates
+                console.log('Real-time manager ready for dashboard');
+            }
+        });
+    </script>
 
     <!-- Team Overview -->
     <div class="glass rounded-3xl p-4 sm:p-6 mb-6 sm:mb-8 hover:shadow-lg transition-all duration-300">

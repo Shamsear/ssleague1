@@ -331,11 +331,10 @@
                         submitBtn.classList.remove('bg-primary');
                         submitBtn.classList.add('bg-green-500');
                         
-                        // Update the UI immediately to show the bid was submitted
-                        updateTiebreakerUI(bidAmount);
-                        
-                        // Start monitoring for completion/resolution
-                        setTimeout(startTiebreakerMonitoring, 1000);
+                        // Show success message briefly then redirect to waiting page
+                        setTimeout(() => {
+                            window.location.href = `/tiebreaker_waiting/${tiebreakerId}`;
+                        }, 1500);
                     } else {
                         const data = await response.json();
                         errorDiv.textContent = data.error || 'Failed to submit bid';
@@ -363,46 +362,17 @@
                 .then(response => response.json())
                 .then(data => {
                     // Handle active tiebreaker that's still waiting for bids
-                    if (data.status === 'waiting' && data.active) {
-                        if (data.remaining !== undefined) {
-                            const hours = Math.floor(data.remaining / 3600);
-                            const minutes = Math.floor((data.remaining % 3600) / 60);
-                            const seconds = Math.floor(data.remaining % 60);
-                            
-                            timerText.textContent = `${hours > 0 ? hours + 'h ' : ''}${minutes}m ${seconds.toString().padStart(2, '0')}s remaining`;
-                            
-                            if (data.remaining <= 0) {
-                                // Timer has expired but still waiting for resolution
-                                timerContainer.classList.add('bg-red-100');
-                                timerContainer.classList.add('animate-pulse');
-                                timerContainer.classList.remove('bg-gray-100');
-                                timerContainer.classList.remove('bg-yellow-100');
-                                timerText.textContent = "Time expired!";
-                            } else if (data.remaining < 300) { // Less than 5 minutes
-                                timerContainer.classList.add('bg-red-100');
-                                timerContainer.classList.add('animate-pulse');
-                                timerContainer.classList.remove('bg-gray-100');
-                                timerContainer.classList.remove('bg-yellow-100');
-                            } else if (data.remaining < 600) { // Less than 10 minutes
-                                timerContainer.classList.add('bg-yellow-100');
-                                timerContainer.classList.remove('bg-gray-100');
-                                timerContainer.classList.remove('bg-red-100');
-                                timerContainer.classList.remove('animate-pulse');
-                            } else {
-                                timerContainer.classList.add('bg-gray-100');
-                                timerContainer.classList.remove('bg-yellow-100');
-                                timerContainer.classList.remove('bg-red-100');
-                                timerContainer.classList.remove('animate-pulse');
-                            }
-                        } else {
-                            timerText.textContent = data.message || 'Waiting for bids';
-                        }
+                    if (data.status === 'waiting') {
+                        // Show status message without timer
+                        timerText.textContent = data.message || `Waiting for ${data.total_teams - data.submitted_count} more teams to submit bids`;
+                        timerContainer.classList.add('bg-blue-100');
+                        timerContainer.classList.remove('bg-gray-100', 'bg-yellow-100', 'bg-red-100', 'bg-green-100', 'animate-pulse');
                         
                         // Schedule next update
-                        setTimeout(updateTimer, 1000);
+                        setTimeout(updateTimer, 2000);
                     }
                     // Handle resolved tiebreaker
-                    else if (data.status === 'processing' || data.status === 'completed') {
+                    else if (data.status === 'resolved' || data.status === 'processing' || data.status === 'completed') {
                         // Tiebreaker is resolved, redirect to dashboard
                         timerText.textContent = 'Resolved!';
                         timerContainer.classList.add('bg-green-100');

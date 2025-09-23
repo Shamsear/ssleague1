@@ -590,29 +590,48 @@
                     return response.json();
                 })
                 .then(data => {
-                    if (!data.active) {
+                    if (!data.active || data.timer_stop) {
                         // Handle different scenarios when round is no longer active
-                        console.log('Round is no longer active:', data.message);
+                        console.log('Round finalized, stopping all timers:', data.message);
+                        
+                        // Stop client-side timer updates for this round
+                        delete lastUpdateTimes[roundId];
+                        delete lastRemainingTimes[roundId];
+                        
+                        // Clear the server update interval to fully stop timer polling
+                        if (serverUpdateInterval) {
+                            clearInterval(serverUpdateInterval);
+                            serverUpdateInterval = null;
+                        }
+                        
+                        // Clear client-side timer as well to ensure full stop
+                        if (clientUpdateInterval) {
+                            clearInterval(clientUpdateInterval);
+                            clientUpdateInterval = null;
+                        }
+                        
+                        // Set timer display to show 00:00:00
+                        updateTimerDisplay(roundId, 0);
                         
                         if (data.redirect_to) {
-                            // If there's a specific redirect URL (like to a tiebreaker)
-                            console.log("Redirecting to tiebreaker:", data.redirect_to);
+                            // If there's a specific redirect URL (tiebreaker, auction results, etc.)
+                            console.log("Redirecting to:", data.redirect_to);
                             // Add a small delay to ensure the server has processed everything
                             setTimeout(() => {
                                 window.location.href = data.redirect_to;
-                            }, 500);
+                            }, 1000);  // Slightly longer delay to ensure proper server processing
                         } else if (data.tiebreaker_id) {
                             // Fallback: construct tiebreaker URL if we have ID but no redirect_to
                             console.log("Redirecting to tiebreaker via ID:", data.tiebreaker_id);
                             setTimeout(() => {
                                 window.location.href = `/tiebreaker/${data.tiebreaker_id}`;
-                            }, 500);
+                            }, 1000);
                         } else {
-                            // No tiebreaker needed, go back to dashboard
-                            console.log("Round ended, returning to dashboard:", data.message);
+                            // Round completed without specific redirect - go to round results
+                            console.log("Round completed, showing results:", data.message);
                             setTimeout(() => {
-                                window.location.href = '/dashboard';
-                            }, 800);
+                                window.location.href = `/round_results/${roundId}`;
+                            }, 1000);
                         }
                         return;
                     }
@@ -653,7 +672,23 @@
                     return response.json();
                 })
                 .then(data => {
-                    if (!data.active) {
+                    if (!data.active || data.timer_stop) {
+                        // Stop client-side timer updates for this bulk round
+                        delete lastUpdateTimes['bulk_' + roundId];
+                        delete lastRemainingTimes['bulk_' + roundId];
+                        
+                        // Clear the server update interval to fully stop timer polling
+                        if (serverUpdateInterval) {
+                            clearInterval(serverUpdateInterval);
+                            serverUpdateInterval = null;
+                        }
+                        
+                        // Clear client-side timer as well to ensure full stop
+                        if (clientUpdateInterval) {
+                            clearInterval(clientUpdateInterval);
+                            clientUpdateInterval = null;
+                        }
+                        
                         // Enhanced handling for bulk round completion
                         if (data.redirect_to) {
                             // If there's a specific redirect URL
@@ -1107,13 +1142,24 @@
         
         // Calculate minimum remaining time across all active rounds
         let minRemainingTime = Infinity;
+        let hasActiveTimers = false;
+        
         Object.keys(lastRemainingTimes).forEach(key => {
             if (lastRemainingTimes[key] && lastUpdateTimes[key]) {
                 const elapsed = (Date.now() - lastUpdateTimes[key]) / 1000;
                 const remaining = Math.max(0, lastRemainingTimes[key] - elapsed);
-                minRemainingTime = Math.min(minRemainingTime, remaining);
+                if (remaining > 0) {
+                    hasActiveTimers = true;
+                    minRemainingTime = Math.min(minRemainingTime, remaining);
+                }
             }
         });
+        
+        // If no active timers, don't start polling interval
+        if (!hasActiveTimers) {
+            console.log('No active timers, stopping polling');
+            return;
+        }
         
         // Set polling interval based on time remaining
         let pollInterval;

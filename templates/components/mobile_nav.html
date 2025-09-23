@@ -8,12 +8,12 @@
         <div class="nav-content">
             <!-- Left Section: Logo -->
             <div class="nav-left">
-                <div class="nav-logo">
+                <a href="{% if current_user.is_authenticated %}{{ url_for('dashboard') }}{% else %}{{ url_for('index') }}{% endif %}" class="nav-logo" aria-label="{% if current_user.is_authenticated %}Go to dashboard{% else %}Go to home page{% endif %}">
                     <div class="logo-icon">
                         <span>SS</span>
                     </div>
                     <span class="logo-text">League</span>
-                </div>
+                </a>
             </div>
             
             <!-- Center Section: Menu Buttons -->

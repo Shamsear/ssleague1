@@ -571,7 +571,6 @@
         </div>
     </div>
 </div>
-{% endblock %}
 
 <script>
     // Auto-refresh configuration
@@ -904,7 +903,15 @@
         createRefreshControls();
         createNotificationSystem();
         
+        // Add admin page class for real-time manager
+        document.body.classList.add('admin-page');
+        
         // Start auto-refresh
         fetchDashboardData();
     });
 </script>
+
+<!-- Real-time Rounds Manager -->
+<script src="{{ url_for('static', filename='js/real_time_rounds.js') }}" defer></script>
+
+{% endblock %}
