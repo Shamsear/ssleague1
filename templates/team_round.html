@@ -608,11 +608,19 @@
                                 window.location.href = `/tiebreaker/${data.tiebreaker_id}`;
                             }, 500);
                         } else {
-                            // No tiebreaker needed, go back to dashboard
-                            console.log("Round ended, returning to dashboard:", data.message);
-                            setTimeout(() => {
-                                window.location.href = '/dashboard';
-                            }, 800);
+                            // No tiebreaker needed, check if we should show auction results
+                            if (data.redirect_to) {
+                                console.log("Round ended, redirecting to:", data.redirect_to);
+                                setTimeout(() => {
+                                    window.location.href = data.redirect_to;
+                                }, 800);
+                            } else {
+                                // Fallback to dashboard
+                                console.log("Round ended, returning to dashboard:", data.message);
+                                setTimeout(() => {
+                                    window.location.href = '/dashboard';
+                                }, 800);
+                            }
                         }
                         return;
                     }

@@ -416,7 +416,20 @@
                         const waitingSpinner = document.getElementById('waiting-spinner');
                         
                         if (waitingText && waitingSpinner) {
-                            waitingText.textContent = 'Tiebreaker resolved! Redirecting...';
+                            // Show winner information if available
+                            if (data.player_name && data.winning_team_name && data.winning_amount) {
+                                const winnerText = data.user_won ? 
+                                    `Congratulations! You won ${data.player_name} for £${data.winning_amount.toLocaleString()}!` :
+                                    `${data.winning_team_name} won ${data.player_name} for £${data.winning_amount.toLocaleString()}.`;
+                                
+                                waitingText.innerHTML = `
+                                    <div class="mb-2 font-medium">${winnerText}</div>
+                                    <div class="text-sm">Redirecting to auction results...</div>
+                                `;
+                            } else {
+                                waitingText.textContent = 'Tiebreaker resolved! Redirecting...';
+                            }
+                            
                             waitingSpinner.innerHTML = `
                                 <svg class="w-4 h-4 mr-1 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
@@ -425,16 +438,16 @@
                             `;
                         }
                         
-                        // If there's a redirect URL provided, use it
-                        if (data.redirect_to) {
-                            setTimeout(() => {
-                                window.location.href = data.redirect_to;
-                            }, 1500);
-                        } else {
-                            setTimeout(() => {
-                                window.location.href = '{{ url_for("dashboard") }}';
-                            }, 1500);
+                        // Prepare redirect URL with player won parameter if applicable
+                        let redirectUrl = data.redirect_to || '{{ url_for("dashboard") }}';
+                        if (data.user_won && data.player_name) {
+                            const separator = redirectUrl.includes('?') ? '&' : '?';
+                            redirectUrl += `${separator}player_won=${encodeURIComponent(data.player_name)}`;
                         }
+                        
+                        setTimeout(() => {
+                            window.location.href = redirectUrl;
+                        }, 2500); // Slightly longer delay to read the message
                     }
                     // Handle any other status
                     else {

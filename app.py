@@ -1106,7 +1106,12 @@ def check_round_status(round_id):
                     'tiebreaker_id': active_tiebreaker.id
                 })
         
-        return jsonify({'active': False, 'message': 'Round is already finalized'})
+        # Check if we should redirect to auction results
+        return jsonify({
+            'active': False, 
+            'message': 'Round is already finalized',
+            'redirect_to': f'/round_results/{round_id}'
+        })
     
     # Cache the timer check result to avoid repeated calculations
     expired = round.is_timer_expired()
@@ -1149,7 +1154,12 @@ def check_round_status(round_id):
                             'tiebreaker_id': team_tiebreaker.tiebreaker_id
                         })
         
-        return jsonify({'active': False, 'message': 'Round timer expired and has been finalized'})
+        # No tiebreaker needed, redirect to auction results
+        return jsonify({
+            'active': False, 
+            'message': 'Round timer expired and has been finalized',
+            'redirect_to': f'/round_results/{round_id}'
+        })
     
     # Calculate remaining time using end_time (cached calculation)
     remaining = round.get_remaining_time()
@@ -1542,6 +1552,68 @@ def submit_tiebreaker_bid():
     
     return jsonify({'message': 'Bid submitted successfully, waiting for other teams'})
 
+@app.route('/round_results/<int:round_id>')
+@login_required
+def round_results(round_id):
+    """Display the results of a completed round"""
+    round = Round.query.get_or_404(round_id)
+    
+    if round.is_active:
+        flash('Round is still active', 'warning')
+        return redirect(url_for('team_round'))
+    
+    # Get all players that were allocated in this round
+    allocated_players = Player.query.filter_by(round_id=round_id).filter(Player.team_id.isnot(None)).all()
+    
+    # Get all bids for this round to show the bidding history
+    all_bids = Bid.query.filter_by(round_id=round_id).all()
+    
+    # Create a structure to show results per player
+    player_results = []
+    for player in allocated_players:
+        # Get the winning bid
+        winning_bid = next((bid for bid in all_bids if bid.player_id == player.id and bid.team_id == player.team_id), None)
+        
+        # Get all bids for this player
+        player_bids = [bid for bid in all_bids if bid.player_id == player.id]
+        player_bids.sort(key=lambda x: x.amount, reverse=True)
+        
+        player_results.append({
+            'player': player,
+            'winning_team': player.team,
+            'winning_bid': winning_bid.amount if winning_bid else player.acquisition_value,
+            'all_bids': player_bids,
+            'was_tiebreaker': len([b for b in player_bids if b.amount == winning_bid.amount]) > 1 if winning_bid else False
+        })
+    
+    # Check if user's team participated in this round
+    user_participated = False
+    user_results = []
+    if current_user.team:
+        user_bids = [bid for bid in all_bids if bid.team_id == current_user.team.id]
+        user_participated = len(user_bids) > 0
+        
+        for bid in user_bids:
+            player = Player.query.get(bid.player_id)
+            result_type = 'won' if player and player.team_id == current_user.team.id else 'lost'
+            user_results.append({
+                'player': player,
+                'bid_amount': bid.amount,
+                'result': result_type,
+                'winning_team': player.team.name if player and player.team else 'Unknown',
+                'winning_amount': player.acquisition_value if player else 0
+            })
+    
+    # Get active rounds to show navigation button
+    active_rounds = Round.query.filter_by(is_active=True).all()
+    
+    return render_template('round_results.html', 
+                          round=round,
+                          player_results=player_results,
+                          user_participated=user_participated,
+                          user_results=user_results,
+                          active_rounds=active_rounds)
+
 @app.route('/check_tiebreaker_status/<int:tiebreaker_id>')
 @login_required
 def check_tiebreaker_status(tiebreaker_id):
@@ -1557,10 +1629,31 @@ def check_tiebreaker_status(tiebreaker_id):
                 'message': 'Tiebreaker resolved, round still processing'
             })
         else:
+            # Get tiebreaker results to show who won
+            winning_team_id = None
+            winning_amount = None
+            
+            # Find the winning team from team tiebreakers
+            team_tiebreakers = TeamTiebreaker.query.filter_by(tiebreaker_id=tiebreaker_id).all()
+            if team_tiebreakers:
+                # Find the team with the highest new_amount
+                winning_tt = max(team_tiebreakers, key=lambda tt: tt.new_amount or 0)
+                if winning_tt and winning_tt.new_amount:
+                    winning_team_id = winning_tt.team_id
+                    winning_amount = winning_tt.new_amount
+            
+            # Get player and round info for display
+            player = Player.query.get(tiebreaker.player_id)
+            winning_team = Team.query.get(winning_team_id) if winning_team_id else None
+            
             return jsonify({
                 'status': 'completed',
-                'message': 'Round finalized',
-                'redirect_to': '/dashboard'
+                'message': 'Tiebreaker resolved and round finalized',
+                'player_name': player.name if player else 'Unknown Player',
+                'winning_team_name': winning_team.name if winning_team else 'Unknown Team',
+                'winning_amount': winning_amount,
+                'user_won': winning_team_id == current_user.team.id if current_user.team else False,
+                'redirect_to': f'/round_results/{tiebreaker.round_id}'
             })
     
     # Count how many teams have submitted bids
@@ -3418,14 +3511,9 @@ def team_round():
         ).all()
         
         if team_tiebreakers:
+            # Redirect to the first available tiebreaker
             tiebreaker_id = team_tiebreakers[0].tiebreaker_id
-            tiebreaker = Tiebreaker.query.get(tiebreaker_id)
-            player = Player.query.get(tiebreaker.player_id)
-            
-            return render_template('tiebreaker_team.html',
-                                  tiebreaker=tiebreaker,
-                                  team_tiebreaker=team_tiebreakers[0],
-                                  player=player)
+            return redirect(url_for('get_tiebreaker', tiebreaker_id=tiebreaker_id))
         
         # Only show active rounds if no tiebreakers are pending
         active_rounds = Round.query.filter_by(is_active=True).all()
