@@ -18,32 +18,12 @@
 {% endblock %}
 
 {% block content %}
-
-<!-- Round Starting Overlay -->
-<div id="round-starting-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
-    <div class="flex flex-col items-center bg-white rounded-2xl p-8 shadow-2xl max-w-sm mx-auto text-center transform transition-transform duration-300 scale-95">
-        <div class="w-16 h-16 border-4 border-green-200 border-t-green-600 rounded-full animate-spin mb-6"></div>
-        <h3 class="text-xl font-semibold text-gray-800 mb-2">Starting Round...</h3>
-        <p class="text-gray-600 text-sm mb-4">Setting up the auction round and notifying teams</p>
-        <div class="flex items-center space-x-1">
-            <div class="w-2 h-2 bg-green-600 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
-            <div class="w-2 h-2 bg-green-600 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
-            <div class="w-2 h-2 bg-green-600 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
-        </div>
-    </div>
-</div>
-
-<!-- Round Finalizing Overlay -->
-<div id="round-finalizing-overlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
-    <div class="flex flex-col items-center bg-white rounded-2xl p-8 shadow-2xl max-w-sm mx-auto text-center transform transition-transform duration-300 scale-95">
-        <div class="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-6"></div>
-        <h3 class="text-xl font-semibold text-gray-800 mb-2">Finalizing Round...</h3>
-        <p class="text-gray-600 text-sm mb-4">Processing bids and allocating players to teams</p>
-        <div class="flex items-center space-x-1">
-            <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 0ms"></div>
-            <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 150ms"></div>
-            <div class="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style="animation-delay: 300ms"></div>
-        </div>
+<!-- Loading Overlay -->
+<div id="loading-overlay" class="fixed inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center transition-opacity duration-300 opacity-0 pointer-events-none">
+    <div class="flex flex-col items-center bg-white/90 p-6 rounded-2xl shadow-lg max-w-sm mx-auto text-center">
+        <div class="w-16 h-16 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4"></div>
+        <p class="text-gray-700 font-medium" id="loading-message">Processing your request...</p>
+        <p class="text-xs text-gray-500 mt-2">This may take a moment</p>
     </div>
 </div>
 
@@ -484,43 +464,41 @@ function showToast(message, type = 'success') {
     }, 3000);
 }
 
-// Show round starting overlay
-function showRoundStartingOverlay() {
-    const overlay = document.getElementById('round-starting-overlay');
+// Show loading overlay with custom message
+function showLoading(message = 'Processing your request...') {
+    const overlay = document.getElementById('loading-overlay');
+    const messageEl = document.getElementById('loading-message');
+    
+    if (messageEl) {
+        messageEl.textContent = message;
+    }
+    
     if (overlay) {
+        // Force any existing transitions to complete
+        overlay.classList.remove('transition-opacity');
+        void overlay.offsetWidth; // Trigger reflow
+        overlay.classList.add('transition-opacity');
+        
+        // Show the overlay
         overlay.classList.remove('opacity-0', 'pointer-events-none');
-        overlay.querySelector('div').classList.remove('scale-95');
-        overlay.querySelector('div').classList.add('scale-100');
+        
+        // Ensure any previous hide operations are cancelled
+        if (overlay.hideTimeout) {
+            clearTimeout(overlay.hideTimeout);
+            delete overlay.hideTimeout;
+        }
     }
 }
 
-// Hide round starting overlay
-function hideRoundStartingOverlay() {
-    const overlay = document.getElementById('round-starting-overlay');
+// Hide loading overlay
+function hideLoading() {
+    const overlay = document.getElementById('loading-overlay');
+    
     if (overlay) {
-        overlay.classList.add('opacity-0', 'pointer-events-none');
-        overlay.querySelector('div').classList.remove('scale-100');
-        overlay.querySelector('div').classList.add('scale-95');
-    }
-}
-
-// Show round finalizing overlay
-function showRoundFinalizingOverlay() {
-    const overlay = document.getElementById('round-finalizing-overlay');
-    if (overlay) {
-        overlay.classList.remove('opacity-0', 'pointer-events-none');
-        overlay.querySelector('div').classList.remove('scale-95');
-        overlay.querySelector('div').classList.add('scale-100');
-    }
-}
-
-// Hide round finalizing overlay
-function hideRoundFinalizingOverlay() {
-    const overlay = document.getElementById('round-finalizing-overlay');
-    if (overlay) {
-        overlay.classList.add('opacity-0', 'pointer-events-none');
-        overlay.querySelector('div').classList.remove('scale-100');
-        overlay.querySelector('div').classList.add('scale-95');
+        // Add a small delay to ensure it's visible long enough for the user to see it
+        overlay.hideTimeout = setTimeout(() => {
+            overlay.classList.add('opacity-0', 'pointer-events-none');
+        }, 300);
     }
 }
 
@@ -598,8 +576,7 @@ document.getElementById('startRoundForm').addEventListener('submit', async (e) =
     const duration = Math.round(durationHours * 3600);
     const max_bids_per_team = document.getElementById('max_bids_per_team').value;
     
-    // Show the round starting overlay
-    showRoundStartingOverlay();
+    showLoading('Starting new round...');
     
     try {
         const response = await fetch(`/start_round?nocache=${Date.now()}`, {
@@ -616,9 +593,6 @@ document.getElementById('startRoundForm').addEventListener('submit', async (e) =
         
         if (response.ok) {
             const data = await response.json();
-            
-            // Hide the overlay and show success message
-            hideRoundStartingOverlay();
             showToast(`Round for ${position} started successfully`, 'success');
             
             // Instead of reloading, fetch updated content
@@ -633,14 +607,16 @@ document.getElementById('startRoundForm').addEventListener('submit', async (e) =
                     initTimer(roundId);
                 }, 100);
             }
+            
+            hideLoading(); // Ensure loading is hidden after fetch completes
         } else {
             const data = await response.json();
-            hideRoundStartingOverlay();
+            hideLoading();
             showToast(data.error || 'Failed to start round', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        hideRoundStartingOverlay();
+        hideLoading();
         showToast('An error occurred while starting the round', 'error');
     }
 });
@@ -658,6 +634,8 @@ async function updateRoundTimer(roundId) {
     // Convert minutes to seconds for the API
     const durationSeconds = parseInt(durationMinutes) * 60;
     
+    showLoading('Updating timer...');
+    
     try {
         const response = await fetch(`/update_round_timer/${roundId}?nocache=${Date.now()}`, {
             method: 'POST',
@@ -673,15 +651,18 @@ async function updateRoundTimer(roundId) {
         
         if (response.ok) {
             const data = await response.json();
+            hideLoading();
             showToast(`Added ${durationMinutes} minute${parseInt(durationMinutes) !== 1 ? 's' : ''} to the timer`, 'success');
             // Fetch updates to refresh timer display
             await fetchUpdates(true);
         } else {
             const data = await response.json();
+            hideLoading();
             showToast(data.error || 'Failed to update timer', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
+        hideLoading();
         showToast('An error occurred while updating the timer', 'error');
     }
 }
@@ -693,6 +674,8 @@ async function forcePageRefresh(maxRetries = 3, initialDelay = 500) {
     
     const attemptRefresh = async () => {
         try {
+            showLoading('Refreshing page data...');
+            
             // Fetch data with cache busting
             const timestamp = Date.now();
             const response = await fetch(`/admin/rounds_update?nocache=${timestamp}`, {
@@ -710,6 +693,7 @@ async function forcePageRefresh(maxRetries = 3, initialDelay = 500) {
                 const data = await response.json();
                 console.log('Forced page refresh successful');
                 updatePageContent(data);
+                hideLoading();
                 return true;
             } else {
                 throw new Error('Failed to refresh page data');
@@ -723,6 +707,8 @@ async function forcePageRefresh(maxRetries = 3, initialDelay = 500) {
                 await new Promise(resolve => setTimeout(resolve, delay));
                 return attemptRefresh();
             } else {
+                hideLoading();
+                showToast('Failed to refresh page. Please refresh manually.', 'error');
                 return false;
             }
         }
@@ -737,8 +723,7 @@ async function finalizeRound(roundId) {
         return;
     }
     
-    // Show the round finalizing overlay
-    showRoundFinalizingOverlay();
+    showLoading('Finalizing round...');
     
     try {
         const response = await fetch(`/finalize_round/${roundId}?nocache=${Date.now()}`, {
@@ -759,19 +744,17 @@ async function finalizeRound(roundId) {
         const data = await response.json();
         
         if (response.ok) {
-            // Hide the overlay and show success message
-            hideRoundFinalizingOverlay();
             showToast('Round finalized successfully', 'success');
             
             // Force a complete page refresh with retries
             await forcePageRefresh();
         } else {
-            hideRoundFinalizingOverlay();
+            hideLoading();
             showToast(data.error || 'Failed to finalize round', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
-        hideRoundFinalizingOverlay();
+        hideLoading();
         showToast('An error occurred while finalizing the round', 'error');
     }
 }
@@ -781,6 +764,8 @@ async function deleteRound(roundId) {
     if (!confirm('Are you sure you want to delete this round? This will release all players allocated in this round and refund the acquisition values to their teams. This action cannot be undone.')) {
         return;
     }
+    
+    showLoading('Deleting round and updating players...');
     
     try {
         const response = await fetch(`/admin/delete_round/${roundId}?nocache=${Date.now()}`, {
@@ -796,6 +781,7 @@ async function deleteRound(roundId) {
         const data = await response.json();
         
         if (response.ok) {
+            hideLoading();
             let message = 'Round deleted successfully';
             
             if (data.released_players > 0) {
@@ -811,10 +797,12 @@ async function deleteRound(roundId) {
             // Force a complete page refresh with retries
             await forcePageRefresh();
         } else {
+            hideLoading();
             showToast(data.error || 'Failed to delete round', 'error');
         }
     } catch (error) {
         console.error('Error:', error);
+        hideLoading();
         showToast('An error occurred while deleting the round', 'error');
     }
 }
@@ -947,6 +935,7 @@ async function initTimer(roundId) {
                     // Round is no longer active, update content instead of full reload
                     console.log(`Round ${roundId} is no longer active, updating content...`);
                     await fetchUpdates(true);
+                    hideLoading();
                     return;
                 }
                 
@@ -974,6 +963,7 @@ async function initTimer(roundId) {
                 setTimeout(checkStatus, 1000);
             } catch (error) {
                 console.error(`Error checking round ${roundId} status:`, error);
+                hideLoading();
                 // Retry after a delay
                 setTimeout(checkStatus, 5000);
             }
@@ -983,6 +973,7 @@ async function initTimer(roundId) {
         checkStatus();
     } catch (error) {
         console.error('Error initializing timer:', error);
+        hideLoading();
     }
 }
 
@@ -1019,9 +1010,11 @@ async function fetchUpdates(forceRefresh = false) {
         if (response.ok) {
             const data = await response.json();
             updatePageContent(data);
+            hideLoading();
         }
     } catch (error) {
         console.error('Error fetching updates:', error);
+        hideLoading();
     } finally {
         isUpdating = false;
         hideRefreshIndicator();
@@ -1157,6 +1150,9 @@ function startAutoRefresh() {
 
 // Initialize timers and auto-refresh when the page loads
 document.addEventListener('DOMContentLoaded', function() {
+    // Make sure loading overlay is hidden on page load
+    hideLoading();
+    
     // Create refresh indicator element
     createRefreshIndicator();
     

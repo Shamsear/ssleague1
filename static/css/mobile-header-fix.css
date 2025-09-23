@@ -142,50 +142,6 @@
     }
 }
 
-/* Hide mobile header on specific pages */
-body[data-page="index"] .mobile-page-header,
-body[data-page="login"] .mobile-page-header,
-body[data-page="register"] .mobile-page-header {
-    display: none !important;
-}
-
-/* Hide mobile header on dashboard for team users (but not admin) */
-body[data-page="dashboard"]:not(.admin-user) .mobile-page-header {
-    display: none !important;
-}
-
-/* Add mobile nav spacing for pages without mobile header */
-@media (max-width: 768px) {
-    /* Mobile spacing for pages without mobile header */
-    body[data-page="index"] main,
-    body[data-page="login"] main,
-    body[data-page="register"] main,
-    body[data-page="dashboard"]:not(.admin-user) main {
-        padding-top: calc(60px + env(safe-area-inset-top, 0px) + 20px) !important;
-    }
-    
-    /* PWA specific adjustments for pages without header */
-    @media (display-mode: standalone) {
-        body[data-page="index"] main,
-        body[data-page="login"] main,
-        body[data-page="register"] main,
-        body[data-page="dashboard"]:not(.admin-user) main {
-            padding-top: calc(60px + env(safe-area-inset-top, 20px) + 20px) !important;
-        }
-    }
-    
-    /* iOS Safari specific adjustments */
-    @supports (-webkit-touch-callout: none) {
-        body[data-page="index"] main,
-        body[data-page="login"] main,
-        body[data-page="register"] main,
-        body[data-page="dashboard"]:not(.admin-user) main {
-            padding-top: calc(60px + env(safe-area-inset-top, 44px) + 20px) !important;
-        }
-    }
-}
-
-
 /* PWA specific adjustments */
 @media (display-mode: standalone) {
     @media (max-width: 768px) {

@@ -602,7 +602,7 @@
     <!-- Mobile Header Fix CSS - Final override for PWA header positioning -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-header-fix.css') }}">
 </head>
-<body class="vision-bg text-dark min-h-screen flex flex-col logo-bg{% if current_user.is_authenticated and current_user.is_admin %} admin-user{% endif %}" data-page="{{ request.endpoint if request.endpoint else 'unknown' }}">
+<body class="vision-bg text-dark min-h-screen flex flex-col logo-bg">
     <!-- Mobile Navigation Component - Show on all pages -->
     {% set show_mobile_nav = true %}
     {% include 'components/mobile_nav.html' %}
@@ -630,7 +630,6 @@
     </nav>
 
     <!-- Mobile Page Header - Shows current page title below mobile nav -->
-    {% if request.endpoint not in ['index', 'login', 'register'] and not (request.endpoint == 'dashboard' and current_user.is_authenticated and not current_user.is_admin) %}
     <header class="sm:hidden mobile-page-header{% if current_user.is_authenticated and current_user.is_admin %} admin-page{% elif request.endpoint == 'dashboard' %} dashboard-page{% elif request.endpoint in ['team_round', 'team_bulk_round', 'team_bids'] %} auction-page{% endif %}" style="background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border: none !important; box-shadow: none !important; padding: 32px 24px 24px; position: relative; z-index: 1; margin-top: calc(60px + env(safe-area-inset-top, 0px)); top: 0;">
         <div class="mobile-header-content" style="color: #1a1a1a !important; background: transparent !important;">
             <h1 class="mobile-page-title{% if current_user.is_authenticated and current_user.is_admin %} admin{% endif %}" style="color: {% if current_user.is_authenticated and current_user.is_admin %}#8B4513{% else %}#1a1a1a{% endif %} !important; background: none !important; -webkit-background-clip: unset !important; background-clip: unset !important; -webkit-text-fill-color: {% if current_user.is_authenticated and current_user.is_admin %}#8B4513{% else %}#1a1a1a{% endif %} !important; font-size: 32px; font-weight: 700; margin-bottom: 8px;">
@@ -817,7 +816,6 @@
             </p>
         </div>
     </header>
-    {% endif %}
     
     <!-- Old mobile header code - keeping for reference but disabled -->
     {% if false %}

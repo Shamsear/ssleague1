@@ -85,20 +85,6 @@
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
-    text-decoration: none;
-    color: inherit;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.nav-logo:hover {
-    transform: translateY(-1px);
-    text-decoration: none;
-    color: inherit;
-}
-
-.nav-logo:active {
-    transform: translateY(0);
 }
 
 .logo-icon {
