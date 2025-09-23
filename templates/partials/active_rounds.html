@@ -1,6 +1,8 @@
+<!-- Active Rounds Container for Real-time Updates -->
+<div id="active-rounds-container">
 {% for round in active_rounds %}
 <div class="glass rounded-xl p-4 sm:p-5 border border-green-200/30 hover:shadow-lg transition-all duration-300 backdrop-blur-sm relative overflow-hidden" data-round-id="{{ round.id }}">
-    <div class="absolute top-0 right-0 bg-green-500 text-white px-3 py-1 text-xs font-medium rounded-bl-lg">
+    <div class="absolute top-0 right-0 bg-green-500 text-white px-3 py-1 text-xs font-medium rounded-bl-lg" id="round-status-{{ round.id }}">
         Active
     </div>
     
@@ -80,7 +82,10 @@
         Start Round
     </button>
 </div>
-{% endfor %} 
+{% endfor %}
+</div>
+<!-- Active Rounds Count for Real-time Updates -->
+<div id="active-rounds-count" data-active-rounds-count style="display: none;">{{ active_rounds|length }}</div>
  
  
  

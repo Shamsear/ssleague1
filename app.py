@@ -956,17 +956,17 @@ def start_round():
         except ValueError:
             return jsonify({'error': 'Invalid maximum bids per team value'}), 400
         
-        # Check if there's already an active round
+        # OPTIMIZED: Check if there's already an active round (uses idx_round_is_active)
         active_round = Round.query.filter_by(is_active=True).first()
         if active_round:
             return jsonify({
                 'error': f'There is already an active round for position {active_round.position}. Please finalize it before starting a new round.'
             }), 400
         
-        # Get auction settings
+        # Get auction settings (cached/fast)
         settings = AuctionSettings.get_settings()
         
-        # Check if we've reached the maximum number of rounds
+        # OPTIMIZED: Check if we've reached the maximum number of rounds (uses idx_round_is_active)
         completed_rounds_count = Round.query.filter_by(is_active=False).count()
         if completed_rounds_count >= settings.max_rounds:
             return jsonify({
@@ -979,9 +979,9 @@ def start_round():
         # Check if teams have sufficient balance for remaining rounds
         min_required_balance = settings.min_balance_per_round * remaining_rounds
         
-        # Get all approved teams
-        teams = Team.query.filter(Team.user.has(is_approved=True)).all()
-        
+        # OPTIMIZED: Get all approved teams with explicit join (uses idx_user_is_approved)
+        teams = Team.query.join(User).filter(User.is_approved == True).all()
+
         # Track teams with insufficient balance
         insufficient_balance_teams = []
         for team in teams:
@@ -1014,16 +1014,31 @@ def start_round():
         db.session.add(round)
         db.session.flush()  # Get the round ID
         
-        # Add players to the round based on position or position group
+        # OPTIMIZED: Add players to the round based on position or position group
         if is_position_group:
-            # Position group (e.g., CF-1) - filter by position_group
-            players = Player.query.filter_by(position_group=position, team_id=None, is_auction_eligible=True).all()
+           # Position group (e.g., CF-1) - uses idx_player_position_group_team_eligible
+            players = Player.query.filter_by(
+                position_group=position, 
+                team_id=None, 
+                is_auction_eligible=True
+            ).all()
         else:
-            # Regular position (e.g., CF) - filter by position
-            players = Player.query.filter_by(position=position, team_id=None, is_auction_eligible=True).all()
-        
-        for player in players:
-            player.round_id = round.id
+            # Regular position (e.g., CF) - uses idx_player_position_team_eligible  
+            players = Player.query.filter_by(
+                position=position, 
+                team_id=None, 
+                is_auction_eligible=True
+            ).all()
+
+        # OPTIMIZED: Bulk update instead of individual updates
+        if players:
+            player_ids = [player.id for player in players]
+            # Single bulk UPDATE query instead of N individual updates
+            db.session.query(Player).filter(
+                Player.id.in_(player_ids)
+            ).update({
+                Player.round_id: round.id
+            }, synchronize_session=False)
         
         db.session.commit()
         
