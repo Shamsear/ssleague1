@@ -222,7 +222,8 @@
             border-bottom: 1px solid rgba(0, 102, 255, 0.08);
             box-shadow: 0 2px 24px rgba(0, 102, 255, 0.06);
             overflow: hidden;
-            z-index: 40;
+            z-index: 1;
+            top: 0;
         }
         
         /* Animated gradient background overlay */
@@ -597,6 +598,9 @@
     
     <!-- Mobile Isolation CSS - MUST be last for highest priority -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-isolation.css') }}">
+    
+    <!-- Mobile Header Fix CSS - Final override for PWA header positioning -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/mobile-header-fix.css') }}">
 </head>
 <body class="vision-bg text-dark min-h-screen flex flex-col logo-bg">
     <!-- Mobile Navigation Component - Show on all pages -->
@@ -626,8 +630,8 @@
     </nav>
 
     <!-- Mobile Page Header - Shows current page title below mobile nav -->
-    <header class="sm:hidden mobile-page-header{% if current_user.is_authenticated and current_user.is_admin %} admin-page{% elif request.endpoint == 'dashboard' %} dashboard-page{% elif request.endpoint in ['team_round', 'team_bulk_round', 'team_bids'] %} auction-page{% endif %}" style="background: none !important; padding: 32px 24px 24px;">
-        <div class="mobile-header-content" style="color: #1a1a1a !important;">
+    <header class="sm:hidden mobile-page-header{% if current_user.is_authenticated and current_user.is_admin %} admin-page{% elif request.endpoint == 'dashboard' %} dashboard-page{% elif request.endpoint in ['team_round', 'team_bulk_round', 'team_bids'] %} auction-page{% endif %}" style="background: transparent !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border: none !important; box-shadow: none !important; padding: 32px 24px 24px; position: relative; z-index: 1; margin-top: calc(60px + env(safe-area-inset-top, 0px)); top: 0;">
+        <div class="mobile-header-content" style="color: #1a1a1a !important; background: transparent !important;">
             <h1 class="mobile-page-title{% if current_user.is_authenticated and current_user.is_admin %} admin{% endif %}" style="color: {% if current_user.is_authenticated and current_user.is_admin %}#8B4513{% else %}#1a1a1a{% endif %} !important; background: none !important; -webkit-background-clip: unset !important; background-clip: unset !important; -webkit-text-fill-color: {% if current_user.is_authenticated and current_user.is_admin %}#8B4513{% else %}#1a1a1a{% endif %} !important; font-size: 32px; font-weight: 700; margin-bottom: 8px;">
                 {% if request.endpoint == 'index' %}
                     Welcome to SS League
