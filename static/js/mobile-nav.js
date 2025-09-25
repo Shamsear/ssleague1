@@ -125,6 +125,30 @@
                     toggleMenu(false);
                 }
             });
+            
+            // Prevent menu from closing when scrolling or touching menu content
+            const menuContainer = mobileMenuOverlay.querySelector('.menu-container');
+            if (menuContainer) {
+                menuContainer.addEventListener('click', function(e) {
+                    // Prevent clicks inside menu container from bubbling up to overlay
+                    e.stopPropagation();
+                });
+                
+                menuContainer.addEventListener('touchstart', function(e) {
+                    // Prevent touch events inside menu container from bubbling up
+                    e.stopPropagation();
+                });
+                
+                menuContainer.addEventListener('touchmove', function(e) {
+                    // Allow scrolling within menu container
+                    e.stopPropagation();
+                });
+                
+                menuContainer.addEventListener('touchend', function(e) {
+                    // Prevent touch end events from bubbling up to overlay
+                    e.stopPropagation();
+                });
+            }
         }
         
         // Handle expandable menu items
@@ -173,21 +197,38 @@
         // Handle swipe to close (optional - for touch devices)
         let touchStartX = 0;
         let touchEndX = 0;
+        let touchStartY = 0;
+        let touchEndY = 0;
         
+        // Only apply swipe detection to the overlay area, not the menu content
         if (mobileMenuOverlay) {
             mobileMenuOverlay.addEventListener('touchstart', function(e) {
-                touchStartX = e.changedTouches[0].screenX;
-            });
+                // Only handle touches on the overlay itself, not menu content
+                if (e.target === mobileMenuOverlay || e.target.classList.contains('menu-overlay-bg')) {
+                    touchStartX = e.changedTouches[0].screenX;
+                    touchStartY = e.changedTouches[0].screenY;
+                }
+            }, { passive: true });
             
             mobileMenuOverlay.addEventListener('touchend', function(e) {
-                touchEndX = e.changedTouches[0].screenX;
-                handleSwipe();
-            });
+                // Only handle touches on the overlay itself, not menu content
+                if (e.target === mobileMenuOverlay || e.target.classList.contains('menu-overlay-bg')) {
+                    touchEndX = e.changedTouches[0].screenX;
+                    touchEndY = e.changedTouches[0].screenY;
+                    handleSwipe();
+                }
+            }, { passive: true });
         }
         
         function handleSwipe() {
-            // Swipe right to close
-            if (touchEndX > touchStartX + 50) {
+            const deltaX = touchEndX - touchStartX;
+            const deltaY = Math.abs(touchEndY - touchStartY);
+            
+            // Only trigger swipe if:
+            // 1. Horizontal swipe is significant (> 50px)
+            // 2. Vertical movement is minimal (< 30px) - this prevents interference with scrolling
+            // 3. Swipe is to the right (closing gesture)
+            if (deltaX > 50 && deltaY < 30) {
                 toggleMenu(false);
             }
         }

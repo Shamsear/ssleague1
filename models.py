@@ -6,6 +6,35 @@ import secrets
 
 db = SQLAlchemy()
 
+class Season(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    short_name = db.Column(db.String(20), nullable=False)
+    is_active = db.Column(db.Boolean, default=False)
+    status = db.Column(db.String(20), default='active')  # active, completed, draft
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    
+    # Relationships
+    teams = db.relationship('Team', lazy=True)
+    rounds = db.relationship('Round', lazy=True)
+    
+    def __repr__(self):
+        return f"<Season {self.name}>"
+    
+    @classmethod
+    def get_current_season(cls):
+        """Get the current active season"""
+        return cls.query.filter_by(is_active=True).order_by(cls.created_at.desc()).first()
+    
+    def get_teams(self):
+        """Get all teams in this season"""
+        return self.teams
+    
+    def get_active_rounds(self):
+        """Get active rounds for this season"""
+        return [r for r in self.rounds if r.is_active]
+
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -13,6 +42,9 @@ class User(UserMixin, db.Model):
     password_hash = db.Column(db.String(256), nullable=False)
     is_admin = db.Column(db.Boolean, default=False)
     is_approved = db.Column(db.Boolean, default=False)
+    user_role = db.Column(db.String(20), default='team_user')  # 'super_admin', 'committee_admin', 'team_user'
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
     team = db.relationship('Team', backref='user', uselist=False)
     password_reset_requests = db.relationship('PasswordResetRequest', backref='user', lazy=True)
     remember_token = db.Column(db.String(100), unique=True, nullable=True)
@@ -20,6 +52,26 @@ class User(UserMixin, db.Model):
     last_password_change = db.Column(db.DateTime, nullable=True)
     profile_updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
+    
+    @property
+    def is_super_admin(self):
+        """Check if user is super admin"""
+        return self.user_role == 'super_admin' or (self.is_admin and self.user_role in [None, 'super_admin'])
+    
+    @property  
+    def is_committee_admin(self):
+        """Check if user is committee admin"""
+        return self.user_role == 'committee_admin'
+    
+    @property
+    def has_admin_access(self):
+        """Check if user has any admin access"""
+        return self.is_super_admin or self.is_committee_admin
+    
+    @property
+    def role(self):
+        """Alias for user_role to maintain consistency with templates and routes"""
+        return self.user_role
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
         self.last_password_change = datetime.now(timezone.utc)
@@ -116,11 +168,29 @@ class User(UserMixin, db.Model):
         self.remember_token = None
         self.token_expires_at = None
 
+
+    def get_current_team(self):
+        """Get user's team in the current season"""
+        from season_context import SeasonContext
+        return SeasonContext.get_team_by_user(self.id)
+    
+    def has_team_in_season(self, season_id):
+        """Check if user has a team in a specific season"""
+        return self.team is not None and hasattr(self.team, 'season_id') and self.team.season_id == season_id
+    
+    @property
+    def current_season_team(self):
+        """Property to get current season team"""
+        return self.get_current_team()
+
 class Team(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), unique=True, nullable=False)
     balance = db.Column(db.Integer, default=15000)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    season_id = db.Column(db.Integer, db.ForeignKey('season.id'), nullable=True)  # Added for season support
+    team_lineage_id = db.Column(db.String(50), nullable=True)  # For tracking team across seasons
+    is_continuing_team = db.Column(db.Boolean, default=False)  # Whether this team continues from previous season
     logo_url = db.Column(db.String(500), nullable=True)  # Increased length for GitHub/ImageKit URLs
     logo_storage_type = db.Column(db.String(20), default='local')  # 'local', 'github', or 'imagekit'
     github_logo_sha = db.Column(db.String(100), nullable=True)  # SHA hash for GitHub file updates
@@ -130,6 +200,8 @@ class Team(db.Model):
     home_matches = db.relationship('Match', foreign_keys='Match.home_team_id', backref='home_team', lazy=True)
     away_matches = db.relationship('Match', foreign_keys='Match.away_team_id', backref='away_team', lazy=True)
     team_stats = db.relationship('TeamStats', backref='team', uselist=False, lazy=True)
+    
+    # Season relationship handled by foreign key
     
     def get_logo_url(self, context='card'):
         """Get the appropriate logo URL based on storage type
@@ -171,6 +243,34 @@ class Team(db.Model):
                 return f'/uploads/logos/{filename}'
         else:
             return None
+    # season property is now handled by SQLAlchemy relationship above
+    
+    def get_lineage_history(self):
+        """Get the complete lineage history of this team"""
+        if hasattr(self, 'team_lineage_id') and self.team_lineage_id:
+            try:
+                with db.engine.connect() as conn:
+                    result = conn.execute("""
+                        SELECT t.id, t.name, s.name as season_name, t.is_continuing_team
+                        FROM team t
+                        JOIN season s ON t.season_id = s.id
+                        WHERE t.team_lineage_id = %s
+                        ORDER BY s.created_at ASC
+                    """, (self.team_lineage_id,))
+                    
+                    history = []
+                    for row in result:
+                        history.append({
+                            'id': row[0],
+                            'name': row[1],
+                            'season_name': row[2],
+                            'is_continuing_team': row[3]
+                        })
+                    return history
+            except Exception:
+                pass
+        return []
+
 
 class Category(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -320,8 +420,13 @@ class Player(db.Model):
     # Define relationships
     bids = db.relationship('Bid', back_populates='player', foreign_keys='Bid.player_id')
 
-    def has_bid_from_team(self, team_id):
-        return any(bid.team_id == team_id for bid in self.bids)
+    def has_bid_from_team(self, team_id, round_id=None):
+        if round_id is not None:
+            # Check for bids from this team in the specific round only
+            return any(bid.team_id == team_id and bid.round_id == round_id for bid in self.bids)
+        else:
+            # Original behavior - check for any bid from this team across all rounds
+            return any(bid.team_id == team_id for bid in self.bids)
 
 class StarredPlayer(db.Model):
     """Model for storing which players are starred by which teams"""
@@ -340,7 +445,10 @@ class Round(db.Model):
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
     position = db.Column(db.String(10), nullable=False)
     is_active = db.Column(db.Boolean, default=True)
+    season_id = db.Column(db.Integer, db.ForeignKey('season.id'), nullable=True)  # Added for season support
     players = db.relationship('Player', backref='round', lazy=True)
+    
+    # Season relationship handled by foreign key
     bids = db.relationship('Bid', backref='round', lazy=True)
     start_time = db.Column(db.DateTime, default=datetime.utcnow)
     end_time = db.Column(db.DateTime, nullable=True)  # New field for absolute end time

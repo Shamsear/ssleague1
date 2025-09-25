@@ -1,0 +1,69 @@
+{% extends "admin/base.html" %}
+
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">User Management</h1>
+        <p class="mt-2 text-gray-600">Manage user roles and permissions</p>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-white shadow overflow-hidden sm:rounded-md">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">All Users</h3>
+        </div>
+        
+        {% if users %}
+        <ul class="divide-y divide-gray-200">
+            {% for user in users %}
+            <li class="px-6 py-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex-1">
+                        <div class="flex items-center">
+                            <h3 class="text-lg font-medium text-gray-900">{{ user[1] }}</h3>
+                            <span class="ml-3 px-2 py-1 text-xs font-medium rounded-full
+                                {% if user[3] == 'super_admin' %}bg-red-100 text-red-800
+                                {% elif user[3] == 'committee_admin' %}bg-orange-100 text-orange-800
+                                {% else %}bg-blue-100 text-blue-800{% endif %}">
+                                {{ user[3].replace('_', ' ')|title if user[3] else 'Team Member' }}
+                            </span>
+                        </div>
+                        <div class="mt-2 text-sm text-gray-500">
+                            {% if user[2] %}<i class="fas fa-envelope mr-1"></i>{{ user[2] }}{% endif %}
+                            {% if user[8] %} | <i class="fas fa-users mr-1"></i>Team: {{ user[8] }}{% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if current_user.role == 'super_admin' and user[0] != current_user.id %}
+                    <div class="flex items-center space-x-2">
+                        {% if user[3] == 'team_member' %}
+                        <form method="POST" action="{{ url_for('admin.promote_user', user_id=user[0]) }}" class="inline">
+                            <button type="submit" 
+                                    class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-orange-600 hover:bg-orange-700">
+                                <i class="fas fa-arrow-up mr-1"></i>Promote
+                            </button>
+                        </form>
+                        {% elif user[3] == 'committee_admin' %}
+                        <form method="POST" action="{{ url_for('admin.demote_user', user_id=user[0]) }}" class="inline">
+                            <button type="submit" 
+                                    class="inline-flex items-center px-3 py-1 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700">
+                                <i class="fas fa-arrow-down mr-1"></i>Demote
+                            </button>
+                        </form>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <div class="px-6 py-8 text-center">
+            <p class="text-gray-500">No users found</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Nav Scroll Test</title>
+    <link rel="stylesheet" href="static/css/mobile-nav.css">
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: #f8f9fd;
+            padding: 20px;
+        }
+        .test-content {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .test-instructions {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #0066ff;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-content">
+        <h1>Mobile Nav Scroll Test</h1>
+        <div class="test-instructions">
+            <h3>🧪 How to test the fix:</h3>
+            <ol>
+                <li>Open this page on a mobile device or in browser dev tools mobile mode</li>
+                <li>Click the "Menu" button to open the navigation</li>
+                <li>Try scrolling up and down within the menu</li>
+                <li>Expand the "Team Management" section</li>
+                <li>Try scrolling to access items at the bottom</li>
+            </ol>
+            <p><strong>✅ Expected result:</strong> Menu stays open while scrolling, only closes when clicking outside or using close button</p>
+            <p><strong>❌ Previous issue:</strong> Menu would close when trying to scroll</p>
+        </div>
+        
+        <h3>📱 Test Instructions:</h3>
+        <p>The mobile navigation should now:</p>
+        <ul>
+            <li>✅ Allow scrolling within menu content without closing</li>
+            <li>✅ Allow expanding/collapsing menu sections</li>
+            <li>✅ Close only when clicking the dark overlay area</li>
+            <li>✅ Close only when clicking the "Close" button</li>
+            <li>✅ Close only on horizontal swipe gestures (not vertical scrolling)</li>
+        </ul>
+    </div>
+
+    <!-- Mobile Navigation Component -->
+    {% set show_mobile_nav = true %}
+    {% set current_user = {"is_authenticated": true, "is_admin": false, "username": "testuser", "team": {"name": "Test Team", "get_logo_url": lambda: none}} %}
+    
+    <!-- Simplified mobile nav for testing -->
+    <div class="mobile-nav-container" id="mobileNav">
+        <nav class="mobile-nav-bar" id="mobileNavBar">
+            <div class="nav-content">
+                <div class="nav-left">
+                    <div class="nav-logo">
+                        <div class="logo-icon"><span>SS</span></div>
+                        <span class="logo-text">League</span>
+                    </div>
+                </div>
+                <div class="nav-center">
+                    <button class="menu-toggle-btn" id="menuToggleBtn" aria-label="Open menu">
+                        <span class="menu-text">Menu</span>
+                        <div class="menu-icon-wrapper">
+                            <span class="menu-line menu-line-top"></span>
+                            <span class="menu-line menu-line-middle"></span>
+                            <span class="menu-line menu-line-bottom"></span>
+                        </div>
+                    </button>
+                    <button class="close-btn" id="closeMenuBtn" aria-label="Close menu" style="display: none;">
+                        <span>Close</span>
+                    </button>
+                </div>
+                <div class="nav-right">
+                    <div class="nav-user">
+                        <div class="user-avatar team-avatar">TT</div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+        
+        <div class="mobile-menu-overlay" id="mobileMenuOverlay">
+            <div class="menu-container">
+                <div class="menu-content">
+                    <div class="welcome-section">
+                        <h2 class="welcome-title">SS League</h2>
+                        <p class="welcome-subtitle">Fantasy Football Auction Platform</p>
+                    </div>
+                    
+                    <nav class="menu-nav">
+                        <div class="menu-item">
+                            <a href="#" class="menu-link">
+                                <span class="menu-link-text">Dashboard</span>
+                                <span class="menu-link-description">Your team overview</span>
+                            </a>
+                        </div>
+                        
+                        <div class="menu-item expandable">
+                            <button class="menu-link menu-expandable" data-menu="services">
+                                <div class="menu-link-content">
+                                    <span class="menu-link-text">Team Management</span>
+                                    <span class="menu-link-description">Your team tools</span>
+                                </div>
+                                <svg class="chevron-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div class="submenu" id="services-submenu">
+                                <a href="#" class="submenu-link">Team Players</a>
+                                <a href="#" class="submenu-link">Matches</a>
+                                <a href="#" class="submenu-link">Leaderboard</a>
+                                <a href="#" class="submenu-link">Squad Management</a>
+                                <a href="#" class="submenu-link">Transfer Market</a>
+                                <a href="#" class="submenu-link">Training Schedule</a>
+                                <a href="#" class="submenu-link">Player Statistics</a>
+                                <a href="#" class="submenu-link">Team Formation</a>
+                            </div>
+                        </div>
+                        
+                        <div class="menu-item expandable">
+                            <button class="menu-link menu-expandable" data-menu="sites">
+                                <div class="menu-link-content">
+                                    <span class="menu-link-text">Resources</span>
+                                    <span class="menu-link-description">Stats & data</span>
+                                </div>
+                                <svg class="chevron-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div class="submenu" id="sites-submenu">
+                                <a href="#" class="submenu-link">Player Database</a>
+                                <a href="#" class="submenu-link">All Teams</a>
+                                <a href="#" class="submenu-link">Season Statistics</a>
+                                <a href="#" class="submenu-link">Match Results</a>
+                                <a href="#" class="submenu-link">Transfer History</a>
+                                <a href="#" class="submenu-link">League Table</a>
+                            </div>
+                        </div>
+                        
+                        <div class="menu-item expandable">
+                            <button class="menu-link menu-expandable" data-menu="about">
+                                <div class="menu-link-content">
+                                    <span class="menu-link-text">My Account</span>
+                                    <span class="menu-link-description">Settings & help</span>
+                                </div>
+                                <svg class="chevron-icon" width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            <div class="submenu" id="about-submenu">
+                                <a href="#" class="submenu-link">Edit Profile</a>
+                                <a href="#" class="submenu-link">Account Settings</a>
+                                <a href="#" class="submenu-link">Privacy Settings</a>
+                                <a href="#" class="submenu-link">Notification Preferences</a>
+                                <a href="#" class="submenu-link">Help & Support</a>
+                                <a href="#" class="submenu-link">Contact Support</a>
+                                <a href="#" class="submenu-link">FAQ</a>
+                                <a href="#" class="submenu-link">Terms of Service</a>
+                                <a href="#" class="submenu-link">Privacy Policy</a>
+                                <a href="#" class="submenu-link">Logout</a>
+                            </div>
+                        </div>
+                    </nav>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="static/js/mobile-nav.js"></script>
+</body>
+</html>

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}My Teams{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <div class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Page Header -->
+        <div class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900">My Teams</h1>
+                <p class="mt-2 text-gray-600">All your registered teams across seasons</p>
+            </div>
+            <a href="{{ url_for('registration.registration_home') }}" 
+               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                <i class="fas fa-plus mr-2"></i>Register New Team
+            </a>
+        </div>
+
+        <!-- Teams List -->
+        {% if user_teams %}
+        <div class="bg-white shadow overflow-hidden sm:rounded-md">
+            <ul class="divide-y divide-gray-200">
+                {% for team in user_teams %}
+                <li class="px-6 py-4">
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <div class="flex items-center">
+                                <h3 class="text-lg font-medium text-gray-900">{{ team[1] }}</h3>
+                                {% if team[3] %}
+                                    <span class="ml-3 px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                        <i class="fas fa-arrow-right mr-1"></i>Continuing
+                                    </span>
+                                {% else %}
+                                    <span class="ml-3 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                                        <i class="fas fa-star mr-1"></i>New
+                                    </span>
+                                {% endif %}
+                                {% if team[7] %}
+                                    <span class="ml-2 px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                                        Active Season
+                                    </span>
+                                {% endif %}
+                            </div>
+                            <div class="mt-2 text-sm text-gray-600">
+                                <span><i class="fas fa-calendar mr-1"></i>{{ team[5] }} ({{ team[6] }})</span>
+                                <span class="ml-4"><i class="fas fa-coins mr-1"></i>Balance: {{ team[2] }}</span>
+                                {% if team[4] %}
+                                    <span class="ml-4"><i class="fas fa-sitemap mr-1"></i>Lineage #{{ team[4] }}</span>
+                                    {% if team[11] > 1 %}
+                                        <span class="text-gray-500">({{ team[11] }} seasons)</span>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
+                            {% if team[9] and team[10] %}
+                            <div class="mt-1 text-xs text-gray-500">
+                                Season: {{ team[9].strftime('%Y-%m-%d') }} - {{ team[10].strftime('%Y-%m-%d') }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="flex items-center space-x-2">
+                            {% if team[4] %}
+                            <a href="{{ url_for('registration.team_history', team_id=team[0]) }}" 
+                               class="inline-flex items-center px-3 py-1 border border-gray-300 text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50">
+                                <i class="fas fa-history mr-1"></i>History
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% else %}
+        <div class="bg-white shadow sm:rounded-lg">
+            <div class="px-6 py-8 text-center">
+                <i class="fas fa-users text-4xl text-gray-400 mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No Teams Registered</h3>
+                <p class="text-gray-500">You haven't registered any teams yet.</p>
+                <a href="{{ url_for('registration.registration_home') }}" 
+                   class="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                    Register Your First Team
+                </a>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

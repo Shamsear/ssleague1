@@ -1,0 +1,336 @@
+"""
+Admin Routes for Multi-Season System
+====================================
+Provides admin interfaces for season and user management.
+"""
+
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, current_app
+from flask_login import login_required, current_user
+from functools import wraps
+from models import db, User, Team, Season
+from season_context import SeasonContext
+import secrets
+import string
+from datetime import datetime, timedelta
+
+admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+
+def admin_required(f):
+    """Decorator to require admin role"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('You must be logged in to access this page.', 'error')
+            return redirect(url_for('login'))
+        
+        # Check if user has admin role
+        if not hasattr(current_user, 'role') or current_user.role not in ['super_admin', 'committee_admin']:
+            flash('You do not have permission to access this page.', 'error')
+            return redirect(url_for('dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+def super_admin_required(f):
+    """Decorator to require super admin role"""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not current_user.is_authenticated:
+            flash('You must be logged in to access this page.', 'error')
+            return redirect(url_for('login'))
+        
+        # Check if user has super admin role
+        if not hasattr(current_user, 'role') or current_user.role != 'super_admin':
+            flash('You do not have permission to access this page.', 'error')
+            return redirect(url_for('dashboard'))
+        
+        return f(*args, **kwargs)
+    return decorated_function
+
+@admin_bp.route('/')
+@admin_required
+def admin_dashboard():
+    """Admin dashboard showing system overview"""
+    try:
+        # Get current season info
+        current_season = SeasonContext.get_current_season()
+        
+        # Get season statistics
+        with db.engine.connect() as conn:
+            stats_result = conn.execute("SELECT * FROM get_season_statistics()")
+            season_stats = stats_result.fetchone()
+        
+        # Get user role statistics
+        with db.engine.connect() as conn:
+            role_result = conn.execute("""
+                SELECT role, COUNT(*) as count 
+                FROM "user" 
+                GROUP BY role 
+                ORDER BY CASE role 
+                    WHEN 'super_admin' THEN 1 
+                    WHEN 'committee_admin' THEN 2 
+                    WHEN 'team_member' THEN 3 
+                    ELSE 4 END
+            """)
+            role_stats = role_result.fetchall()
+        
+        # Get recent activity (placeholder for now)
+        recent_activity = []
+        
+        return render_template('admin/dashboard.html', 
+                             current_season=current_season,
+                             season_stats=season_stats,
+                             role_stats=role_stats,
+                             recent_activity=recent_activity)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in admin dashboard: {e}")
+        flash('Error loading admin dashboard.', 'error')
+        return redirect(url_for('dashboard'))
+
+@admin_bp.route('/seasons')
+@admin_required
+def season_management():
+    """Season management interface"""
+    try:
+        # Get all seasons
+        with db.engine.connect() as conn:
+            seasons_result = conn.execute("""
+                SELECT 
+                    s.id, s.name, s.short_name, s.is_active, s.status, 
+                    s.registration_open, s.team_limit, s.max_committee_admins,
+                    s.season_start_date, s.season_end_date, s.created_at,
+                    (SELECT COUNT(*) FROM team WHERE season_id = s.id) as team_count,
+                    (SELECT COUNT(*) FROM round WHERE season_id = s.id) as round_count
+                FROM season s
+                ORDER BY s.created_at DESC
+            """)
+            seasons = seasons_result.fetchall()
+        
+        return render_template('admin/seasons.html', seasons=seasons)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in season management: {e}")
+        flash('Error loading season management.', 'error')
+        return redirect(url_for('admin.admin_dashboard'))
+
+@admin_bp.route('/seasons/create', methods=['GET', 'POST'])
+@super_admin_required
+def create_season():
+    """Create a new season"""
+    if request.method == 'POST':
+        try:
+            season_name = request.form.get('season_name', '').strip()
+            short_name = request.form.get('short_name', '').strip()
+            description = request.form.get('description', '').strip()
+            team_limit = request.form.get('team_limit', type=int)
+            max_committee_admins = request.form.get('max_committee_admins', type=int)
+            
+            if not season_name or not short_name:
+                flash('Season name and short name are required.', 'error')
+                return render_template('admin/create_season.html')
+            
+            # Create season using database function
+            with db.engine.connect() as conn:
+                result = conn.execute("""
+                    INSERT INTO season (
+                        name, short_name, description, is_active, status,
+                        registration_open, team_limit, max_committee_admins,
+                        created_by, created_at, updated_at
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                """, (
+                    season_name, short_name, description, False, 'upcoming',
+                    False, team_limit or 50, max_committee_admins or 15,
+                    current_user.id, datetime.utcnow(), datetime.utcnow()
+                ))
+                season_id = result.fetchone()[0]
+                conn.commit()
+            
+            flash(f'Season "{season_name}" created successfully!', 'success')
+            return redirect(url_for('admin.season_management'))
+            
+        except Exception as e:
+            current_app.logger.error(f"Error creating season: {e}")
+            flash('Error creating season. Please try again.', 'error')
+    
+    return render_template('admin/create_season.html')
+
+@admin_bp.route('/seasons/<int:season_id>/activate', methods=['POST'])
+@super_admin_required
+def activate_season(season_id):
+    """Activate a season (deactivates all others)"""
+    try:
+        with db.engine.connect() as conn:
+            # Deactivate all seasons
+            conn.execute("UPDATE season SET is_active = false")
+            
+            # Activate the selected season
+            conn.execute("""
+                UPDATE season 
+                SET is_active = true, status = 'active', updated_at = %s 
+                WHERE id = %s
+            """, (datetime.utcnow(), season_id))
+            
+            conn.commit()
+        
+        flash('Season activated successfully!', 'success')
+        
+    except Exception as e:
+        current_app.logger.error(f"Error activating season: {e}")
+        flash('Error activating season.', 'error')
+    
+    return redirect(url_for('admin.season_management'))
+
+@admin_bp.route('/users')
+@admin_required
+def user_management():
+    """User management interface"""
+    try:
+        # Get all users with their roles and teams
+        with db.engine.connect() as conn:
+            users_result = conn.execute("""
+                SELECT 
+                    u.id, u.username, u.email, u.role, u.is_admin, u.is_approved,
+                    u.profile_updated_at,
+                    t.id as team_id, t.name as team_name, s.name as season_name
+                FROM "user" u
+                LEFT JOIN team t ON u.id = t.user_id 
+                    AND t.season_id = (SELECT id FROM season WHERE is_active = true LIMIT 1)
+                LEFT JOIN season s ON t.season_id = s.id
+                ORDER BY u.role, u.username
+            """)
+            users = users_result.fetchall()
+        
+        return render_template('admin/users.html', users=users)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error in user management: {e}")
+        flash('Error loading user management.', 'error')
+        return redirect(url_for('admin.admin_dashboard'))
+
+@admin_bp.route('/users/<int:user_id>/promote', methods=['POST'])
+@super_admin_required
+def promote_user(user_id):
+    """Promote user to committee admin"""
+    try:
+        with db.engine.connect() as conn:
+            result = conn.execute("""
+                SELECT promote_to_committee_admin(%s, %s)
+            """, (user_id, current_user.id))
+            
+            conn.commit()
+        
+        flash('User promoted to committee admin successfully!', 'success')
+        
+    except Exception as e:
+        current_app.logger.error(f"Error promoting user: {e}")
+        flash('Error promoting user. They may already be an admin.', 'error')
+    
+    return redirect(url_for('admin.user_management'))
+
+@admin_bp.route('/users/<int:user_id>/demote', methods=['POST'])
+@super_admin_required
+def demote_user(user_id):
+    """Demote user from admin role"""
+    try:
+        with db.engine.connect() as conn:
+            result = conn.execute("""
+                SELECT demote_from_admin(%s, %s)
+            """, (user_id, current_user.id))
+            
+            conn.commit()
+        
+        flash('User demoted to team member successfully!', 'success')
+        
+    except Exception as e:
+        current_app.logger.error(f"Error demoting user: {e}")
+        flash('Error demoting user. They may not be an admin or be a super admin.', 'error')
+    
+    return redirect(url_for('admin.user_management'))
+
+@admin_bp.route('/invites')
+@admin_required
+def admin_invites():
+    """Admin invite management"""
+    try:
+        # Get active admin invites
+        with db.engine.connect() as conn:
+            invites_result = conn.execute("""
+                SELECT 
+                    ai.id, ai.invite_token, ai.expires_at, ai.max_uses, 
+                    ai.current_uses, ai.is_active, ai.description,
+                    ai.created_at, u.username as created_by_username
+                FROM admin_invite ai
+                JOIN "user" u ON ai.created_by = u.id
+                WHERE ai.is_active = true
+                ORDER BY ai.created_at DESC
+            """)
+            invites = invites_result.fetchall()
+        
+        return render_template('admin/invites.html', invites=invites)
+        
+    except Exception as e:
+        current_app.logger.error(f"Error loading admin invites: {e}")
+        flash('Error loading admin invites.', 'error')
+        return redirect(url_for('admin.admin_dashboard'))
+
+@admin_bp.route('/invites/create', methods=['POST'])
+@admin_required
+def create_admin_invite():
+    """Create a new admin invite"""
+    try:
+        description = request.form.get('description', '').strip()
+        max_uses = request.form.get('max_uses', 1, type=int)
+        expires_hours = request.form.get('expires_hours', 24, type=int)
+        
+        # Generate random token
+        token = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(32))
+        expires_at = datetime.utcnow() + timedelta(hours=expires_hours)
+        
+        with db.engine.connect() as conn:
+            conn.execute("""
+                INSERT INTO admin_invite (
+                    invite_token, expires_at, max_uses, current_uses,
+                    created_by, is_active, description, created_at
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """, (
+                token, expires_at, max_uses, 0,
+                current_user.id, True, description, datetime.utcnow()
+            ))
+            conn.commit()
+        
+        flash(f'Admin invite created successfully! Token: {token}', 'success')
+        
+    except Exception as e:
+        current_app.logger.error(f"Error creating admin invite: {e}")
+        flash('Error creating admin invite.', 'error')
+    
+    return redirect(url_for('admin.admin_invites'))
+
+@admin_bp.route('/api/season-stats/<int:season_id>')
+@admin_required
+def api_season_stats(season_id):
+    """API endpoint for season statistics"""
+    try:
+        with db.engine.connect() as conn:
+            result = conn.execute("SELECT * FROM get_season_statistics(%s)", (season_id,))
+            stats = result.fetchone()
+            
+            if stats:
+                return jsonify({
+                    'season_id': stats[0],
+                    'season_name': stats[1],
+                    'total_teams': stats[2],
+                    'continuing_teams': stats[3],
+                    'new_teams': stats[4],
+                    'total_rounds': stats[5],
+                    'active_rounds': stats[6],
+                    'total_bids': stats[7]
+                })
+            else:
+                return jsonify({'error': 'Season not found'}), 404
+                
+    except Exception as e:
+        current_app.logger.error(f"Error getting season stats: {e}")
+        return jsonify({'error': 'Internal server error'}), 500

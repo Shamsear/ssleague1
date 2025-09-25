@@ -1,0 +1,414 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Player Statistics & Awards - {{ season[1] }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">Player Statistics & Awards</h1>
+            <p class="mt-2 text-gray-600">{{ season[1] }} ({{ season[2] }}) • Golden awards and comprehensive player analysis</p>
+        </div>
+        <div class="flex items-center space-x-4">
+            <a href="{{ url_for('admin.season_details', season_id=season[0]) }}" 
+               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-arrow-left mr-2"></i>Back to Season
+            </a>
+        </div>
+    </div>
+
+    <!-- Breadcrumb Navigation -->
+    <nav class="flex mb-8" aria-label="Breadcrumb">
+        <ol class="inline-flex items-center space-x-1 md:space-x-3">
+            <li class="inline-flex items-center">
+                <a href="{{ url_for('admin.season_management') }}" class="inline-flex items-center text-sm font-medium text-gray-700 hover:text-blue-600">
+                    <i class="fas fa-calendar-alt mr-2"></i>Seasons
+                </a>
+            </li>
+            <li>
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                    <a href="{{ url_for('admin.season_details', season_id=season[0]) }}" class="text-sm font-medium text-gray-700 hover:text-blue-600">{{ season[1] }}</a>
+                </div>
+            </li>
+            <li aria-current="page">
+                <div class="flex items-center">
+                    <i class="fas fa-chevron-right text-gray-400 mx-2"></i>
+                    <span class="text-sm font-medium text-gray-500">Player Statistics</span>
+                </div>
+            </li>
+        </ol>
+    </nav>
+
+    <!-- Awards Section -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
+        <!-- Golden Ball (Best Player Overall) -->
+        <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200 rounded-lg overflow-hidden shadow-lg">
+            <div class="bg-yellow-400 text-yellow-900 p-4 text-center">
+                <div class="text-2xl font-bold">🏆 Golden Ball</div>
+                <div class="text-sm opacity-90">Best Overall Player</div>
+            </div>
+            <div class="p-6">
+                {% if golden_ball_candidates %}
+                <div class="bg-white rounded-lg p-4 mb-4 shadow-sm border-2 border-yellow-300">
+                    <div class="text-center">
+                        <div class="text-xl font-bold text-gray-900">{{ golden_ball_candidates[0][1] }}</div>
+                        <div class="text-sm text-gray-600">{{ golden_ball_candidates[0][2] }} • Rating: 
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {{ golden_ball_candidates[0][4] }}
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-600 mt-1">{{ golden_ball_candidates[0][8] }} • ${{ "{:,}".format(golden_ball_candidates[0][6]) }}</div>
+                        <div class="text-xs text-gray-500 mt-1">{{ golden_ball_candidates[0][5] or 'N/A' }}</div>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <h4 class="font-medium text-gray-900">Runners-up:</h4>
+                    {% for player in golden_ball_candidates[1:5] %}
+                    <div class="flex justify-between items-center py-1 border-b border-gray-200">
+                        <span class="text-sm font-medium text-gray-900">{{ player[1] }}</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ player[4] }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-center">No players available</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Golden Boot (Top Scorer) -->
+        <div class="bg-gradient-to-br from-green-50 to-green-100 border border-green-200 rounded-lg overflow-hidden shadow-lg">
+            <div class="bg-green-500 text-white p-4 text-center">
+                <div class="text-2xl font-bold">⚽ Golden Boot</div>
+                <div class="text-sm opacity-90">Top Goalscorer</div>
+            </div>
+            <div class="p-6">
+                {% if golden_boot_candidates %}
+                <div class="bg-white rounded-lg p-4 mb-4 shadow-sm border-2 border-green-300">
+                    <div class="text-center">
+                        <div class="text-xl font-bold text-gray-900">{{ golden_boot_candidates[0][1] }}</div>
+                        <div class="text-sm text-gray-600">{{ golden_boot_candidates[0][2] }} • Finishing: 
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                {{ golden_boot_candidates[0][7] }}
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-600 mt-1">{{ golden_boot_candidates[0][9] }} • OA: {{ golden_boot_candidates[0][8] }}</div>
+                        <div class="text-xs text-gray-500 mt-1">{{ golden_boot_candidates[0][5] or 'N/A' }}</div>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <h4 class="font-medium text-gray-900">Top Scorers:</h4>
+                    {% for player in golden_boot_candidates[1:5] %}
+                    <div class="flex justify-between items-center py-1 border-b border-gray-200">
+                        <span class="text-sm font-medium text-gray-900">{{ player[1] }}</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">{{ player[7] }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-center">No scorers available</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Golden Glove (Best Goalkeeper) -->
+        <div class="bg-gradient-to-br from-blue-50 to-blue-100 border border-blue-200 rounded-lg overflow-hidden shadow-lg">
+            <div class="bg-blue-500 text-white p-4 text-center">
+                <div class="text-2xl font-bold">🥅 Golden Glove</div>
+                <div class="text-sm opacity-90">Best Goalkeeper</div>
+            </div>
+            <div class="p-6">
+                {% if golden_glove_candidates %}
+                <div class="bg-white rounded-lg p-4 mb-4 shadow-sm border-2 border-blue-300">
+                    <div class="text-center">
+                        <div class="text-xl font-bold text-gray-900">{{ golden_glove_candidates[0][1] }}</div>
+                        <div class="text-sm text-gray-600">GK • Rating: 
+                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                {{ golden_glove_candidates[0][4] }}
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-600 mt-1">{{ golden_glove_candidates[0][9] }} • DA: {{ golden_glove_candidates[0][7] }}</div>
+                        <div class="text-xs text-gray-500 mt-1">{{ golden_glove_candidates[0][5] or 'N/A' }}</div>
+                    </div>
+                </div>
+                <div class="space-y-2">
+                    <h4 class="font-medium text-gray-900">Top Goalkeepers:</h4>
+                    {% for player in golden_glove_candidates[1:5] %}
+                    <div class="flex justify-between items-center py-1 border-b border-gray-200">
+                        <span class="text-sm font-medium text-gray-900">{{ player[1] }}</span>
+                        <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ player[4] }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <p class="text-gray-500 text-center">No goalkeepers available</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Position Statistics -->
+    {% if position_breakdown %}
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Position Analysis</h3>
+            <p class="text-sm text-gray-600">Player distribution and spending by position</p>
+        </div>
+        <div class="overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Players</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Rating</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max Rating</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Min Rating</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Cost</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Max Cost</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Spent</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for pos in position_breakdown %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ pos[0] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ pos[1] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ "{:.1f}".format(pos[2]) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">{{ pos[3] }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ pos[4] }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">${{ "{:,.0f}".format(pos[5]) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">${{ "{:,.0f}".format(pos[6]) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">${{ "{:,.0f}".format(pos[7]) }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Transfer Records -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <!-- Most Expensive Signings -->
+        {% if expensive_signings %}
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">💰 Most Expensive Signings</h3>
+                <p class="text-sm text-gray-600">Highest transfer fees paid</p>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    {% for player in expensive_signings[:8] %}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex-shrink-0">
+                                <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-yellow-100 text-yellow-800 text-sm font-medium">
+                                    #{{ loop.index }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900">{{ player[1] }}</div>
+                                <div class="text-sm text-gray-500">{{ player[2] }} • {{ player[5] or 'N/A' }}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-semibold text-green-600">${{ "{:,}".format(player[6]) }}</div>
+                            <div class="text-xs text-gray-500">{{ player[8] }}</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Best Value Signings -->
+        {% if value_signings %}
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">📈 Best Value Signings</h3>
+                <p class="text-sm text-gray-600">High rating, low cost transfers</p>
+            </div>
+            <div class="p-6">
+                <div class="space-y-4">
+                    {% for player in value_signings[:8] %}
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div class="flex items-center space-x-3">
+                            <div class="flex-shrink-0">
+                                <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-blue-100 text-blue-800 text-sm font-medium">
+                                    #{{ loop.index }}
+                                </span>
+                            </div>
+                            <div>
+                                <div class="font-medium text-gray-900">{{ player[1] }}</div>
+                                <div class="text-sm text-gray-500">Rating: {{ player[4] }} • {{ player[5] or 'N/A' }}</div>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <div class="font-semibold text-green-600">${{ "{:,}".format(player[6]) }}</div>
+                            <div class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">{{ "{:.3f}".format(player[10]) }} value</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Nationality Breakdown -->
+    {% if nationality_breakdown %}
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">🌍 Nationality Breakdown</h3>
+            <p class="text-sm text-gray-600">Countries with 3+ players represented in the season</p>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {% for nationality in nationality_breakdown %}
+                <div class="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                    <div class="text-center">
+                        <div class="text-lg font-semibold text-gray-900">{{ nationality[0] }}</div>
+                        <div class="mt-2 space-y-1">
+                            <div class="text-sm text-gray-600">
+                                <span class="font-medium">{{ nationality[1] }}</span> players
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                Avg Rating: <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ "{:.1f}".format(nationality[2]) }}</span>
+                            </div>
+                            <div class="text-sm text-gray-600">
+                                Total: <span class="font-medium text-green-600">${{ "{:,.0f}".format(nationality[3]) }}</span>
+                            </div>
+                            <div class="text-xs text-gray-500">
+                                Avg Cost: ${{ "{:,.0f}".format(nationality[4]) }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Player Styles Analysis -->
+    {% if player_attributes %}
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">⚡ Player Styles Analysis</h3>
+            <p class="text-sm text-gray-600">Technical vs Physical attributes for top players (75+ rating)</p>
+        </div>
+        <div class="overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Technical</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Physical</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Style</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for player in player_attributes %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ player[1] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ player[2] }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ player[3] }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ player[8] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'bg-green-100 text-green-800' if player[9] > player[10] else 'bg-gray-100 text-gray-800' }}">{{ "{:.0f}".format(player[9]) }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ 'bg-orange-100 text-orange-800' if player[10] > player[9] else 'bg-gray-100 text-gray-800' }}">{{ "{:.0f}".format(player[10]) }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if player[9] > player[10] + 5 %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">Technical</span>
+                                {% elif player[10] > player[9] + 5 %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">Physical</span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">Balanced</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- All Golden Ball Candidates -->
+    {% if golden_ball_candidates %}
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">🏆 All Golden Ball Candidates</h3>
+            <p class="text-sm text-gray-600">Complete ranking of top 50 players by overall rating</p>
+        </div>
+        <div class="overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rank</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rating</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Team</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Team</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cost</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nationality</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for player in golden_ball_candidates %}
+                        <tr class="hover:bg-gray-50 {{ 'bg-yellow-50 border-l-4 border-yellow-400' if loop.index <= 3 else '' }}">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="flex items-center">
+                                    <span class="font-medium text-gray-900">#{{ loop.index }}</span>
+                                    {% if loop.index == 1 %}
+                                        <i class="fas fa-trophy text-yellow-500 ml-2"></i>
+                                    {% elif loop.index <= 3 %}
+                                        <i class="fas fa-medal text-gray-400 ml-2"></i>
+                                    {% endif %}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{{ player[1] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{{ player[2] }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">{{ player[4] }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ player[3] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ player[8] }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap font-semibold text-green-600">${{ "{:,}".format(player[6]) }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">{{ player[5] or 'N/A' }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

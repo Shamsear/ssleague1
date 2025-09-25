@@ -1,0 +1,289 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Season Details - {{ season[1] }}{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-8 flex items-center justify-between">
+        <div>
+            <h1 class="text-3xl font-bold text-gray-900">{{ season[1] }} Details</h1>
+            <p class="mt-2 text-gray-600">Comprehensive statistics and information</p>
+        </div>
+        <div class="flex items-center space-x-4">
+            {% if season[3] %} <!-- is_active -->
+                <span class="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                    <i class="fas fa-check-circle mr-1"></i>Active
+                </span>
+            {% else %}
+                <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium">
+                    {{ season[4]|title }} <!-- status -->
+                </span>
+            {% endif %}
+            <a href="{{ url_for('admin.season_player_stats', season_id=season[0]) }}" 
+               class="inline-flex items-center px-4 py-2 border border-indigo-300 text-sm font-medium rounded-md text-indigo-600 bg-white hover:bg-indigo-50">
+                <i class="fas fa-trophy mr-2"></i>Player Stats & Awards
+            </a>
+            <a href="{{ url_for('admin.season_management') }}" 
+               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-arrow-left mr-2"></i>Back to Seasons
+            </a>
+        </div>
+    </div>
+
+    <!-- Season Info Card -->
+    <div class="bg-white shadow rounded-lg p-6 mb-8">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">Season Information</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+                <dt class="text-sm font-medium text-gray-500">Short Name</dt>
+                <dd class="text-lg text-gray-900">{{ season[2] }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">Created</dt>
+                <dd class="text-lg text-gray-900">{{ season[5].strftime('%Y-%m-%d') if season[5] else 'N/A' }}</dd>
+            </div>
+            <div>
+                <dt class="text-sm font-medium text-gray-500">Last Updated</dt>
+                <dd class="text-lg text-gray-900">{{ season[6].strftime('%Y-%m-%d') if season[6] else 'N/A' }}</dd>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Overview -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <!-- Teams Stats -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-users text-2xl text-blue-500"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Teams</dt>
+                            <dd class="text-2xl font-semibold text-gray-900">{{ season_stats[0] }}</dd>
+                            <dd class="text-xs text-gray-500">
+                                {{ season_stats[2] }} new, {{ season_stats[1] }} continuing
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Rounds Stats -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-clock text-2xl text-green-500"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Rounds</dt>
+                            <dd class="text-2xl font-semibold text-gray-900">{{ season_stats[3] }}</dd>
+                            <dd class="text-xs text-gray-500">
+                                {{ season_stats[4] }} active, {{ season_stats[5] }} completed
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bids Stats -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-gavel text-2xl text-yellow-500"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Total Bids</dt>
+                            <dd class="text-2xl font-semibold text-gray-900">{{ season_stats[6] }}</dd>
+                            <dd class="text-xs text-gray-500">
+                                {{ season_stats[7] }} teams participated
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Average Bid -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-chart-line text-2xl text-purple-500"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Average Bid</dt>
+                            <dd class="text-2xl font-semibold text-gray-900">{{ "%.0f"|format(season_stats[9]) }}</dd>
+                            <dd class="text-xs text-gray-500">
+                                Max: {{ season_stats[10] }}, Min: {{ season_stats[11] }}
+                            </dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Teams Section -->
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Teams ({{ teams|length }})</h3>
+        </div>
+        <div class="overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Team</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Balance</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bids</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total Spent</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for team in teams %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <a href="{{ url_for('admin.team_details', season_id=season[0], team_id=team[0]) }}" 
+                                   class="font-medium text-indigo-600 hover:text-indigo-900">{{ team[1] }}</a>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ team[4] }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if team[3] %}
+                                    <span class="px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">Continuing</span>
+                                {% else %}
+                                    <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">New</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ "{:,}".format(team[2]) }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ team[5] }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ "{:,}".format(team[6]) }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Rounds Section -->
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Rounds ({{ rounds|length }})</h3>
+        </div>
+        <div class="overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Start Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bids</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Teams</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Players</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for round in rounds %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <a href="{{ url_for('admin.round_details', season_id=season[0], round_id=round[0]) }}" 
+                                   class="font-medium text-indigo-600 hover:text-indigo-900">{{ round[1] }}</a>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                {% if round[2] %} <!-- is_active -->
+                                    <span class="px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">Active</span>
+                                {% else %}
+                                    <span class="px-2 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-full">{{ round[3]|title if round[3] else 'Inactive' }}</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ round[4].strftime('%Y-%m-%d %H:%M') if round[4] else 'N/A' }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ round[6] }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ round[7] }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ round[8] }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Bids Section -->
+    {% if top_bids %}
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Top Bids</h3>
+        </div>
+        <div class="overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-50">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Player</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Position</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Original Team</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Bidding Team</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Round</th>
+                        </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-200">
+                        {% for bid in top_bids %}
+                        <tr class="hover:bg-gray-50">
+                            <td class="px-6 py-4 whitespace-nowrap font-medium text-gray-900">
+                                {{ bid[0] }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ bid[1] }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ bid[2] }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ bid[4] }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">
+                                {{ "{:,}".format(bid[3]) }}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-gray-500">
+                                {{ bid[5] }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

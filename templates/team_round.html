@@ -249,7 +249,7 @@
                         <!-- First show starred players -->
                         {% for player in round.players %}
                             {% if player.id in starred_player_ids and not player.team_id %}
-                                {% set has_bid = player.has_bid_from_team(current_user.team.id) %}
+                                {% set has_bid = player.has_bid_from_team(current_user.team.id, round.id) %}
                                 <div class="glass-card p-4 rounded-xl backdrop-blur-sm shadow-sm border border-yellow-300 hover:border-yellow-400 hover:shadow-md transition-all {% if has_bid %}ring-2 ring-primary{% endif %}" data-player-card-id="{{ player.id }}-{{ round.id }}">
                                     <div class="flex justify-between items-start">
                                         <div class="flex items-start gap-3">
@@ -279,7 +279,7 @@
                                         
                                         <div class="flex flex-col items-end">
                                             {% if has_bid %}
-                                                {% set user_bid = player.bids|selectattr('team_id', 'equalto', current_user.team.id)|first %}
+                                                {% set user_bid = player.bids|selectattr('team_id', 'equalto', current_user.team.id)|selectattr('round_id', 'equalto', round.id)|first %}
                                                 <div class="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
                                                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -320,7 +320,7 @@
                         <!-- Then show non-starred players -->
                         {% for player in round.players %}
                             {% if not player.team_id and player.id not in starred_player_ids %}
-                                {% set has_bid = player.has_bid_from_team(current_user.team.id) %}
+                                {% set has_bid = player.has_bid_from_team(current_user.team.id, round.id) %}
                                 <div class="glass-card p-4 rounded-xl backdrop-blur-sm shadow-sm border border-white/10 hover:border-primary/20 hover:shadow-md transition-all {% if has_bid %}ring-2 ring-primary{% endif %}" data-player-card-id="{{ player.id }}-{{ round.id }}">
                                     <div class="flex justify-between items-start">
                                         <div class="flex items-start gap-3">
@@ -344,7 +344,7 @@
                                         
                                         <div class="flex flex-col items-end">
                                             {% if has_bid %}
-                                                {% set user_bid = player.bids|selectattr('team_id', 'equalto', current_user.team.id)|first %}
+                                                {% set user_bid = player.bids|selectattr('team_id', 'equalto', current_user.team.id)|selectattr('round_id', 'equalto', round.id)|first %}
                                                 <div class="inline-flex items-center px-2 py-1 rounded-full bg-primary/10 text-primary text-xs font-medium">
                                                     <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -595,12 +595,18 @@
                         console.log('Round is no longer active:', data.message);
                         
                         if (data.redirect_to) {
-                            // If there's a specific redirect URL (like to a tiebreaker)
-                            console.log("Redirecting to tiebreaker:", data.redirect_to);
-                            // Add a small delay to ensure the server has processed everything
-                            setTimeout(() => {
+                            // If there's a specific redirect URL (like to a tiebreaker or results)
+                            if (data.tiebreaker_id) {
+                                console.log("Round ended - redirecting to tiebreaker:", data.redirect_to);
+                                // Small delay for tiebreakers to ensure server processing is complete
+                                setTimeout(() => {
+                                    window.location.href = data.redirect_to;
+                                }, 500);
+                            } else {
+                                console.log("Round ended - redirecting to results:", data.redirect_to);
+                                // Immediate redirect for results pages
                                 window.location.href = data.redirect_to;
-                            }, 500);
+                            }
                         } else if (data.tiebreaker_id) {
                             // Fallback: construct tiebreaker URL if we have ID but no redirect_to
                             console.log("Redirecting to tiebreaker via ID:", data.tiebreaker_id);
@@ -608,19 +614,11 @@
                                 window.location.href = `/tiebreaker/${data.tiebreaker_id}`;
                             }, 500);
                         } else {
-                            // No tiebreaker needed, check if we should show auction results
-                            if (data.redirect_to) {
-                                console.log("Round ended, redirecting to:", data.redirect_to);
-                                setTimeout(() => {
-                                    window.location.href = data.redirect_to;
-                                }, 800);
-                            } else {
-                                // Fallback to dashboard
-                                console.log("Round ended, returning to dashboard:", data.message);
-                                setTimeout(() => {
-                                    window.location.href = '/dashboard';
-                                }, 800);
-                            }
+                            // Final fallback to dashboard if no specific redirect is provided
+                            console.log("Round ended, returning to dashboard:", data.message);
+                            setTimeout(() => {
+                                window.location.href = '/dashboard';
+                            }, 800);
                         }
                         return;
                     }
@@ -630,13 +628,27 @@
                         lastRemainingTimes[roundId] = data.remaining;
                         lastUpdateTimes[roundId] = Date.now();
                         
+                        // Reset error count on successful update
+                        window.timerErrorCount = 0;
+                        
                         // Update the UI immediately
                         updateTimerDisplay(roundId, data.remaining);
                     }
                 })
                 .catch(error => {
                     console.error('Error updating timer:', error);
-                    // Don't interrupt the client-side updates on error
+                    // On error, check if we should redirect anyway (fallback for admin-ended rounds)
+                    // If we get repeated errors, it might be because the round was ended by admin
+                    if (!window.timerErrorCount) window.timerErrorCount = 0;
+                    window.timerErrorCount++;
+                    
+                    // After 3 consecutive errors, assume round might be ended and redirect to dashboard
+                    if (window.timerErrorCount >= 3) {
+                        console.warn('Multiple errors checking round status, redirecting to dashboard as fallback');
+                        setTimeout(() => {
+                            window.location.href = '/dashboard';
+                        }, 1000);
+                    }
                 });
         });
         
@@ -665,10 +677,10 @@
                         // Enhanced handling for bulk round completion
                         if (data.redirect_to) {
                             // If there's a specific redirect URL
-                            console.log("Redirecting to:", data.redirect_to);
+                            console.log("Bulk round ended - redirecting to:", data.redirect_to);
                             window.location.href = data.redirect_to;
                         } else {
-                            // Default behavior: reload the page
+                            // Default behavior: reload the page to refresh content
                             console.log("Bulk round ended, reloading page:", data.message);
                             window.location.reload();
                         }

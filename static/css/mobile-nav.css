@@ -378,6 +378,14 @@
     transform: scale(0.98) translateY(10px);
     transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
     will-change: transform, opacity;
+    /* Enable proper scrolling */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Allow vertical panning only */
+    touch-action: pan-y;
+    /* Ensure container can be scrolled */
+    position: relative;
+    z-index: 2;
 }
 
 /* Active state */
@@ -496,6 +504,14 @@
 /* Menu Content */
 .menu-content {
     padding: 24px 16px;
+    /* Ensure scrollable content doesn't close menu */
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    /* Prevent touch events from bubbling to overlay */
+    touch-action: pan-y;
+    /* Ensure content can scroll independently */
+    position: relative;
+    z-index: 1;
 }
 
 .welcome-section {

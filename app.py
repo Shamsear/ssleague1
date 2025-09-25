@@ -14,9 +14,16 @@ from flask_migrate import Migrate
 import os
 import base64
 import uuid
-from sqlalchemy import func
+from sqlalchemy import func, text
 import time
 from team_management_routes import team_management
+try:
+    from admin_routes import admin_bp
+    from registration_routes import registration_bp
+    from history_routes import history_bp
+    ADMIN_ROUTES_AVAILABLE = True
+except ImportError:
+    ADMIN_ROUTES_AVAILABLE = False
 from bs4 import BeautifulSoup
 import re
 from github_service import github_service
@@ -28,6 +35,9 @@ try:
     COMPRESSION_AVAILABLE = True
 except ImportError:
     COMPRESSION_AVAILABLE = False
+
+from season_context import SeasonContext, season_aware, get_current_season_id, get_user_current_team
+from template_helpers import get_current_season, get_user_team_in_season, format_season_name, is_continuing_team, get_team_lineage_display
 
 # Import performance optimizations (optional)
 try:
@@ -95,6 +105,10 @@ if hasattr(Config, 'SQLALCHEMY_ENGINE_OPTIONS'):
 
 # Register blueprints
 app.register_blueprint(team_management, url_prefix='/team_management')
+if ADMIN_ROUTES_AVAILABLE:
+    app.register_blueprint(admin_bp)
+app.register_blueprint(registration_bp)
+app.register_blueprint(history_bp)
 
 
 db.init_app(app)
@@ -102,6 +116,20 @@ migrate = Migrate(app, db)
 login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = 'login'
+
+# Season-aware template context processor
+@app.context_processor
+def inject_season_context():
+    """Inject season context into all templates"""
+    return {
+        'current_season': get_current_season(),
+        'get_user_team_in_season': get_user_team_in_season,
+        'format_season_name': format_season_name,
+        'is_continuing_team': is_continuing_team,
+        'get_team_lineage_display': get_team_lineage_display,
+        'SeasonContext': SeasonContext
+    }
+
 
 # Initialize performance monitoring
 setup_performance_monitoring()
@@ -453,6 +481,42 @@ def register():
     # Redirect authenticated users to dashboard
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
+    
+    # Check for admin invite token
+    invite_token = request.args.get('invite') or request.form.get('invite_token')
+    invite_data = None
+    is_admin_invite = False
+    
+    if invite_token:
+        try:
+            with db.engine.connect() as conn:
+                invite_result = conn.execute(text("""
+                    SELECT id, expires_at, max_uses, current_uses, is_active, description
+                    FROM admin_invite 
+                    WHERE invite_token = :token AND is_active = true
+                """), {'token': invite_token})
+                invite_data = invite_result.fetchone()
+                
+                if invite_data:
+                    # Check if invite is still valid
+                    if invite_data[1] and datetime.utcnow() > invite_data[1]:  # expired
+                        flash('This admin invitation link has expired. Please contact an administrator for a new invitation.', 'error')
+                        return redirect(url_for('register'))
+                    
+                    if invite_data[3] >= invite_data[2]:  # current_uses >= max_uses
+                        flash('This admin invitation link has already been used and is no longer valid. Please contact an administrator if you need a new invitation.', 'error')
+                        return redirect(url_for('register'))
+                    
+                    is_admin_invite = True
+                else:
+                    flash('This admin invitation link is not valid. Please check the link or contact an administrator.', 'error')
+                    return redirect(url_for('register'))
+        except Exception as e:
+            current_app.logger.error(f"Error checking invite token: {e}")
+            current_app.logger.error(f"Exception type: {type(e).__name__}")
+            current_app.logger.error(f"Exception details: {str(e)}")
+            flash('Error validating invitation.', 'error')
+            return redirect(url_for('register'))
         
     if request.method == 'POST':
         username = request.form.get('username')
@@ -463,10 +527,42 @@ def register():
             flash('Username already exists')
             return redirect(url_for('register'))
         
-        # Check if this is an admin account
-        is_admin = username.lower() == 'admin'
+        # Handle admin invite registration
+        if is_admin_invite:
+            # Create committee admin user
+            user = User(username=username, user_role='committee_admin', is_approved=True)
+            user.set_password(password)
+            db.session.add(user)
+            
+            # Commit the user creation first
+            db.session.commit()
+            
+            # Update invite usage in a separate transaction
+            try:
+                with db.engine.begin() as conn:  # Use begin() for auto-commit
+                    result = conn.execute(text("""
+                        UPDATE admin_invite 
+                        SET current_uses = current_uses + 1, used_at = :used_at
+                        WHERE invite_token = :token
+                    """), {
+                        'token': invite_token, 
+                        'used_at': datetime.utcnow()
+                    })
+                    
+                    if result.rowcount == 0:
+                        current_app.logger.warning(f"Failed to update invite usage - no rows affected for token: {invite_token}")
+                    else:
+                        current_app.logger.info(f"Successfully updated invite usage for token: {invite_token}")
+                        
+            except Exception as e:
+                current_app.logger.error(f"Error updating invite usage: {e}")
+                # Don't fail the registration if invite update fails
+            flash('Welcome! Your committee admin account has been created successfully.', 'success')
+            return redirect(url_for('login'))
         
-        user = User(username=username, is_admin=is_admin)
+        # Regular user registration
+        is_admin = username.lower() == 'admin'
+        user = User(username=username, is_admin=is_admin, user_role='team_user' if not is_admin else 'super_admin')
         user.set_password(password)
         db.session.add(user)
         
@@ -571,7 +667,26 @@ def register():
         return redirect(url_for('login'))
     
     # Set no-cache headers
-    response = make_response(render_template('register.html'))
+    try:
+        # Debug logging for template variables
+        current_app.logger.info(f"Rendering register template with: invite_token={invite_token}, is_admin_invite={is_admin_invite}, invite_data={invite_data}")
+        
+        invite_description = None
+        if invite_data and len(invite_data) > 5:
+            invite_description = invite_data[5]
+            
+        response = make_response(render_template('register.html', 
+                                               invite_token=invite_token,
+                                               is_admin_invite=is_admin_invite,
+                                               invite_description=invite_description))
+    except Exception as template_error:
+        current_app.logger.error(f"Error rendering register template: {template_error}")
+        current_app.logger.error(f"Template error type: {type(template_error).__name__}")
+        # Fallback to simple template rendering
+        response = make_response(render_template('register.html', 
+                                               invite_token=None,
+                                               is_admin_invite=False,
+                                               invite_description=None))
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate, post-check=0, pre-check=0"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
@@ -584,6 +699,20 @@ def dashboard():
     if not current_user.is_authenticated:
         session.clear()
         return redirect(url_for('login'))
+    
+    # Check if user has admin access and redirect to appropriate admin interface
+    if hasattr(current_user, 'user_role'):
+        if current_user.user_role == 'super_admin':
+            try:
+                # Super admins go to the full admin routes (/admin/)
+                return redirect(url_for('admin.admin_dashboard'))
+            except:
+                # If admin routes are not available, show appropriate message
+                flash('Welcome Super Admin! Admin interface is being loaded...', 'info')
+        elif current_user.user_role == 'committee_admin':
+            # Committee admins get their own dashboard (handled below)
+            pass
+    
     
     # Check if user is a new user (no bids placed yet)
     user_is_new = False
@@ -603,7 +732,7 @@ def dashboard():
         flash(f'Congratulations! You won the bid for {player_won}!', 'success')
     
     # Refresh the data after potentially finalizing rounds
-    if current_user.is_admin:
+    if current_user.user_role == 'committee_admin':
         teams = Team.query.all()
         
         # Get pending users (users that are not approved and not admins)
@@ -720,7 +849,7 @@ def dashboard():
 @login_required
 def edit_profile():
     """Unified profile editing - allows users to edit both user account and team information"""
-    if current_user.is_admin:
+    if current_user.user_role in ['super_admin', 'committee_admin']:
         flash('Admin users do not have team profiles to edit', 'info')
         # Redirect admin users to a different profile edit page if needed
         return redirect(url_for('dashboard'))
@@ -1000,6 +1129,11 @@ def start_round():
                 'remaining_rounds': remaining_rounds
             }), 400
         
+        # DECISION: PRESERVE ALL BID HISTORY - Don't clean up any bids automatically
+        # The template filtering already handles showing only relevant bids for active rounds
+        # Let teams access their complete bid history through the bid history page
+        print(f"Starting new {position} round - bid history preserved for all teams")
+        
         # Create new round with timer
         start_time = datetime.utcnow()
         end_time = start_time + timedelta(seconds=duration)
@@ -1116,15 +1250,15 @@ def check_round_status(round_id):
             if active_tiebreaker:
                 return jsonify({
                     'active': False,
-                    'message': 'Round finalized with tiebreaker',
+                    'message': 'Round ended by admin - tiebreaker required',
                     'redirect_to': f'/tiebreaker/{active_tiebreaker.id}',
                     'tiebreaker_id': active_tiebreaker.id
                 })
         
-        # Check if we should redirect to auction results
+        # Check if we should redirect to auction results - round was ended by admin
         return jsonify({
             'active': False, 
-            'message': 'Round is already finalized',
+            'message': 'Round was ended by admin and has been finalized',
             'redirect_to': f'/round_results/{round_id}'
         })
     
@@ -1416,7 +1550,14 @@ def delete_bid(bid_id):
     
     # Check if the round is still active
     if not bid.round.is_active:
-        return jsonify({'error': 'Cannot delete bid from a finalized round'}), 400
+        # Allow deletion of bids from inactive rounds for cleanup purposes
+        # but only if the player is not already allocated to this team
+        player = Player.query.get(player_id)
+        if player and player.team_id == current_user.team.id:
+            return jsonify({'error': 'Cannot delete bid - player is already allocated to your team'}), 400
+        
+        # Allow deletion for cleanup of stale bids
+        print(f"Allowing deletion of stale bid {bid_id} from inactive round {round_id}")
     
     db.session.delete(bid)
     db.session.commit()
@@ -2423,8 +2564,9 @@ def admin_delete_round(round_id):
         # Get all players allocated in this round
         players_in_round = Player.query.filter_by(round_id=round_id).all()
         allocated_players = []
+        refunded_amount = 0
         
-        # Find players that were allocated to teams in this round
+        # Step 1: Handle player allocations and refunds
         for player in players_in_round:
             # Check if player has a winning bid in this round
             winning_bid = Bid.query.filter_by(
@@ -2435,46 +2577,48 @@ def admin_delete_round(round_id):
             
             if winning_bid:
                 allocated_players.append(player)
-        
-        # Get all players with team_id set but may not be in this round anymore
-        all_players = Player.query.all()
-        refunded_amount = 0
-        
-        # Release allocated players from their teams
-        for player in allocated_players:
-            # Get the team to refund the acquisition value
-            team = Team.query.get(player.team_id)
-            if team and player.acquisition_value:
-                team.balance += player.acquisition_value
-                refunded_amount += player.acquisition_value
+                
+                # Refund the team
+                team = Team.query.get(player.team_id)
+                if team and player.acquisition_value:
+                    team.balance += player.acquisition_value
+                    refunded_amount += player.acquisition_value
             
-            # Reset player's team and acquisition value
+            # Reset player's team and round association (remove foreign key reference)
             player.team_id = None
             player.acquisition_value = None
             player.round_id = None
         
-        # Delete all bids for this round
-        Bid.query.filter_by(round_id=round_id).delete()
-        
-        # Delete all tiebreakers for this round
+        # Step 2: Clean up all tiebreaker-related records (handle nested foreign keys)
         tiebreakers = Tiebreaker.query.filter_by(round_id=round_id).all()
         for tiebreaker in tiebreakers:
+            # First delete team_tiebreaker records that reference this tiebreaker
             TeamTiebreaker.query.filter_by(tiebreaker_id=tiebreaker.id).delete()
+        
+        # Now delete the tiebreaker records themselves
         Tiebreaker.query.filter_by(round_id=round_id).delete()
         
-        # Release any remaining players from the round
-        for player in players_in_round:
-            if player.round_id == round_id:
-                player.round_id = None
+        # Step 3: Delete all bids for this round
+        bid_count = Bid.query.filter_by(round_id=round_id).count()
+        Bid.query.filter_by(round_id=round_id).delete()
         
-        # Delete the round
+        # Step 4: Ensure all players are released from this round (safety check)
+        remaining_players = Player.query.filter_by(round_id=round_id).all()
+        for player in remaining_players:
+            player.round_id = None
+        
+        # Step 5: Now safely delete the round
         db.session.delete(round)
+        
+        # Commit all changes
         db.session.commit()
         
         return jsonify({
             'message': 'Round deleted successfully',
             'released_players': len(allocated_players),
-            'refunded_amount': refunded_amount
+            'refunded_amount': refunded_amount,
+            'deleted_bids': bid_count,
+            'deleted_tiebreakers': len(tiebreakers)
         })
     except Exception as e:
         db.session.rollback()
@@ -3496,58 +3640,92 @@ def team_bids():
                           active_rounds=active_rounds,
                           team_tiebreakers=team_tiebreakers,
                           team_bulk_tiebreakers=team_bulk_tiebreakers)
-
 @app.route('/team_round')
 @login_required
 def team_round():
-    # Check if user has any active tiebreakers
+    # OPTIMIZED: Combine multiple queries to reduce network latency
     from models import TeamTiebreaker, Tiebreaker
+    from sqlalchemy import text
     
     if current_user.is_authenticated and hasattr(current_user, 'team') and current_user.team:
-        # Check for any active bulk bid tiebreakers first
-        team_bulk_tiebreakers = TeamBulkTiebreaker.query.join(
-            BulkBidTiebreaker, TeamBulkTiebreaker.tiebreaker_id == BulkBidTiebreaker.id
-        ).filter(
-            TeamBulkTiebreaker.team_id == current_user.team.id,
-            TeamBulkTiebreaker.is_active == True,
-            BulkBidTiebreaker.resolved == False
-        ).all()
+        # OPTIMIZED: Single query to get all counts and basic info
+        team_data = db.session.execute(text("""
+            SELECT 
+                -- Bulk tiebreakers count
+                (SELECT COUNT(*) FROM team_bulk_tiebreaker tbt 
+                 JOIN bulk_bid_tiebreaker bbt ON tbt.tiebreaker_id = bbt.id 
+                 WHERE tbt.team_id = :team_id AND tbt.is_active = true AND bbt.resolved = false) as bulk_tiebreakers_count,
+                
+                -- Regular tiebreakers count
+                (SELECT COUNT(*) FROM team_tiebreaker tt 
+                 JOIN tiebreaker t ON tt.tiebreaker_id = t.id 
+                 WHERE tt.team_id = :team_id AND t.resolved = false) as regular_tiebreakers_count,
+                
+                -- Active rounds count
+                (SELECT COUNT(*) FROM round WHERE is_active = true) as active_rounds_count,
+                
+                -- Completed rounds count
+                (SELECT COUNT(*) FROM round WHERE is_active = false) as completed_rounds_count,
+                
+                -- Active bulk round exists
+                (SELECT COUNT(*) FROM bulk_bid_round WHERE is_active = true) as active_bulk_rounds_count,
+                
+                -- Starred players count
+                (SELECT COUNT(*) FROM starred_player WHERE team_id = :team_id) as starred_players_count
+        """), {'team_id': current_user.team.id}).fetchone()
         
-        if team_bulk_tiebreakers:
-            tiebreaker = BulkBidTiebreaker.query.get(team_bulk_tiebreakers[0].tiebreaker_id)
-            return redirect(url_for('team_bulk_tiebreaker', tiebreaker_id=tiebreaker.id))
+        # Check if we need to redirect to tiebreakers
+        if team_data.bulk_tiebreakers_count > 0:
+            # Only fetch detailed data if we have tiebreakers
+            team_bulk_tiebreakers = TeamBulkTiebreaker.query.join(
+                BulkBidTiebreaker, TeamBulkTiebreaker.tiebreaker_id == BulkBidTiebreaker.id
+            ).filter(
+                TeamBulkTiebreaker.team_id == current_user.team.id,
+                TeamBulkTiebreaker.is_active == True,
+                BulkBidTiebreaker.resolved == False
+            ).first()  # Use first() instead of all() for efficiency
+            
+            if team_bulk_tiebreakers:
+                tiebreaker = BulkBidTiebreaker.query.get(team_bulk_tiebreakers.tiebreaker_id)
+                return redirect(url_for('team_bulk_tiebreaker', tiebreaker_id=tiebreaker.id))
         
-        # Check for regular tiebreakers
-        team_tiebreakers = TeamTiebreaker.query.join(
-            Tiebreaker, TeamTiebreaker.tiebreaker_id == Tiebreaker.id
-        ).filter(
-            TeamTiebreaker.team_id == current_user.team.id,
-            Tiebreaker.resolved == False
-        ).all()
+        if team_data.regular_tiebreakers_count > 0:
+            # Only fetch detailed data if we have regular tiebreakers
+            team_tiebreakers = TeamTiebreaker.query.join(
+                Tiebreaker, TeamTiebreaker.tiebreaker_id == Tiebreaker.id
+            ).filter(
+                TeamTiebreaker.team_id == current_user.team.id,
+                Tiebreaker.resolved == False
+            ).first()  # Use first() instead of all() for efficiency
+            
+            if team_tiebreakers:
+                tiebreaker = Tiebreaker.query.get(team_tiebreakers.tiebreaker_id)
+                player = Player.query.get(tiebreaker.player_id)
+                
+                return render_template('tiebreaker_team.html',
+                                      tiebreaker=tiebreaker,
+                                      team_tiebreaker=team_tiebreakers,
+                                      player=player)
         
-        if team_tiebreakers:
-            # Redirect to the first available tiebreaker
-            tiebreaker_id = team_tiebreakers[0].tiebreaker_id
-            return redirect(url_for('get_tiebreaker', tiebreaker_id=tiebreaker_id))
+        # OPTIMIZED: Only fetch detailed data if we have active rounds
+        active_rounds = []
+        if team_data.active_rounds_count > 0:
+            active_rounds = Round.query.filter_by(is_active=True).all()
         
-        # Only show active rounds if no tiebreakers are pending
-        active_rounds = Round.query.filter_by(is_active=True).all()
+        # OPTIMIZED: Only fetch bulk round if one exists
+        active_bulk_round = None
+        if team_data.active_bulk_rounds_count > 0:
+            active_bulk_round = BulkBidRound.query.filter_by(is_active=True).first()
         
-        # Get auction settings
+        # OPTIMIZED: Get auction settings (this is fast, usually cached)
         settings = AuctionSettings.get_settings()
-        
-        # Get completed rounds count
-        completed_rounds_count = Round.query.filter_by(is_active=False).count()
-        
-        # Check for active bulk bid rounds
-        active_bulk_round = BulkBidRound.query.filter_by(is_active=True).first()
         
         # Get Config for minimum bid amount
         from config import Config
         
-        # Get starred players for this team
+        # OPTIMIZED: Only fetch starred players if we have any
         starred_player_ids = []
-        if current_user.team:
+        if team_data.starred_players_count > 0:
             starred_players = StarredPlayer.query.filter_by(team_id=current_user.team.id).all()
             starred_player_ids = [sp.player_id for sp in starred_players]
         
@@ -3556,7 +3734,7 @@ def team_round():
                               active_bulk_round=active_bulk_round,
                               Config=Config,
                               auction_settings=AuctionSettings,
-                              completed_rounds_count=completed_rounds_count,
+                              completed_rounds_count=team_data.completed_rounds_count,
                               starred_player_ids=starred_player_ids)
 
 # Password reset routes
@@ -3564,7 +3742,7 @@ def team_round():
 def reset_password_request():
     if current_user.is_authenticated:
         return redirect(url_for('dashboard'))
-    
+
     if request.method == 'POST':
         username = request.form.get('username')
         reason = request.form.get('reason')

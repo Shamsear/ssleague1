@@ -117,11 +117,11 @@
                                 </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-right text-sm font-medium">
                                     {% if result.result == 'won' %}
-                                    <span class="text-green-600">£{{ "{:,}".format(result.winning_amount) }}</span>
+                                    <span class="text-green-600">£{{ "{:,}".format(result.winning_amount) if result.winning_amount is not none else "0" }}</span>
                                     {% else %}
                                     <div class="text-xs text-gray-500">
                                         Won by: {{ result.winning_team }}<br>
-                                        <span class="text-red-600">£{{ "{:,}".format(result.winning_amount) }}</span>
+                                        <span class="text-red-600">£{{ "{:,}".format(result.winning_amount) if result.winning_amount is not none else "0" }}</span>
                                     </div>
                                     {% endif %}
                                 </td>

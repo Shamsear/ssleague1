@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block title %}Registration Successful{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <div class="max-w-3xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Success Header -->
+        <div class="bg-white shadow sm:rounded-lg mb-6">
+            <div class="px-6 py-8 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                    <i class="fas fa-check text-green-600 text-xl"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-900 mb-2">Registration Successful!</h1>
+                <p class="text-gray-600">Your team has been successfully registered for the season.</p>
+            </div>
+        </div>
+
+        <!-- Team Details -->
+        <div class="bg-white shadow sm:rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Team Details</h2>
+            </div>
+            <div class="px-6 py-4">
+                <dl class="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Team Name</dt>
+                        <dd class="mt-1 text-sm text-gray-900 font-semibold">{{ team[1] }}</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Season</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ team[4] }} ({{ team[5] }})</dd>
+                    </div>
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Registration Type</dt>
+                        <dd class="mt-1">
+                            {% if team[2] %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                    <i class="fas fa-arrow-right mr-1"></i>Continuing Team
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                    <i class="fas fa-star mr-1"></i>New Team
+                                </span>
+                            {% endif %}
+                        </dd>
+                    </div>
+                    {% if team[3] %}
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Team Lineage</dt>
+                        <dd class="mt-1 text-sm text-gray-900">Lineage #{{ team[3] }}</dd>
+                    </div>
+                    {% endif %}
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Starting Balance</dt>
+                        <dd class="mt-1 text-sm text-gray-900">15,000 credits</dd>
+                    </div>
+                    {% if team[6] %}
+                    <div>
+                        <dt class="text-sm font-medium text-gray-500">Season Start</dt>
+                        <dd class="mt-1 text-sm text-gray-900">{{ team[6].strftime('%B %d, %Y') }}</dd>
+                    </div>
+                    {% endif %}
+                </dl>
+            </div>
+        </div>
+
+        <!-- Team History (for continuing teams) -->
+        {% if lineage_history and lineage_history|length > 1 %}
+        <div class="bg-white shadow sm:rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Team Lineage History</h2>
+                <p class="text-sm text-gray-600">Your team's journey across seasons</p>
+            </div>
+            <div class="px-6 py-4">
+                <div class="flow-root">
+                    <ul class="-mb-8">
+                        {% for history in lineage_history %}
+                        <li>
+                            <div class="relative pb-8">
+                                {% if not loop.last %}
+                                <span class="absolute top-4 left-4 -ml-px h-full w-0.5 bg-gray-200" aria-hidden="true"></span>
+                                {% endif %}
+                                <div class="relative flex space-x-3">
+                                    <div>
+                                        <span class="h-8 w-8 rounded-full 
+                                            {% if history[0] == team[0] %}bg-green-500{% else %}bg-gray-400{% endif %} 
+                                            flex items-center justify-center ring-8 ring-white">
+                                            {% if history[5] %}
+                                                <i class="fas fa-arrow-right text-white text-xs"></i>
+                                            {% else %}
+                                                <i class="fas fa-star text-white text-xs"></i>
+                                            {% endif %}
+                                        </span>
+                                    </div>
+                                    <div class="min-w-0 flex-1 pt-1.5 flex justify-between space-x-4">
+                                        <div>
+                                            <p class="text-sm text-gray-900">
+                                                <strong>{{ history[1] }}</strong> in {{ history[3] }}
+                                                {% if history[0] == team[0] %}
+                                                    <span class="text-green-600 font-medium">(Current)</span>
+                                                {% endif %}
+                                            </p>
+                                        </div>
+                                        <div class="text-right text-sm whitespace-nowrap text-gray-500">
+                                            {{ history[6].strftime('%Y') if history[6] else 'Unknown' }}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Next Steps -->
+        <div class="bg-white shadow sm:rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">What's Next?</h2>
+            </div>
+            <div class="px-6 py-4">
+                <div class="space-y-3">
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-clock text-indigo-500 mt-0.5"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-gray-900">
+                                <strong>Wait for Season Start:</strong> 
+                                {% if team[6] %}
+                                    Your season begins on {{ team[6].strftime('%B %d, %Y') }}
+                                {% else %}
+                                    Season start date will be announced
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-users text-indigo-500 mt-0.5"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-gray-900">
+                                <strong>Team Management:</strong> You can view and manage your team details from your dashboard
+                            </p>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-gavel text-indigo-500 mt-0.5"></i>
+                        </div>
+                        <div class="ml-3">
+                            <p class="text-sm text-gray-900">
+                                <strong>Player Auctions:</strong> Participate in player auctions when rounds begin
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex justify-center space-x-4">
+            <a href="{{ url_for('dashboard') }}" 
+               class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                <i class="fas fa-home mr-2"></i>Go to Dashboard
+            </a>
+            <a href="{{ url_for('registration.my_teams') }}" 
+               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-users mr-2"></i>View My Teams
+            </a>
+            <a href="{{ url_for('registration.registration_home') }}" 
+               class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                <i class="fas fa-plus mr-2"></i>Register Another Team
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

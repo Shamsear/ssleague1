@@ -1,0 +1,205 @@
+{% extends "base.html" %}
+
+{% block title %}Register for {{ season[1] }}{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50">
+    <div class="max-w-3xl mx-auto py-6 sm:px-6 lg:px-8">
+        <!-- Back Link -->
+        <div class="mb-4">
+            <a href="{{ url_for('registration.registration_home') }}" 
+               class="text-indigo-600 hover:text-indigo-700 text-sm font-medium">
+                <i class="fas fa-arrow-left mr-1"></i>Back to Registration
+            </a>
+        </div>
+
+        <!-- Page Header -->
+        <div class="bg-white shadow sm:rounded-lg mb-6">
+            <div class="px-6 py-4">
+                <h1 class="text-2xl font-bold text-gray-900">Register for {{ season[1] }}</h1>
+                <div class="mt-2 flex items-center space-x-4 text-sm text-gray-600">
+                    <span><i class="fas fa-calendar mr-1"></i>{{ season[2] }}</span>
+                    {% if season[4] %}
+                        <span><i class="fas fa-users mr-1"></i>{{ season[8] }}/{{ season[4] }} teams</span>
+                    {% endif %}
+                    {% if season[5] %}
+                        <span><i class="fas fa-clock mr-1"></i>Deadline: {{ season[5].strftime('%B %d, %Y') }}</span>
+                    {% endif %}
+                </div>
+                {% if season[3] %}
+                <p class="mt-3 text-gray-700">{{ season[3] }}</p>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Registration Form -->
+        <form method="POST" action="{{ url_for('registration.submit_registration', season_id=season[0]) }}" 
+              class="bg-white shadow sm:rounded-lg">
+            <div class="px-6 py-4">
+                <h2 class="text-lg font-medium text-gray-900 mb-4">Team Registration Details</h2>
+
+                <!-- Registration Type Selection -->
+                <div class="mb-6">
+                    <fieldset>
+                        <legend class="text-base font-medium text-gray-900 mb-4">Registration Type</legend>
+                        <div class="space-y-4">
+                            <!-- New Team Option -->
+                            <div class="flex items-start">
+                                <div class="flex items-center h-5">
+                                    <input id="new_team" name="registration_type" type="radio" value="new" 
+                                           class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300" 
+                                           checked>
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label for="new_team" class="font-medium text-gray-700">
+                                        <i class="fas fa-star mr-1 text-blue-500"></i>Register New Team
+                                    </label>
+                                    <p class="text-gray-500">Create a completely new team for this season</p>
+                                </div>
+                            </div>
+
+                            <!-- Continue Team Option -->
+                            {% if can_continue %}
+                            <div class="flex items-start">
+                                <div class="flex items-center h-5">
+                                    <input id="continue_team" name="registration_type" type="radio" value="continue" 
+                                           class="focus:ring-indigo-500 h-4 w-4 text-indigo-600 border-gray-300">
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label for="continue_team" class="font-medium text-gray-700">
+                                        <i class="fas fa-arrow-right mr-1 text-green-500"></i>Continue Existing Team
+                                    </label>
+                                    <p class="text-gray-500">
+                                        Continue your current team: <strong>{{ user_current_team.name }}</strong>
+                                        {% if user_current_team.team_lineage_id %}
+                                            (Lineage #{{ user_current_team.team_lineage_id }})
+                                        {% endif %}
+                                    </p>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="flex items-start opacity-50">
+                                <div class="flex items-center h-5">
+                                    <input type="radio" disabled class="h-4 w-4 text-gray-400 border-gray-300">
+                                </div>
+                                <div class="ml-3 text-sm">
+                                    <label class="font-medium text-gray-500">
+                                        <i class="fas fa-arrow-right mr-1"></i>Continue Existing Team
+                                    </label>
+                                    <p class="text-gray-400">You don't have a team in the current season to continue</p>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </fieldset>
+                </div>
+
+                <!-- Team Name Input -->
+                <div class="mb-6">
+                    <label for="team_name" class="block text-sm font-medium text-gray-700 mb-2">
+                        Team Name <span class="text-red-500">*</span>
+                    </label>
+                    <input type="text" id="team_name" name="team_name" required maxlength="50"
+                           {% if can_continue %}value="{{ user_current_team.name if user_current_team else '' }}"{% endif %}
+                           class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+                           placeholder="Enter your team name">
+                    <p class="mt-1 text-xs text-gray-500">
+                        Choose a unique name for your team in this season (max 50 characters)
+                    </p>
+                </div>
+
+                <!-- Team Continuation Info -->
+                {% if can_continue %}
+                <div id="continue_info" class="mb-6 p-4 bg-green-50 border border-green-200 rounded-md" style="display: none;">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-info-circle text-green-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-green-800">Team Continuation</h3>
+                            <div class="mt-2 text-sm text-green-700">
+                                <p>By continuing your team:</p>
+                                <ul class="list-disc list-inside mt-1 space-y-1">
+                                    <li>Your team will maintain its lineage history</li>
+                                    <li>Previous season performance will be tracked</li>
+                                    <li>You can change the team name for the new season</li>
+                                    <li>Your team balance will start fresh at 15,000</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Season Information -->
+                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <div class="flex">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-info-circle text-blue-400"></i>
+                        </div>
+                        <div class="ml-3">
+                            <h3 class="text-sm font-medium text-blue-800">Season Information</h3>
+                            <div class="mt-2 text-sm text-blue-700">
+                                {% if season[6] and season[7] %}
+                                <p><strong>Season Duration:</strong> {{ season[6].strftime('%B %d, %Y') }} - {{ season[7].strftime('%B %d, %Y') }}</p>
+                                {% endif %}
+                                {% if season[5] %}
+                                <p><strong>Registration Deadline:</strong> {{ season[5].strftime('%B %d, %Y at %I:%M %p') }}</p>
+                                {% endif %}
+                                <p><strong>Starting Balance:</strong> 15,000 credits</p>
+                                {% if season[4] %}
+                                <p><strong>Team Limit:</strong> {{ season[4] }} teams ({{ season[8] }} currently registered)</p>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="px-6 py-3 bg-gray-50 border-t border-gray-200 flex justify-end space-x-3">
+                <a href="{{ url_for('registration.registration_home') }}" 
+                   class="inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    Cancel
+                </a>
+                <button type="submit" 
+                        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                    <i class="fas fa-check mr-2"></i>Register Team
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Show/hide continuation info based on registration type
+document.addEventListener('DOMContentLoaded', function() {
+    const newTeamRadio = document.getElementById('new_team');
+    const continueTeamRadio = document.getElementById('continue_team');
+    const continueInfo = document.getElementById('continue_info');
+    const teamNameInput = document.getElementById('team_name');
+    
+    {% if can_continue %}
+    const originalTeamName = "{{ user_current_team.name if user_current_team else '' }}";
+    
+    function toggleContinueInfo() {
+        if (continueTeamRadio && continueTeamRadio.checked) {
+            if (continueInfo) continueInfo.style.display = 'block';
+            if (teamNameInput) teamNameInput.value = originalTeamName;
+        } else {
+            if (continueInfo) continueInfo.style.display = 'none';
+            if (teamNameInput && teamNameInput.value === originalTeamName) {
+                teamNameInput.value = '';
+            }
+        }
+    }
+    
+    if (newTeamRadio) newTeamRadio.addEventListener('change', toggleContinueInfo);
+    if (continueTeamRadio) continueTeamRadio.addEventListener('change', toggleContinueInfo);
+    
+    // Initial state
+    toggleContinueInfo();
+    {% endif %}
+});
+</script>
+{% endblock %}

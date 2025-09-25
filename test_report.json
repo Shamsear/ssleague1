@@ -1,0 +1,191 @@
+{
+  "timestamp": "2025-09-25T14:09:43.710687",
+  "summary": {
+    "total": 30,
+    "passed": 30,
+    "failed": 0,
+    "warnings": 0
+  },
+  "results": [
+    {
+      "test": "Database Tables",
+      "status": "PASS",
+      "details": "All 9 required tables exist",
+      "timestamp": "2025-09-25T14:09:41.248062"
+    },
+    {
+      "test": "Season Table Schema",
+      "status": "PASS",
+      "details": "All 9 columns present",
+      "timestamp": "2025-09-25T14:09:41.641961"
+    },
+    {
+      "test": "Season Foreign Keys",
+      "status": "PASS",
+      "details": "6 season relationships found",
+      "timestamp": "2025-09-25T14:09:41.748686"
+    },
+    {
+      "test": "Season 16 Creation",
+      "status": "PASS",
+      "details": "Found: Season 16 - SS Super League (S16)",
+      "timestamp": "2025-09-25T14:09:41.827283"
+    },
+    {
+      "test": "Season 16 Active Status",
+      "status": "PASS",
+      "details": "Season 16 is active",
+      "timestamp": "2025-09-25T14:09:41.828263"
+    },
+    {
+      "test": "Season Statistics Function",
+      "status": "PASS",
+      "details": "Returns data: Season 16 - SS Super League teams, 22 rounds",
+      "timestamp": "2025-09-25T14:09:41.987256"
+    },
+    {
+      "test": "User Role Column",
+      "status": "PASS",
+      "details": "user_role column exists",
+      "timestamp": "2025-09-25T14:09:42.413351"
+    },
+    {
+      "test": "Super Admin User",
+      "status": "PASS",
+      "details": "Super admin: admin",
+      "timestamp": "2025-09-25T14:09:42.505472"
+    },
+    {
+      "test": "Admin Invite Table",
+      "status": "PASS",
+      "details": "0 admin invites in system",
+      "timestamp": "2025-09-25T14:09:42.591681"
+    },
+    {
+      "test": "Team Season Linking",
+      "status": "PASS",
+      "details": "All 22 teams linked to seasons",
+      "timestamp": "2025-09-25T14:09:42.681115"
+    },
+    {
+      "test": "Team Lineage System",
+      "status": "PASS",
+      "details": "22 lineages, 22 teams with lineage",
+      "timestamp": "2025-09-25T14:09:42.766442"
+    },
+    {
+      "test": "File: app.py",
+      "status": "PASS",
+      "details": "File exists",
+      "timestamp": "2025-09-25T14:09:42.767440"
+    },
+    {
+      "test": "File: models.py",
+      "status": "PASS",
+      "details": "File exists",
+      "timestamp": "2025-09-25T14:09:42.767440"
+    },
+    {
+      "test": "File: season_context.py",
+      "status": "PASS",
+      "details": "File exists",
+      "timestamp": "2025-09-25T14:09:42.768603"
+    },
+    {
+      "test": "File: admin_routes.py",
+      "status": "PASS",
+      "details": "File exists",
+      "timestamp": "2025-09-25T14:09:42.768603"
+    },
+    {
+      "test": "File: history_routes.py",
+      "status": "PASS",
+      "details": "File exists",
+      "timestamp": "2025-09-25T14:09:42.768603"
+    },
+    {
+      "test": "File: registration_routes.py",
+      "status": "PASS",
+      "details": "File exists",
+      "timestamp": "2025-09-25T14:09:42.769595"
+    },
+    {
+      "test": "Templates: templates/admin",
+      "status": "PASS",
+      "details": "5 HTML templates",
+      "timestamp": "2025-09-25T14:09:42.769595"
+    },
+    {
+      "test": "Templates: templates/history",
+      "status": "PASS",
+      "details": "1 HTML templates",
+      "timestamp": "2025-09-25T14:09:42.769595"
+    },
+    {
+      "test": "Templates: templates/registration",
+      "status": "PASS",
+      "details": "4 HTML templates",
+      "timestamp": "2025-09-25T14:09:42.770604"
+    },
+    {
+      "test": "Custom Database Functions",
+      "status": "PASS",
+      "details": "All 4 functions exist",
+      "timestamp": "2025-09-25T14:09:42.846998"
+    },
+    {
+      "test": "SeasonContext Class",
+      "status": "PASS",
+      "details": "SeasonContext implementation found",
+      "timestamp": "2025-09-25T14:09:42.848805"
+    },
+    {
+      "test": "Player Season Linking",
+      "status": "PASS",
+      "details": "All 0 players linked to seasons",
+      "timestamp": "2025-09-25T14:09:42.929980"
+    },
+    {
+      "test": "Blueprint Registration",
+      "status": "PASS",
+      "details": "All blueprints registered",
+      "timestamp": "2025-09-25T14:09:42.933944"
+    },
+    {
+      "test": "Data Health: Users",
+      "status": "PASS",
+      "details": "23 records",
+      "timestamp": "2025-09-25T14:09:43.011230"
+    },
+    {
+      "test": "Data Health: Seasons",
+      "status": "PASS",
+      "details": "1 records",
+      "timestamp": "2025-09-25T14:09:43.087984"
+    },
+    {
+      "test": "Data Health: Teams",
+      "status": "PASS",
+      "details": "22 records",
+      "timestamp": "2025-09-25T14:09:43.467119"
+    },
+    {
+      "test": "Data Health: Players",
+      "status": "PASS",
+      "details": "0 records",
+      "timestamp": "2025-09-25T14:09:43.543613"
+    },
+    {
+      "test": "Data Health: Rounds",
+      "status": "PASS",
+      "details": "0 records",
+      "timestamp": "2025-09-25T14:09:43.617050"
+    },
+    {
+      "test": "Data Health: Bids",
+      "status": "PASS",
+      "details": "0 records",
+      "timestamp": "2025-09-25T14:09:43.708697"
+    }
+  ]
+}

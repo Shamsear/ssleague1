@@ -1,0 +1,394 @@
+{% extends "admin/base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <h1>Player Statistics & Awards: {{ season[1] }}</h1>
+            <p><strong>Season:</strong> {{ season[1] }} ({{ season[2] }})</p>
+            
+            <!-- Navigation breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.season_management') }}">Seasons</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('admin.season_details', season_id=season[0]) }}">{{ season[1] }}</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">Player Statistics</li>
+                </ol>
+            </nav>
+
+            <!-- Awards Section -->
+            <div class="row mb-4">
+                <!-- Golden Ball (Best Player Overall) -->
+                <div class="col-md-4">
+                    <div class="card border-warning">
+                        <div class="card-header bg-warning text-dark text-center">
+                            <h4><i class="fas fa-trophy"></i> Golden Ball</h4>
+                            <small>Best Overall Player</small>
+                        </div>
+                        <div class="card-body">
+                            {% if golden_ball_candidates %}
+                            <div class="winner-card bg-light p-3 mb-3">
+                                <h5 class="text-center">🏆 {{ golden_ball_candidates[0][1] }}</h5>
+                                <p class="text-center mb-1"><strong>{{ golden_ball_candidates[0][2] }}</strong> • Rating: <span class="badge badge-primary">{{ golden_ball_candidates[0][4] }}</span></p>
+                                <p class="text-center mb-0">{{ golden_ball_candidates[0][8] }} • ${{ "{:,}".format(golden_ball_candidates[0][6]) }}</p>
+                                <p class="text-center text-muted small">{{ golden_ball_candidates[0][5] }}</p>
+                            </div>
+                            <div class="runners-up">
+                                <h6>Runners-up:</h6>
+                                {% for player in golden_ball_candidates[1:5] %}
+                                <div class="d-flex justify-content-between border-bottom py-1">
+                                    <span><strong>{{ player[1] }}</strong> ({{ player[2] }})</span>
+                                    <span class="badge badge-secondary">{{ player[4] }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No players available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Golden Boot (Top Scorer) -->
+                <div class="col-md-4">
+                    <div class="card border-success">
+                        <div class="card-header bg-success text-white text-center">
+                            <h4><i class="fas fa-futbol"></i> Golden Boot</h4>
+                            <small>Top Goalscorer</small>
+                        </div>
+                        <div class="card-body">
+                            {% if golden_boot_candidates %}
+                            <div class="winner-card bg-light p-3 mb-3">
+                                <h5 class="text-center">⚽ {{ golden_boot_candidates[0][1] }}</h5>
+                                <p class="text-center mb-1"><strong>{{ golden_boot_candidates[0][2] }}</strong> • Finishing: <span class="badge badge-success">{{ golden_boot_candidates[0][7] }}</span></p>
+                                <p class="text-center mb-0">{{ golden_boot_candidates[0][9] }} • OA: {{ golden_boot_candidates[0][8] }}</p>
+                                <p class="text-center text-muted small">{{ golden_boot_candidates[0][5] }}</p>
+                            </div>
+                            <div class="runners-up">
+                                <h6>Top Scorers:</h6>
+                                {% for player in golden_boot_candidates[1:5] %}
+                                <div class="d-flex justify-content-between border-bottom py-1">
+                                    <span><strong>{{ player[1] }}</strong> ({{ player[2] }})</span>
+                                    <span class="badge badge-success">{{ player[7] }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No scorers available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Golden Glove (Best Goalkeeper) -->
+                <div class="col-md-4">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white text-center">
+                            <h4><i class="fas fa-hand-paper"></i> Golden Glove</h4>
+                            <small>Best Goalkeeper</small>
+                        </div>
+                        <div class="card-body">
+                            {% if golden_glove_candidates %}
+                            <div class="winner-card bg-light p-3 mb-3">
+                                <h5 class="text-center">🥅 {{ golden_glove_candidates[0][1] }}</h5>
+                                <p class="text-center mb-1"><strong>GK</strong> • Rating: <span class="badge badge-info">{{ golden_glove_candidates[0][4] }}</span></p>
+                                <p class="text-center mb-0">{{ golden_glove_candidates[0][9] }} • DA: {{ golden_glove_candidates[0][7] }}</p>
+                                <p class="text-center text-muted small">{{ golden_glove_candidates[0][5] }}</p>
+                            </div>
+                            <div class="runners-up">
+                                <h6>Top Goalkeepers:</h6>
+                                {% for player in golden_glove_candidates[1:5] %}
+                                <div class="d-flex justify-content-between border-bottom py-1">
+                                    <span><strong>{{ player[1] }}</strong></span>
+                                    <span class="badge badge-info">{{ player[4] }}</span>
+                                </div>
+                                {% endfor %}
+                            </div>
+                            {% else %}
+                            <p class="text-muted">No goalkeepers available</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Position Statistics -->
+            {% if position_breakdown %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>Position Analysis</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Position</th>
+                                    <th>Players</th>
+                                    <th>Avg Rating</th>
+                                    <th>Max Rating</th>
+                                    <th>Min Rating</th>
+                                    <th>Avg Cost</th>
+                                    <th>Max Cost</th>
+                                    <th>Total Spent</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for pos in position_breakdown %}
+                                <tr>
+                                    <td><strong>{{ pos[0] }}</strong></td>
+                                    <td>{{ pos[1] }}</td>
+                                    <td>{{ "{:.1f}".format(pos[2]) }}</td>
+                                    <td><span class="badge badge-success">{{ pos[3] }}</span></td>
+                                    <td><span class="badge badge-secondary">{{ pos[4] }}</span></td>
+                                    <td>${{ "{:,.0f}".format(pos[5]) }}</td>
+                                    <td>${{ "{:,.0f}".format(pos[6]) }}</td>
+                                    <td><strong>${{ "{:,.0f}".format(pos[7]) }}</strong></td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Most Expensive Signings -->
+            {% if expensive_signings %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>💰 Most Expensive Signings</h3>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th>Position</th>
+                                    <th>Rating</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Cost</th>
+                                    <th>Round</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for player in expensive_signings[:10] %}
+                                <tr>
+                                    <td><strong>#{{ loop.index }}</strong></td>
+                                    <td><strong>{{ player[1] }}</strong><br><small class="text-muted">{{ player[5] }}</small></td>
+                                    <td><span class="badge badge-secondary">{{ player[2] }}</span></td>
+                                    <td><span class="badge badge-primary">{{ player[4] }}</span></td>
+                                    <td>{{ player[3] }}</td>
+                                    <td>{{ player[8] }}</td>
+                                    <td><strong class="text-success">${{ "{:,}".format(player[6]) }}</strong></td>
+                                    <td>R{{ player[10] }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Best Value Signings -->
+            {% if value_signings %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>📈 Best Value Signings</h3>
+                    <small>High rating players acquired at low cost</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th>Position</th>
+                                    <th>Rating</th>
+                                    <th>Cost</th>
+                                    <th>Value Ratio</th>
+                                    <th>Team</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for player in value_signings %}
+                                <tr>
+                                    <td><strong>#{{ loop.index }}</strong></td>
+                                    <td><strong>{{ player[1] }}</strong><br><small class="text-muted">{{ player[5] }}</small></td>
+                                    <td><span class="badge badge-secondary">{{ player[2] }}</span></td>
+                                    <td><span class="badge badge-primary">{{ player[4] }}</span></td>
+                                    <td>${{ "{:,}".format(player[6]) }}</td>
+                                    <td><span class="badge badge-success">{{ "{:.3f}".format(player[10]) }}</span></td>
+                                    <td>{{ player[8] }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Player Attributes Analysis -->
+            {% if player_attributes %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>⚡ Player Styles Analysis</h3>
+                    <small>Technical vs Physical attributes for top players (75+ rating)</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Player</th>
+                                    <th>Position</th>
+                                    <th>Rating</th>
+                                    <th>Team</th>
+                                    <th>Technical</th>
+                                    <th>Physical</th>
+                                    <th>Style</th>
+                                    <th>Attributes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for player in player_attributes %}
+                                <tr>
+                                    <td><strong>{{ player[1] }}</strong></td>
+                                    <td><span class="badge badge-secondary">{{ player[2] }}</span></td>
+                                    <td><span class="badge badge-primary">{{ player[3] }}</span></td>
+                                    <td>{{ player[8] }}</td>
+                                    <td><span class="badge {{ 'badge-success' if player[9] > player[10] else 'badge-secondary' }}">{{ "{:.0f}".format(player[9]) }}</span></td>
+                                    <td><span class="badge {{ 'badge-warning' if player[10] > player[9] else 'badge-secondary' }}">{{ "{:.0f}".format(player[10]) }}</span></td>
+                                    <td>
+                                        {% if player[9] > player[10] + 5 %}
+                                            <span class="badge badge-success">Technical</span>
+                                        {% elif player[10] > player[9] + 5 %}
+                                            <span class="badge badge-warning">Physical</span>
+                                        {% else %}
+                                            <span class="badge badge-info">Balanced</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>
+                                            OA:{{ player[4] or 'N/A' }} BC:{{ player[5] or 'N/A' }}<br>
+                                            DR:{{ player[6] or 'N/A' }} FI:{{ player[7] or 'N/A' }}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Nationality Statistics -->
+            {% if nationality_breakdown %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>🌍 Nationality Breakdown</h3>
+                    <small>Countries with 3+ players</small>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        {% for nationality in nationality_breakdown %}
+                        <div class="col-md-6 col-lg-4 mb-3">
+                            <div class="card border-light">
+                                <div class="card-body">
+                                    <h5 class="card-title">{{ nationality[0] }}</h5>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <small class="text-muted">Players:</small><br>
+                                            <strong>{{ nationality[1] }}</strong>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted">Avg Rating:</small><br>
+                                            <span class="badge badge-primary">{{ "{:.1f}".format(nationality[2]) }}</span>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-6">
+                                            <small class="text-muted">Total Spent:</small><br>
+                                            <strong>${{ "{:,.0f}".format(nationality[3]) }}</strong>
+                                        </div>
+                                        <div class="col-6">
+                                            <small class="text-muted">Avg Cost:</small><br>
+                                            <span class="text-success">${{ "{:,.0f}".format(nationality[4]) }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- All Golden Ball Candidates -->
+            {% if golden_ball_candidates %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h3>🏆 All Golden Ball Candidates</h3>
+                    <small>Top 50 players by overall rating</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Rank</th>
+                                    <th>Player</th>
+                                    <th>Position</th>
+                                    <th>Rating</th>
+                                    <th>Original Team</th>
+                                    <th>Current Team</th>
+                                    <th>Cost</th>
+                                    <th>Style</th>
+                                    <th>Nationality</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for player in golden_ball_candidates %}
+                                <tr class="{{ 'table-warning' if loop.index <= 3 else '' }}">
+                                    <td>
+                                        <strong>#{{ loop.index }}</strong>
+                                        {% if loop.index == 1 %}
+                                            <i class="fas fa-trophy text-warning"></i>
+                                        {% elif loop.index <= 3 %}
+                                            <i class="fas fa-medal text-muted"></i>
+                                        {% endif %}
+                                    </td>
+                                    <td><strong>{{ player[1] }}</strong></td>
+                                    <td><span class="badge badge-secondary">{{ player[2] }}</span></td>
+                                    <td><span class="badge badge-primary">{{ player[4] }}</span></td>
+                                    <td>{{ player[3] }}</td>
+                                    <td>{{ player[8] }}</td>
+                                    <td>${{ "{:,}".format(player[6]) }}</td>
+                                    <td>{{ player[7] or 'N/A' }}</td>
+                                    <td>{{ player[5] or 'N/A' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Back Navigation -->
+            <div class="mt-4">
+                <a href="{{ url_for('admin.season_details', season_id=season[0]) }}" class="btn btn-secondary">← Back to Season Details</a>
+                <a href="{{ url_for('admin.season_management') }}" class="btn btn-outline-secondary">← Back to Seasons</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

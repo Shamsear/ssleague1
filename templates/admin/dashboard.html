@@ -1,0 +1,180 @@
+{% extends "admin/base.html" %}
+
+{% block title %}Admin Dashboard{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Page Header -->
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+        <p class="mt-2 text-gray-600">System overview and management</p>
+    </div>
+
+    <!-- Current Season Info -->
+    {% if current_season %}
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8">
+        <div class="flex items-center justify-between">
+            <div>
+                <h2 class="text-xl font-semibold text-blue-900">{{ format_season_name(current_season) }}</h2>
+                <p class="text-blue-700">Current Active Season</p>
+                <div class="mt-2 flex items-center space-x-4 text-sm text-blue-600">
+                    <span><i class="fas fa-circle mr-1 text-green-500"></i>{{ current_season.status|title }}</span>
+                </div>
+            </div>
+            {% if current_user.role == 'super_admin' %}
+            <div class="text-right">
+                <a href="{{ url_for('admin.season_management') }}" 
+                   class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700">
+                    <i class="fas fa-cog mr-2"></i>Manage Seasons
+                </a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {% if season_stats %}
+            <!-- Teams Card -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-users text-2xl text-indigo-500"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Teams</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ season_stats[2] }}</dd>
+                                <dd class="text-xs text-gray-500">
+                                    {{ season_stats[4] }} new, {{ season_stats[3] }} continuing
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rounds Card -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-clock text-2xl text-green-500"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Rounds</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ season_stats[5] }}</dd>
+                                <dd class="text-xs text-gray-500">
+                                    {{ season_stats[6] }} active
+                                </dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bids Card -->
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="p-5">
+                    <div class="flex items-center">
+                        <div class="flex-shrink-0">
+                            <i class="fas fa-gavel text-2xl text-yellow-500"></i>
+                        </div>
+                        <div class="ml-5 w-0 flex-1">
+                            <dl>
+                                <dt class="text-sm font-medium text-gray-500 truncate">Bids</dt>
+                                <dd class="text-lg font-medium text-gray-900">{{ season_stats[7] }}</dd>
+                                <dd class="text-xs text-gray-500">Total season bids</dd>
+                            </dl>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- User Roles Card -->
+        <div class="bg-white overflow-hidden shadow rounded-lg">
+            <div class="p-5">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <i class="fas fa-user-shield text-2xl text-red-500"></i>
+                    </div>
+                    <div class="ml-5 w-0 flex-1">
+                        <dl>
+                            <dt class="text-sm font-medium text-gray-500 truncate">Users</dt>
+                            <dd class="text-lg font-medium text-gray-900">
+                                {% set total_users = role_stats|sum(attribute=1) if role_stats else 0 %}
+                                {{ total_users }}
+                            </dd>
+                            <dd class="text-xs text-gray-500">System users</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Role Breakdown -->
+    {% if role_stats %}
+    <div class="bg-white shadow rounded-lg mb-8">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">User Role Distribution</h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {% for role, count in role_stats %}
+                <div class="text-center p-4 bg-gray-50 rounded-lg">
+                    <div class="text-2xl font-bold 
+                        {% if role == 'super_admin' %}text-red-600
+                        {% elif role == 'committee_admin' %}text-orange-600
+                        {% else %}text-blue-600{% endif %}">
+                        {{ count }}
+                    </div>
+                    <div class="text-sm text-gray-600 mt-1">
+                        {% if role == 'super_admin' %}Super Admins
+                        {% elif role == 'committee_admin' %}Committee Admins
+                        {% else %}Team Members{% endif %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Quick Actions -->
+    <div class="bg-white shadow rounded-lg">
+        <div class="px-6 py-4 border-b border-gray-200">
+            <h3 class="text-lg font-medium text-gray-900">Quick Actions</h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {% if current_user.role == 'super_admin' %}
+                <a href="{{ url_for('admin.create_season') }}" 
+                   class="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700">
+                    <i class="fas fa-plus mr-2"></i>New Season
+                </a>
+                {% endif %}
+                
+                <a href="{{ url_for('admin.user_management') }}" 
+                   class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-users mr-2"></i>Manage Users
+                </a>
+                
+                <a href="{{ url_for('admin.admin_invites') }}" 
+                   class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-user-plus mr-2"></i>Admin Invites
+                </a>
+                
+                <a href="{{ url_for('admin.season_management') }}" 
+                   class="inline-flex items-center justify-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50">
+                    <i class="fas fa-calendar-alt mr-2"></i>View Seasons
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,568 @@
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
+from datetime import datetime, timedelta, timezone
+import secrets
+
+db = SQLAlchemy()
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=True)
+    password_hash = db.Column(db.String(256), nullable=False)
+    is_admin = db.Column(db.Boolean, default=False)
+    is_approved = db.Column(db.Boolean, default=False)
+    user_role = db.Column(db.String(20), default='team_user')  # 'super_admin', 'committee_admin', 'team_user'
+    created_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+    team = db.relationship('Team', backref='user', uselist=False)
+    password_reset_requests = db.relationship('PasswordResetRequest', backref='user', lazy=True)
+    remember_token = db.Column(db.String(100), unique=True, nullable=True)
+    token_expires_at = db.Column(db.DateTime, nullable=True)
+    last_password_change = db.Column(db.DateTime, nullable=True)
+    profile_updated_at = db.Column(db.DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    
+    @property
+    def is_super_admin(self):
+        """Check if user is super admin"""
+        return self.user_role == 'super_admin' or (self.is_admin and self.user_role in [None, 'super_admin'])
+    
+    @property  
+    def is_committee_admin(self):
+        """Check if user is committee admin"""
+        return self.user_role == 'committee_admin'
+    
+    @property
+    def has_admin_access(self):
+        """Check if user has any admin access"""
+        return self.is_super_admin or self.is_committee_admin
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+        self.last_password_change = datetime.now(timezone.utc)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+    
+    def can_change_password(self):
+        """Check if user can change password (5 times per day restriction)"""
+        if not self.last_password_change:
+            return True  # First time password change
+        
+        # Ensure both datetimes are timezone-aware for comparison
+        now = datetime.now(timezone.utc)
+        last_change = self.last_password_change
+        
+        # If last_password_change is naive, make it timezone-aware
+        if last_change.tzinfo is None:
+            last_change = last_change.replace(tzinfo=timezone.utc)
+        
+        # Check if we're within the same day (UTC)
+        start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        last_change_start_of_day = last_change.replace(hour=0, minute=0, second=0, microsecond=0)
+        
+        # If password was changed on a different day, allow change
+        if last_change_start_of_day < start_of_day:
+            return True
+        
+        # If within the same day, check if we've reached the daily limit
+        # For now, we'll use a simple approach - allow up to 5 changes per day
+        # This would require tracking change count, but for simplicity, we'll allow changes
+        # every 4.8 hours (24 hours / 5 = 4.8 hours) within the same day
+        hours_since_last_change = (now - last_change).total_seconds() / 3600
+        return hours_since_last_change >= 4.8  # Allow change every 4.8 hours (5 times per day max)
+    
+    def time_until_password_change(self):
+        """Get time remaining until user can change password again"""
+        if self.can_change_password():
+            return timedelta(0)
+        
+        # Ensure both datetimes are timezone-aware for comparison
+        now = datetime.now(timezone.utc)
+        last_change = self.last_password_change
+        
+        # If last_password_change is naive, make it timezone-aware
+        if last_change.tzinfo is None:
+            last_change = last_change.replace(tzinfo=timezone.utc)
+        
+        # Calculate time until next allowed change (4.8 hours from last change)
+        time_since_change = now - last_change
+        wait_time = timedelta(hours=4.8) - time_since_change
+        return max(wait_time, timedelta(0))
+        
+    def generate_remember_token(self, days=30):
+        """Generate a secure token for the 'remember me' functionality"""
+        # Clear any existing token
+        self.remember_token = None
+        
+        # Generate new token
+        token = secrets.token_urlsafe(32)
+        self.remember_token = token
+        
+        # Set expiration (30 days by default)
+        self.token_expires_at = datetime.now(timezone.utc) + timedelta(days=days)
+        
+        return token
+        
+    @classmethod
+    def get_by_remember_token(cls, token):
+        """Find a user by remember token if not expired"""
+        user = cls.query.filter_by(remember_token=token).first()
+        
+        if user and user.token_expires_at:
+            # Check if token is still valid
+            now = datetime.now(timezone.utc)
+            expires_at = user.token_expires_at
+            
+            # If token_expires_at is naive, make it timezone-aware
+            if expires_at.tzinfo is None:
+                expires_at = expires_at.replace(tzinfo=timezone.utc)
+            
+            if expires_at > now:
+                return user
+            
+            # Token expired, clear it
+            user.remember_token = None
+            user.token_expires_at = None
+            db.session.commit()
+            
+        return None
+    
+    def clear_remember_token(self):
+        """Clear the remember token for this user"""
+        self.remember_token = None
+        self.token_expires_at = None
+
+class Team(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), unique=True, nullable=False)
+    balance = db.Column(db.Integer, default=15000)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    logo_url = db.Column(db.String(500), nullable=True)  # Increased length for GitHub/ImageKit URLs
+    logo_storage_type = db.Column(db.String(20), default='local')  # 'local', 'github', or 'imagekit'
+    github_logo_sha = db.Column(db.String(100), nullable=True)  # SHA hash for GitHub file updates
+    imagekit_file_id = db.Column(db.String(100), nullable=True)  # ImageKit file ID for better URL generation
+    players = db.relationship('Player', backref='team', lazy=True)
+    team_members = db.relationship('TeamMember', backref='team', lazy=True)
+    home_matches = db.relationship('Match', foreign_keys='Match.home_team_id', backref='home_team', lazy=True)
+    away_matches = db.relationship('Match', foreign_keys='Match.away_team_id', backref='away_team', lazy=True)
+    team_stats = db.relationship('TeamStats', backref='team', uselist=False, lazy=True)
+    
+    def get_logo_url(self, context='card'):
+        """Get the appropriate logo URL based on storage type
+        
+        Args:
+            context: ImageKit transformation context (thumbnail, card, hero, avatar)
+        """
+        if self.logo_storage_type == 'imagekit' and self.imagekit_file_id:
+            try:
+                from imagekit_service import imagekit_service
+                # Use ImageKit with optimized transformations
+                transformations = imagekit_service.get_optimized_transformations(context)
+                return imagekit_service.get_logo_url_by_file_id(
+                    self.imagekit_file_id, 
+                    transformations, 
+                    self.logo_url
+                )
+            except Exception as e:
+                # Fallback to direct URL if available
+                if self.logo_url:
+                    return self.logo_url
+                return None
+        elif self.logo_storage_type == 'github' and self.logo_url:
+            return self.logo_url  # GitHub URLs are stored directly
+        elif self.logo_storage_type == 'local' and self.logo_url:
+            try:
+                from flask import url_for, has_request_context
+                # Only use url_for if we're in a request context
+                if has_request_context():
+                    filename = self.logo_url.split('/')[-1]
+                    return url_for('uploaded_logo', filename=filename)
+                else:
+                    # Fallback: return relative path for local files when not in request context
+                    filename = self.logo_url.split('/')[-1]
+                    return f'/uploads/logos/{filename}'
+            except Exception as e:
+                # Fallback in case of any error
+                filename = self.logo_url.split('/')[-1]
+                return f'/uploads/logos/{filename}'
+        else:
+            return None
+
+class Category(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(50), unique=True, nullable=False)
+    color = db.Column(db.String(50), nullable=False)  # red, black, blue, white
+    priority = db.Column(db.Integer, default=0)  # 1=red (highest), 2=black, 3=blue, 4=white (lowest)
+    team_members = db.relationship('TeamMember', backref='category', lazy=True)
+    
+    # Define point values for matches between different categories
+    # Win points
+    points_same_category = db.Column(db.Integer, default=8)  # e.g., red vs red = 8 points
+    points_one_level_diff = db.Column(db.Integer, default=7)  # e.g., red vs black = 7 points
+    points_two_level_diff = db.Column(db.Integer, default=6)  # e.g., red vs blue = 6 points
+    points_three_level_diff = db.Column(db.Integer, default=5)  # e.g., red vs white = 5 points
+    
+    # Draw points
+    draw_same_category = db.Column(db.Integer, default=4)  # e.g., red vs red = 4 points for draw
+    draw_one_level_diff = db.Column(db.Integer, default=3)  # e.g., red vs black = 3 points for draw
+    draw_two_level_diff = db.Column(db.Integer, default=3)  # e.g., red vs blue = 3 points for draw
+    draw_three_level_diff = db.Column(db.Integer, default=2)  # e.g., red vs white = 2 points for draw
+    
+    # Loss points
+    loss_same_category = db.Column(db.Integer, default=1)  # e.g., red vs red = 1 point for loss
+    loss_one_level_diff = db.Column(db.Integer, default=1)  # e.g., red vs black = 1 point for loss
+    loss_two_level_diff = db.Column(db.Integer, default=1)  # e.g., red vs blue = 1 point for loss
+    loss_three_level_diff = db.Column(db.Integer, default=0)  # e.g., red vs white = 0 points for loss
+
+class TeamMember(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    category_id = db.Column(db.Integer, db.ForeignKey('category.id'), nullable=False)
+    photo_url = db.Column(db.String(255), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    player_stats = db.relationship('PlayerStats', backref='team_member', uselist=False, lazy=True)
+    
+    # Relationships for player matchups
+    home_matchups = db.relationship('PlayerMatchup', foreign_keys='PlayerMatchup.home_player_id', backref='home_player', lazy=True)
+    away_matchups = db.relationship('PlayerMatchup', foreign_keys='PlayerMatchup.away_player_id', backref='away_player', lazy=True)
+
+class Match(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    home_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    away_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    home_score = db.Column(db.Integer, default=0)
+    away_score = db.Column(db.Integer, default=0)
+    match_date = db.Column(db.DateTime, default=datetime.utcnow)
+    round_number = db.Column(db.Integer, nullable=False)
+    match_number = db.Column(db.Integer, nullable=False)
+    is_completed = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    potm_id = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=True)
+    
+    # Relationship with player matchups
+    player_matchups = db.relationship('PlayerMatchup', backref='match', lazy=True, cascade="all, delete-orphan")
+    # Player of the Match relationship
+    potm = db.relationship('TeamMember', foreign_keys=[potm_id], backref='potm_matches')
+
+class PlayerMatchup(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    match_id = db.Column(db.Integer, db.ForeignKey('match.id'), nullable=False)
+    home_player_id = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=False)
+    away_player_id = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=False)
+    home_goals = db.Column(db.Integer, default=0)
+    away_goals = db.Column(db.Integer, default=0)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def calculate_result(self):
+        """Calculate match result from goals"""
+        if self.home_goals > self.away_goals:
+            return "win", "loss"  # home win, away loss
+        elif self.home_goals < self.away_goals:
+            return "loss", "win"  # home loss, away win
+        else:
+            return "draw", "draw"  # draw for both
+
+class TeamStats(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    played = db.Column(db.Integer, default=0)
+    wins = db.Column(db.Integer, default=0)
+    draws = db.Column(db.Integer, default=0)
+    losses = db.Column(db.Integer, default=0)
+    goals_for = db.Column(db.Integer, default=0)
+    goals_against = db.Column(db.Integer, default=0)
+    points = db.Column(db.Integer, default=0)
+    
+    @property
+    def goal_difference(self):
+        return self.goals_for - self.goals_against
+
+class PlayerStats(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_member_id = db.Column(db.Integer, db.ForeignKey('team_member.id'), nullable=False)
+    played = db.Column(db.Integer, default=0)
+    wins = db.Column(db.Integer, default=0)
+    draws = db.Column(db.Integer, default=0)
+    losses = db.Column(db.Integer, default=0)
+    goals_scored = db.Column(db.Integer, default=0)
+    goals_conceded = db.Column(db.Integer, default=0)
+    clean_sheets = db.Column(db.Integer, default=0)
+    points = db.Column(db.Integer, default=0)
+
+class Player(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    position = db.Column(db.String(10), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
+    round_id = db.Column(db.Integer, db.ForeignKey('round.id'), nullable=True)
+    acquisition_value = db.Column(db.Integer, nullable=True)
+    is_auction_eligible = db.Column(db.Boolean, default=True)  # New field to track if player is eligible for auction
+    position_group = db.Column(db.String(10), nullable=True)  # Added field to track position groups (e.g., CF-1, CF-2)
+    
+    # Added fields for efootball player attributes
+    team_name = db.Column(db.String(100), nullable=True)
+    nationality = db.Column(db.String(100), nullable=True)
+    offensive_awareness = db.Column(db.Integer, nullable=True)
+    ball_control = db.Column(db.Integer, nullable=True)
+    dribbling = db.Column(db.Integer, nullable=True)
+    tight_possession = db.Column(db.Integer, nullable=True)
+    low_pass = db.Column(db.Integer, nullable=True)
+    lofted_pass = db.Column(db.Integer, nullable=True)
+    finishing = db.Column(db.Integer, nullable=True)
+    heading = db.Column(db.Integer, nullable=True)
+    set_piece_taking = db.Column(db.Integer, nullable=True)
+    curl = db.Column(db.Integer, nullable=True)
+    speed = db.Column(db.Integer, nullable=True)
+    acceleration = db.Column(db.Integer, nullable=True)
+    kicking_power = db.Column(db.Integer, nullable=True)
+    jumping = db.Column(db.Integer, nullable=True)
+    physical_contact = db.Column(db.Integer, nullable=True)
+    balance = db.Column(db.Integer, nullable=True)
+    stamina = db.Column(db.Integer, nullable=True)
+    defensive_awareness = db.Column(db.Integer, nullable=True)
+    tackling = db.Column(db.Integer, nullable=True)
+    aggression = db.Column(db.Integer, nullable=True)
+    defensive_engagement = db.Column(db.Integer, nullable=True)
+    gk_awareness = db.Column(db.Integer, nullable=True)
+    gk_catching = db.Column(db.Integer, nullable=True)
+    gk_parrying = db.Column(db.Integer, nullable=True)
+    gk_reflexes = db.Column(db.Integer, nullable=True)
+    gk_reach = db.Column(db.Integer, nullable=True)
+    overall_rating = db.Column(db.Integer, nullable=True)
+    playing_style = db.Column(db.String(50), nullable=True)
+    player_id = db.Column(db.Integer, nullable=True)
+    
+    # Define relationships
+    bids = db.relationship('Bid', back_populates='player', foreign_keys='Bid.player_id')
+
+    def has_bid_from_team(self, team_id, round_id=None):
+        if round_id is not None:
+            # Check for bids from this team in the specific round only
+            return any(bid.team_id == team_id and bid.round_id == round_id for bid in self.bids)
+        else:
+            # Original behavior - check for any bid from this team across all rounds
+            return any(bid.team_id == team_id for bid in self.bids)
+
+class StarredPlayer(db.Model):
+    """Model for storing which players are starred by which teams"""
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), primary_key=True)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), primary_key=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    team = db.relationship('Team', backref=db.backref('starred_players', lazy=True))
+    player = db.relationship('Player', backref=db.backref('starred_by', lazy=True))
+    
+    def __repr__(self):
+        return f"<StarredPlayer team_id={self.team_id} player_id={self.player_id}>"
+
+class Round(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    position = db.Column(db.String(10), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)
+    players = db.relationship('Player', backref='round', lazy=True)
+    bids = db.relationship('Bid', backref='round', lazy=True)
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    end_time = db.Column(db.DateTime, nullable=True)  # New field for absolute end time
+    duration = db.Column(db.Integer, default=300)  # Keep for backward compatibility, now calculated dynamically
+    status = db.Column(db.String(20), default="active")  # active, processing, completed
+    max_bids_per_team = db.Column(db.Integer, default=5)  # Maximum bids each team can place
+
+    def is_timer_expired(self):
+        if not self.end_time:
+            return False
+        return datetime.utcnow() >= self.end_time
+    
+    @property
+    def calculated_duration(self):
+        """Calculate duration from start_time and end_time"""
+        if self.start_time and self.end_time:
+            return int((self.end_time - self.start_time).total_seconds())
+        return self.duration  # Fallback to stored duration for backward compatibility
+    
+    def get_remaining_time(self):
+        """Get remaining time in seconds"""
+        if not self.end_time:
+            return 0
+        remaining = (self.end_time - datetime.utcnow()).total_seconds()
+        return max(0, remaining)
+
+class Bid(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    round_id = db.Column(db.Integer, db.ForeignKey('round.id'), nullable=False)
+    amount = db.Column(db.Integer, nullable=False)
+    is_hidden = db.Column(db.Boolean, default=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    team = db.relationship('Team', backref='bids')
+    player = db.relationship('Player', foreign_keys=[player_id], back_populates='bids')
+    
+    def to_dict(self):
+        """Convert bid to dictionary for JSON response"""
+        return {
+            'id': self.id,
+            'team_id': self.team_id,
+            'player_id': self.player_id,
+            'round_id': self.round_id,
+            'amount': self.amount,
+            'player': {
+                'id': self.player.id,
+                'name': self.player.name,
+                'position': self.player.position,
+                'team_name': self.player.team_name
+            }
+        }
+    
+    @property
+    def is_tied(self):
+        """Check if this bid is part of a tie in a tiebreaker"""
+        if self.round.is_active:
+            return False
+        # Check if there's a tiebreaker for this player in this round
+        tiebreaker = Tiebreaker.query.filter_by(
+            round_id=self.round_id,
+            player_id=self.player_id
+        ).first()
+        if tiebreaker:
+            # Check if this team is part of the tiebreaker
+            team_tiebreaker = TeamTiebreaker.query.filter_by(
+                tiebreaker_id=tiebreaker.id,
+                team_id=self.team_id
+            ).first()
+            return team_tiebreaker is not None
+        return False
+
+class Tiebreaker(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    round_id = db.Column(db.Integer, db.ForeignKey('round.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    original_amount = db.Column(db.Integer, nullable=False)
+    resolved = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    round = db.relationship('Round', backref='tiebreakers')
+    player = db.relationship('Player', backref='tiebreakers')
+    team_tiebreakers = db.relationship('TeamTiebreaker', backref='tiebreaker', lazy=True)
+
+class TeamTiebreaker(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    tiebreaker_id = db.Column(db.Integer, db.ForeignKey('tiebreaker.id'), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    new_amount = db.Column(db.Integer, nullable=True)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    team = db.relationship('Team', backref='tiebreakers')
+
+class PasswordResetRequest(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    reset_token = db.Column(db.String(100), unique=True, nullable=True)
+    reason = db.Column(db.Text, nullable=False)
+    status = db.Column(db.String(20), default='pending')  # pending, approved, rejected, completed
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    def generate_token(self):
+        self.reset_token = secrets.token_urlsafe(32)
+        return self.reset_token
+    
+    @classmethod
+    def get_by_token(cls, token):
+        return cls.query.filter_by(reset_token=token, status='approved').first()
+
+
+class AuctionSettings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    max_rounds = db.Column(db.Integer, default=25)
+    min_balance_per_round = db.Column(db.Integer, default=30)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    
+    @classmethod
+    def get_settings(cls):
+        """Get the current auction settings or create default ones"""
+        settings = cls.query.first()
+        if not settings:
+            settings = cls()
+            db.session.add(settings)
+            db.session.commit()
+        return settings 
+
+class BulkBidRound(db.Model):
+    __tablename__ = 'bulk_bid_round'
+    id = db.Column(db.Integer, primary_key=True)
+    is_active = db.Column(db.Boolean, default=True)
+    start_time = db.Column(db.DateTime, default=datetime.utcnow)
+    end_time = db.Column(db.DateTime, nullable=True)  # New field for absolute end time
+    duration = db.Column(db.Integer, default=10800)  # Default 3 hours (10,800 seconds)
+    base_price = db.Column(db.Integer, default=10)  # Base price for all bids in this round
+    status = db.Column(db.String(20), default="active")  # active, processing, completed
+    
+    # Relationships
+    bids = db.relationship('BulkBid', backref='bulk_round', lazy=True)
+    tiebreakers = db.relationship('BulkBidTiebreaker', backref='bulk_round', lazy=True)
+    
+    def is_timer_expired(self):
+        if not self.end_time:
+            return False
+        return datetime.utcnow() >= self.end_time
+    
+    @property
+    def calculated_duration(self):
+        """Calculate duration from start_time and end_time"""
+        if self.start_time and self.end_time:
+            return int((self.end_time - self.start_time).total_seconds())
+        return self.duration  # Fallback to stored duration for backward compatibility
+    
+    def get_remaining_time(self):
+        """Get remaining time in seconds"""
+        if not self.end_time:
+            return 0
+        remaining = (self.end_time - datetime.utcnow()).total_seconds()
+        return max(0, remaining)
+
+class BulkBid(db.Model):
+    __tablename__ = 'bulk_bid'
+    id = db.Column(db.Integer, primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    round_id = db.Column(db.Integer, db.ForeignKey('bulk_bid_round.id'), nullable=False)
+    is_resolved = db.Column(db.Boolean, default=False)
+    has_tie = db.Column(db.Boolean, default=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    team = db.relationship('Team', backref='bulk_bids')
+    player = db.relationship('Player', backref='bulk_bids')
+
+class BulkBidTiebreaker(db.Model):
+    __tablename__ = 'bulk_bid_tiebreaker'
+    id = db.Column(db.Integer, primary_key=True)
+    bulk_round_id = db.Column(db.Integer, db.ForeignKey('bulk_bid_round.id'), nullable=False)
+    player_id = db.Column(db.Integer, db.ForeignKey('player.id'), nullable=False)
+    current_amount = db.Column(db.Integer, nullable=False)  # Current highest bid amount
+    resolved = db.Column(db.Boolean, default=False)
+    winner_team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    player = db.relationship('Player', backref='bulk_tiebreakers')
+    winner_team = db.relationship('Team', foreign_keys=[winner_team_id], backref='won_bulk_tiebreakers')
+    team_tiebreakers = db.relationship('TeamBulkTiebreaker', backref='tiebreaker', lazy=True)
+
+class TeamBulkTiebreaker(db.Model):
+    __tablename__ = 'team_bulk_tiebreaker'
+    id = db.Column(db.Integer, primary_key=True)
+    tiebreaker_id = db.Column(db.Integer, db.ForeignKey('bulk_bid_tiebreaker.id'), nullable=False)
+    team_id = db.Column(db.Integer, db.ForeignKey('team.id'), nullable=False)
+    is_active = db.Column(db.Boolean, default=True)  # Whether the team is still in the tiebreaker
+    last_bid = db.Column(db.Integer, nullable=True)  # Last bid amount by this team
+    last_bid_time = db.Column(db.DateTime, nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    team = db.relationship('Team', backref='bulk_tiebreakers') 

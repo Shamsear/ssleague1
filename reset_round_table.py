@@ -64,13 +64,54 @@ def reset_round_table():
                 print("📋 Table is empty, just resetting sequence...")
                 cursor.execute("SELECT setval('round_id_seq', 1, false)")
             else:
-                print("🗑️  Truncating table and resetting sequence...")
-                cursor.execute("TRUNCATE TABLE round RESTART IDENTITY")
+                print("🗑️  Clearing foreign key references first...")
                 
-        except psycopg2.errors.ForeignKeyViolation:
-            print("⚠️  Foreign key constraint detected, using CASCADE...")
-            cursor.execute("TRUNCATE TABLE round RESTART IDENTITY CASCADE")
-            print("🗑️  Truncated round table and related references with CASCADE")
+                # Step 1: Clear all foreign key references to rounds
+                # Update player table to remove round_id references
+                cursor.execute("UPDATE player SET round_id = NULL WHERE round_id IS NOT NULL")
+                updated_players = cursor.rowcount
+                print(f"   Updated {updated_players} players to remove round references")
+                
+                # Step 2: Delete related records that directly reference rounds
+                cursor.execute("DELETE FROM bid WHERE round_id IS NOT NULL")
+                deleted_bids = cursor.rowcount
+                print(f"   Deleted {deleted_bids} bids referencing rounds")
+                
+                # Delete tiebreaker-related records first (team_tiebreaker references tiebreaker)
+                cursor.execute("""
+                    DELETE FROM team_tiebreaker 
+                    WHERE tiebreaker_id IN (
+                        SELECT id FROM tiebreaker WHERE round_id IS NOT NULL
+                    )
+                """)
+                deleted_team_tiebreakers = cursor.rowcount
+                print(f"   Deleted {deleted_team_tiebreakers} team tiebreaker records")
+                
+                # Now delete tiebreaker records
+                cursor.execute("DELETE FROM tiebreaker WHERE round_id IS NOT NULL")
+                deleted_tiebreakers = cursor.rowcount
+                print(f"   Deleted {deleted_tiebreakers} tiebreaker records")
+                
+                # Commit the foreign key reference cleanup before truncating
+                conn.commit()
+                print("   Committed foreign key cleanup")
+                
+                # Step 3: Now safely truncate the round table
+                print("   Truncating round table and resetting sequence...")
+                cursor.execute("TRUNCATE TABLE round RESTART IDENTITY")
+                print("🗑️  Successfully cleared all round data and references")
+                
+        except Exception as e:
+            print(f"⚠️  Error during round table reset: {e}")
+            # Rollback the current transaction and start fresh
+            conn.rollback()
+            print("   Rolled back transaction, attempting CASCADE truncate as fallback...")
+            try:
+                cursor.execute("TRUNCATE TABLE round RESTART IDENTITY CASCADE")
+                print("🗑️  Fallback CASCADE truncate successful")
+            except Exception as cascade_error:
+                print(f"❌ CASCADE truncate also failed: {cascade_error}")
+                raise
         
         conn.commit()
         
